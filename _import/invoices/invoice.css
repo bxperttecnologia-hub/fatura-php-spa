@@ -1,0 +1,376 @@
+/*  Ajustes pontuais só deste documento  */
+.invoice-page {
+  background: #fff !important;
+  padding: 1.4rem 1.25rem 0;
+  font-size: 0.82rem !important;
+  padding-bottom: 0;
+  color: #1f2937 !important;
+  font-weight: 400 !important;
+  line-height: 1.45;
+}
+
+/* —— Header geral —— */
+.inv-header {
+  bottom: 1rem;
+}
+
+/* bloco esquerdo */
+.inv-left {
+  gap: 12px;
+}
+
+/* espaço entre logo e texto */
+#invoice_logoCompanies {
+  width: 140px !important;
+  height: auto;
+}
+
+#invoice_logoCompanies img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+#company-info h6 {
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+  width: 220px !important;
+  text-wrap: wrap;
+  overflow: hidden;
+}
+
+#company-info p {
+  margin: 0;
+  font-size: 0.7rem !important;
+  line-height: 1;
+  width: 220px !important;
+  text-wrap: wrap;
+  overflow: hidden;
+}
+
+/* bloco direito */
+.inv-right {
+  max-width: 260px;
+}
+
+#invoice-qr img {
+  width: 75px;
+  height: 75px;
+  /* object-fit: contain; */
+}
+
+#client-info small {
+  font-size: 0.72rem;
+}
+
+#client-info h6 {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+#client-info p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+/* título principal (linha grossa) */
+.title-line {
+  font-weight: 700;
+  border-bottom: 2.5px solid #8b8b8b !important;
+  padding: 0px 0px 10px 0px;
+  font-size: 1.05rem;
+  letter-spacing: .01em;
+  color: #111827 !important;
+}
+
+/* ------ contêiner das duas colunas ------ */
+.meta-row {
+  display: flex;
+  gap: 2rem; /* distância entre colunas */
+  align-items: flex-start; /* topo alinhado */
+}
+
+/* ------ coluna esquerda (já tinhas) ------ */
+.meta-mini {
+  width: 20rem;
+  font-size: 0.8rem;
+}
+.meta-mini .head,
+.meta-mini .vals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.meta-mini .head {
+  font-weight: 400;
+  border-bottom: 1px solid #000;
+  padding-bottom: 2px;
+  margin-bottom: 4px;
+}
+.meta-mini .head.top {
+  margin-top: 2px;
+}
+.meta-mini .vals {
+  margin-bottom: 6px;
+}
+.meta-mini span {
+  white-space: nowrap;
+}
+
+/* ------ coluna direita (observações) ------ */
+.meta-obs {
+  flex: 1; /* ocupa todo o resto */
+  font-size: 0.8rem;
+}
+.meta-obs .head {
+  font-weight: 400;
+  border-bottom: 1px solid #000;
+  padding-bottom: 2px;
+  margin-bottom: 4px;
+  display: block;
+}
+.meta-obs .vals span {
+  display: block; /* texto em linha completa */
+  word-break: break-word; /* quebra se observação for longa */
+}
+
+/* ===== grade de itens ===== */
+.items-grid {
+  border-top: 2px solid #000;
+  font-size: 0.8rem;
+  width: 100%;
+  margin-top: .25rem;
+}
+
+.items-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 95px 55px 75px 65px 105px;
+  padding: 0.45rem 0.35rem;
+  align-items: center;
+  line-height: 1.35;
+}
+
+/* descrição sem negrito e um pouco menor */
+.items-row span:nth-child(2) {
+  /* font-weight:400; */
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+/* cabeçalho */
+.items-head {
+  font-weight: 700;
+  border-bottom: 1px solid #000;
+  text-align: center;
+  font-size: .74rem;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: #111827;
+}
+
+/* alinha somente algumas colunas nas linhas de dados */
+.items-row span.right {
+  text-align: right;
+}
+.items-row span.center {
+  text-align: center;
+}
+
+/* barra grossa no final da lista */
+/* ===== bloco lado‑a‑lado ===== */
+.totals-wrap {
+  display: flex;
+  gap: 1.5rem; /* distância entre as duas colunas */
+  font-size: 0.8rem;
+}
+
+/* ===== coluna ESQUERDA – taxas ===== */
+.tax-grid {
+  flex: 1;
+}
+.tax-head,
+.tax-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 2px 0;
+}
+.tax-head {
+  font-weight: 700;
+  border-bottom: 1px solid #000;
+  text-align: center;
+}
+.tax-row span.right {
+  text-align: right;
+}
+
+/* ===== coluna DIREITA – sumário ===== */
+.sum-grid {
+  flex: 1;
+}
+.sum-head {
+  font-weight: 700;
+  border-bottom: 0.5px solid #000 !important;
+  padding: 2px 0 3px;
+  color: #111827;
+}
+.sum-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 2px 0;
+  font-size: .78rem;
+}
+.sum-row span.right {
+  text-align: right;
+}
+.sum-row.bold {
+  font-weight: 700;
+  color: #111827;
+  font-size: .84rem;
+}
+
+/* linha dupla grossa usada duas vezes */
+.sum-row.sep {
+  height: 2px;
+  background: #000;
+  margin: 4px 0;
+}
+
+/* barra inferior grossa */
+.sum-bottom {
+  height: 2px;
+  background: #000;
+  margin-top: 4px;
+}
+.page-break {
+  page-break-after: always; /* só afeta impressão / pdf */
+}
+
+/* 210 mm é a largura do A4.
+   Tirando 10 mm de margem de cada lado, sobra 190 mm.  */
+.invoice-page {
+  width: 190mm; /* ≈ 718 px a 96 dpi              */
+  max-width: 100%;
+  margin: 0 auto; /* centraliza no ecrã            */
+}
+
+.tag-title {
+  font-weight: bolder;
+  color: #000 !important;
+  /* font-size: .7rem !important; */
+}
+
+.items-row {
+  font-size: 10px;
+}
+
+.items-row div {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.text-nowrap {
+  white-space: nowrap;
+}
+
+.desc-col {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.3;
+}
+
+.page-break {
+  page-break-before: always;
+}
+
+table,
+tr,
+td,
+th {
+  page-break-inside: avoid;
+}
+
+.invoice-section {
+  break-inside: avoid;
+}
+
+/* Na impressão: controla margens do PDF e evita "empurrar" conteúdo para baixo */
+@media print {
+  @page {
+    /* Dompdf: controla a área útil do A4. Topo quase zero para não criar "espaço em branco".
+       Mantém margem inferior maior por causa do rodapé + numeração. */
+    margin: 0mm 10mm 28mm 10mm;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto;
+  }
+
+  /* Dompdf tem suporte limitado a flex; no PDF, usa layout com floats */
+  .inv-header {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 0 4mm 0 !important;
+    page-break-inside: avoid;
+  }
+  .inv-left {
+    float: left;
+    width: 60%;
+  }
+
+  .inv-right {
+    float: right;
+    width: 38%;
+    margin-top: -6000px !important;
+  }
+
+  .inv-header:after {
+    content: "";
+    display: block;
+    clear: both;
+  }
+
+  /* Conteúdo principal */
+  .invoice-page {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 4mm 0 0 0 !important; /* pequeno respiro controlado */
+  }
+
+  /* Evita qualquer offset inesperado */
+  .inv-header {
+    top: 0;
+    bottom: auto;
+  }
+}
+
+/* ---------- Badges de estado ---------- */
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 0.2rem;
+  color: #fff; /* texto branco por padrão */
+}
+
+/* totalmente pago  – verde */
+.badge.pago {
+  background: #28a745;
+}
+
+/* pago parcial   – laranja/âmbar */
+.badge.parcial {
+  background: #fd7e14;
+}
+
+/* pendente (nenhum recibo) – amarelo, texto escuro  */
+.badge.pendente {
+  background: #ffc107;
+  color: #212529;
+}

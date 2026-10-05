@@ -1,0 +1,7 @@
+{
+    "require": {
+        "phpmailer/phpmailer": "^6.9",
+        "google/apiclient": "^2.18",
+        "phpoffice/phpspreadsheet": "^3.9"
+    }
+}

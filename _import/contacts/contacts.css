@@ -1,0 +1,1272 @@
+/* =====================================================================
+   Meus Clientes — UI (lista / blocos)
+   Escopo: .contacts-page  (não afeta o resto do sistema)
+   ===================================================================== */
+
+.contacts-page {
+  --cp-primary: #007abd;
+  --cp-primary-dark: #025d8e;
+  --cp-accent: #2563eb;
+  --cp-ink: #172033;
+  --cp-muted: #5b6678;
+  /* contraste >= 5.5:1 sobre branco */
+  --cp-line: #e8edf4;
+  --cp-bg: #f8fafc;
+  --cp-surface: #fff;
+  --cp-danger: #b91c1c;
+  --cp-danger-bg: #fef2f2;
+  --cp-ok: #166534;
+  --cp-ok-bg: #ecfdf3;
+  --cp-radius: 16px;
+  --cp-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
+  --cp-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  color: var(--cp-ink);
+}
+
+.contacts-page .container {
+  margin-top: 80px !important;
+  padding-bottom: 48px;
+}
+
+.contacts-page .visually-hidden-cp {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- foco visível (todos os controlos) ---------- */
+.contacts-page button:focus-visible,
+.contacts-page a:focus-visible,
+.contacts-page input:focus-visible,
+.contacts-page select:focus-visible,
+.contacts-page [role="menuitem"]:focus-visible,
+.contacts-page [role="tab"]:focus-visible {
+  outline: 2px solid var(--cp-accent);
+  outline-offset: 2px;
+  box-shadow: var(--cp-ring);
+}
+
+/* ---------- botões base ---------- */
+.contacts-page .cp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cp-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.contacts-page .cp-btn:disabled,
+.contacts-page .cp-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.contacts-page .cp-btn-primary {
+  background: var(--cp-primary);
+  border-radius: 999px;
+  color: #fff;
+  padding: 0 20px;
+}
+
+.contacts-page .cp-btn-primary:hover:not(:disabled) {
+  background: var(--cp-primary-dark);
+}
+
+.contacts-page .cp-btn-ghost {
+  border-color: var(--cp-line);
+  background: var(--cp-surface);
+}
+
+.contacts-page .cp-btn-ghost:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.contacts-page .cp-btn-danger {
+  color: var(--cp-danger);
+  border-color: #fecaca;
+  background: var(--cp-surface);
+}
+
+.contacts-page .cp-btn-danger:hover:not(:disabled) {
+  background: var(--cp-danger-bg);
+}
+
+.contacts-page .cp-btn-icon {
+  padding: 0;
+  width: 44px;
+  border-radius: 12px;
+  color: var(--cp-muted);
+}
+
+.contacts-page .cp-btn-icon:hover:not(:disabled) {
+  background: #eef4fb;
+  color: var(--cp-accent);
+}
+
+.contacts-page .cp-btn-icon.is-danger:hover:not(:disabled) {
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+}
+
+.contacts-page .cp-btn .bi {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* rótulo de texto dos botões de ação (não usado: ações só com ícone + tooltip) */
+.contacts-page .cp-btn-label {
+  display: none;
+}
+
+/* ---------- cabeçalho ---------- */
+.contacts-page .cp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 120px;
+}
+
+.contacts-page .cp-title {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.contacts-page .cp-subtitle {
+  margin: 4px 0 0;
+  color: var(--cp-muted);
+  font-size: 0.95rem;
+}
+
+/* ---------- abas ---------- */
+.contacts-page .cp-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--cp-line);
+  overflow-x: auto;
+}
+
+.contacts-page .cp-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: var(--cp-muted);
+  font-size: 0.93rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.contacts-page .cp-tab:hover {
+  color: var(--cp-accent);
+  background: #f1f6fd;
+}
+
+.contacts-page .cp-tab[aria-selected="true"] {
+  color: var(--cp-primary-dark);
+  font-weight: 700;
+}
+
+.contacts-page .cp-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--cp-primary);
+}
+
+.contacts-page .cp-count {
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--cp-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.contacts-page .cp-tab[aria-selected="true"] .cp-count {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* ---------- superfície principal ---------- */
+.contacts-page .cp-surface {
+  border-radius: var(--cp-radius);
+  background: var(--cp-surface);
+  box-shadow: var(--cp-shadow);
+}
+
+/* ---------- toolbar ---------- */
+.contacts-page .cp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 12px;
+}
+
+.contacts-page .cp-toolbar-left,
+.contacts-page .cp-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.contacts-page .cp-toolbar-left {
+  flex: 1 1 380px;
+}
+
+.contacts-page .cp-search {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 460px;
+}
+
+.contacts-page .cp-search .bi-search {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: var(--cp-muted);
+  pointer-events: none;
+}
+
+.contacts-page .cp-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 84px 0 40px;
+  border: 1px solid var(--cp-line);
+  border-radius: 12px;
+  background: var(--cp-bg);
+  color: var(--cp-ink);
+  font-size: 0.94rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.contacts-page .cp-search input::placeholder {
+  color: #667085;
+}
+
+.contacts-page .cp-search input:focus {
+  background: #fff;
+  border-color: var(--cp-accent);
+}
+
+.contacts-page .cp-search kbd {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  padding: 2px 6px;
+  border: 1px solid var(--cp-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--cp-muted);
+  font-size: 0.72rem;
+  font-family: inherit;
+  pointer-events: none;
+}
+
+.contacts-page .cp-search.has-value kbd {
+  display: none;
+}
+
+.contacts-page .cp-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+  display: none;
+}
+
+.contacts-page .cp-search.has-value .cp-search-clear {
+  display: inline-flex;
+}
+
+/* grupo de visualização */
+.contacts-page .cp-segmented {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--cp-line);
+  border-radius: 12px;
+  background: var(--cp-bg);
+}
+
+.contacts-page .cp-segmented .cp-btn {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: var(--cp-muted);
+}
+
+.contacts-page .cp-segmented .cp-btn[aria-pressed="true"] {
+  background: #fff;
+  color: var(--cp-primary-dark);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), inset 0 -2px 0 var(--cp-primary);
+}
+
+.contacts-page .cp-badge-dot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--cp-primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ---------- popovers / menus ---------- */
+.contacts-page .cp-pop {
+  position: relative;
+}
+
+.contacts-page .cp-pop-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--cp-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  transform: translateY(-4px);
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s linear 0.14s;
+}
+
+.contacts-page .cp-pop-panel.is-end {
+  right: 0;
+}
+
+.contacts-page .cp-pop-panel.is-up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.contacts-page .cp-pop.is-open>.cp-pop-panel {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.contacts-page .cp-menu-title {
+  padding: 8px 12px 6px;
+  color: var(--cp-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.contacts-page .cp-menuitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cp-ink);
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.contacts-page .cp-menuitem:hover,
+.contacts-page .cp-menuitem:focus-visible {
+  background: #eef4fb;
+}
+
+.contacts-page .cp-menuitem.is-danger {
+  color: var(--cp-danger);
+}
+
+.contacts-page .cp-menuitem.is-danger:hover,
+.contacts-page .cp-menuitem.is-danger:focus-visible {
+  background: var(--cp-danger-bg);
+}
+
+.contacts-page .cp-menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--cp-line);
+}
+
+.contacts-page .cp-filter-panel {
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px;
+}
+
+.contacts-page .cp-filter-panel label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.contacts-page .cp-filter-panel select {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 14px;
+  padding: 0 10px;
+  border: 1px solid var(--cp-line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.92rem;
+}
+
+.contacts-page .cp-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.contacts-page .cp-filter-panel .cp-check {
+  margin: 0;
+  font-weight: 500;
+}
+
+.contacts-page .cp-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--cp-primary);
+  cursor: pointer;
+}
+
+.contacts-page .cp-filter-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cp-line);
+}
+
+/* ---------- chips de filtros ativos ---------- */
+.contacts-page .cp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.contacts-page .cp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 4px 0 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.contacts-page .cp-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.contacts-page .cp-chip button:hover {
+  background: #dbeafe;
+}
+
+/* ---------- barra de seleção ---------- */
+.contacts-page .cp-bulkbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 12px;
+  background: #eaf3ff;
+  animation: cp-in 0.16s ease;
+}
+
+.contacts-page .cp-bulkbar[hidden] {
+  display: none;
+}
+
+.contacts-page .cp-bulk-count {
+  margin-right: auto;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.contacts-page .cp-linkbtn {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--cp-accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---------- área de conteúdo ---------- */
+.contacts-page .cp-body {
+  padding: 0 16px 8px;
+  min-height: 220px;
+}
+
+.contacts-page .cp-view.cp-anim {
+  animation: cp-in 0.16s ease;
+}
+
+@keyframes cp-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- lista (tabela) ---------- */
+.contacts-page .cp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+
+.contacts-page .cp-table thead th {
+  padding: 4px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--cp-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.contacts-page .cp-table tbody tr {
+  background: var(--cp-bg);
+  transition: background-color 0.15s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.contacts-page .cp-table tbody tr:hover {
+  background: #f1f6fd;
+}
+
+.contacts-page .cp-table tbody tr.is-selected {
+  background: #e6f0fe;
+}
+
+.contacts-page .cp-table td {
+  padding: 12px;
+  border: 0;
+  vertical-align: middle;
+  background: transparent !important;
+  font-size: 0.93rem;
+}
+
+.contacts-page .cp-table td:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.contacts-page .cp-table td:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+/* linhas brancas (cartões) sobre o fundo da página, como na referência */
+.contacts-page .cp-table thead,
+.contacts-page .cp-table thead tr,
+.contacts-page .cp-table tbody tr,
+.contacts-page .cp-table tbody tr:nth-child(odd),
+.contacts-page .cp-table tbody tr:nth-child(even) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  --bs-table-bg: transparent;
+  --bs-table-accent-bg: transparent;
+}
+
+.contacts-page .cp-table thead th,
+.contacts-page .cp-table tbody tr>td {
+  background: #fff !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* cabeçalho: bloco branco com texto cinzento */
+.contacts-page .cp-table thead th {
+  padding: 14px 12px;
+  color: var(--cp-muted) !important;
+}
+
+.contacts-page .cp-table thead th:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.contacts-page .cp-table thead th:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+/* coluna "Cliente" (2.ª, a seguir ao checkbox) fica alinhada à esquerda */
+.contacts-page .cp-table thead th:nth-child(2) {
+  text-align: left;
+}
+
+/* hover e seleção */
+.contacts-page .cp-table tbody tr:hover>td {
+  background: #f1f1f1 !important;
+}
+
+.contacts-page .cp-table tbody tr.is-selected>td {
+  background: #e6f0fe !important;
+}
+
+/* divisórias verticais finas entre colunas (só em ecrã largo) */
+@media (min-width: 768px) {
+
+  .contacts-page .cp-table th+th,
+  .contacts-page .cp-table td+td {
+    border-left: 1px solid #f1f1f1;
+  }
+}
+
+.contacts-page .cp-col-check {
+  width: 52px;
+}
+
+.contacts-page .cp-col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.contacts-page tr.is-leaving,
+.contacts-page .cp-card.is-leaving {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.contacts-page .cp-client {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.contacts-page .cp-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e0efff;
+  color: var(--cp-primary-dark);
+  font-size: 1.15rem;
+}
+
+.contacts-page .cp-name {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cp-ink);
+  font-size: 0.97rem;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.contacts-page .cp-name:hover {
+  color: var(--cp-primary-dark);
+  text-decoration: underline;
+}
+
+.contacts-page .cp-sub {
+  display: block;
+  color: var(--cp-muted);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.contacts-page .cp-sub a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.contacts-page .cp-sub a:hover {
+  color: var(--cp-accent);
+  text-decoration: underline;
+}
+
+.contacts-page .cp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.contacts-page .cp-status.is-active {
+  background: var(--cp-ok-bg);
+  color: var(--cp-ok);
+}
+
+.contacts-page .cp-status.is-archived {
+  background: #f1f5f9;
+  color: #475467;
+}
+
+.contacts-page .cp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+/* ---------- blocos (cartões) ---------- */
+.contacts-page .cp-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+@media (min-width: 600px) {
+  .contacts-page .cp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 992px) {
+  .contacts-page .cp-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .contacts-page .cp-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.contacts-page .cp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--cp-line);
+  border-radius: var(--cp-radius);
+  background: #fff;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease, opacity 0.2s ease;
+}
+
+.contacts-page .cp-card:hover,
+.contacts-page .cp-card:focus-within {
+  border-color: #cfe0f5;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+.contacts-page .cp-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contacts-page .cp-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.contacts-page .cp-card-meta {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--cp-muted);
+  font-size: 0.88rem;
+}
+
+.contacts-page .cp-card-meta div {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+
+.contacts-page .cp-card-meta .bi {
+  margin-top: 2px;
+}
+
+.contacts-page .cp-card-meta a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.contacts-page .cp-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contacts-page ul.cp-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contacts-page .cp-card.has-open-pop,
+.contacts-page tr.has-open-pop {
+  position: relative;
+  z-index: 20;
+}
+
+.contacts-page .cp-check-solo {
+  justify-content: center;
+  margin: 0;
+}
+
+.contacts-page .cp-surface {
+  scroll-margin-top: 90px;
+}
+
+.contacts-page .cp-body:focus {
+  outline: none;
+}
+
+/* ---------- skeleton ---------- */
+.contacts-page .cp-skel {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eef2f7 25%, #f7f9fc 37%, #eef2f7 63%);
+  background-size: 400% 100%;
+  animation: cp-shimmer 1.3s ease infinite;
+}
+
+@keyframes cp-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+.contacts-page .cp-skel-row {
+  display: grid;
+  grid-template-columns: 40px 1.4fr 1fr 1fr 90px;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--cp-bg);
+}
+
+.contacts-page .cp-skel-row .cp-skel {
+  height: 14px;
+}
+
+.contacts-page .cp-skel-row .cp-skel:first-child {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.contacts-page .cp-skel-card {
+  height: 190px;
+  border-radius: var(--cp-radius);
+}
+
+/* ---------- estados (vazio / erro / sem resultados) ---------- */
+.contacts-page .cp-state {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.contacts-page .cp-state-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: 16px;
+  background: #eaf3ff;
+  color: var(--cp-primary-dark);
+  font-size: 1.5rem;
+}
+
+.contacts-page .cp-state.is-error .cp-state-icon {
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+}
+
+.contacts-page .cp-state h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.contacts-page .cp-state p {
+  margin: 0 0 10px;
+  color: var(--cp-muted);
+  font-size: 0.93rem;
+}
+
+/* ---------- rodapé / paginação ---------- */
+.contacts-page .cp-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 16px;
+  color: var(--cp-muted);
+  font-size: 0.88rem;
+}
+
+.contacts-page .cp-footer[hidden] {
+  display: none;
+}
+
+.contacts-page .cp-pagesize {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contacts-page .cp-pagesize select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--cp-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--cp-ink);
+}
+
+.contacts-page .cp-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contacts-page .cp-pager .cp-btn {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 0.88rem;
+}
+
+.contacts-page .cp-pager .cp-btn[aria-current="page"] {
+  background: var(--cp-primary);
+  color: #fff;
+}
+
+.contacts-page .cp-pager .cp-ellipsis {
+  min-width: 28px;
+  text-align: center;
+}
+
+/* ---------- toasts ---------- */
+.contacts-page .cp-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1080;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 32px));
+}
+
+.contacts-page .cp-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #172033;
+  color: #fff;
+  font-size: 0.9rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  animation: cp-in 0.18s ease;
+}
+
+.contacts-page .cp-toast.is-error {
+  background: #7f1d1d;
+}
+
+.contacts-page .cp-toast span {
+  flex: 1;
+}
+
+.contacts-page .cp-toast button {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #bfdbfe;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.contacts-page .cp-spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: cp-rot 0.7s linear infinite;
+}
+
+@keyframes cp-rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =====================================================================
+   Responsivo
+   ===================================================================== */
+
+/* tablet: a lista continua em tabela, mas sem coluna "Estado" */
+@media (max-width: 991.98px) {
+  .contacts-page .cp-col-status {
+    display: none;
+  }
+}
+
+/* mobile: cabeçalho, toolbar e registos da lista reorganizados */
+@media (max-width: 767.98px) {
+  .contacts-page .container {
+    margin-top: 72px !important;
+  }
+
+  .contacts-page .cp-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contacts-page .cp-header .cp-btn-primary {
+    width: 100%;
+  }
+
+  .contacts-page .cp-toolbar,
+  .contacts-page .cp-toolbar-left,
+  .contacts-page .cp-toolbar-right {
+    width: 100%;
+  }
+
+  .contacts-page .cp-toolbar-left {
+    flex-basis: 100%;
+  }
+
+  .contacts-page .cp-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .contacts-page .cp-toolbar-right {
+    justify-content: space-between;
+  }
+
+  .contacts-page .cp-search kbd {
+    display: none;
+  }
+
+  /* tabela -> registos empilhados, sem scroll horizontal */
+  .contacts-page .cp-table,
+  .contacts-page .cp-table tbody,
+  .contacts-page .cp-table tr,
+  .contacts-page .cp-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .contacts-page .cp-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .contacts-page .cp-table tbody tr {
+    position: relative;
+    margin-bottom: 12px;
+    padding: 12px 12px 8px 12px;
+    border: 1px solid var(--cp-line);
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .contacts-page .cp-table td {
+    padding: 4px 0;
+  }
+
+  .contacts-page .cp-table td:first-child,
+  .contacts-page .cp-table td:last-child {
+    border-radius: 0;
+  }
+
+  .contacts-page .cp-col-check {
+    position: absolute;
+    top: 8px;
+    right: 4px;
+    width: auto;
+  }
+
+  .contacts-page .cp-col-status {
+    display: block;
+  }
+
+  .contacts-page .cp-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--cp-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .contacts-page .cp-table td.cp-col-client::before,
+  .contacts-page .cp-table td.cp-col-actions::before {
+    display: none;
+  }
+
+  .contacts-page .cp-col-actions {
+    width: 100%;
+    margin-top: 6px;
+    padding-top: 8px !important;
+    border-top: 1px solid var(--cp-line);
+    white-space: normal;
+  }
+
+  .contacts-page .cp-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* ações só com ícone também no mobile (tooltip no foco/toque longo) */
+  .contacts-page .cp-actions .cp-btn-icon:not(.cp-more) {
+    border: 1px solid var(--cp-line);
+  }
+
+  .contacts-page .cp-skel-row {
+    grid-template-columns: 40px 1fr;
+  }
+
+  .contacts-page .cp-skel-row .cp-skel:nth-child(n + 3) {
+    display: none;
+  }
+
+  .contacts-page .cp-footer {
+    justify-content: center;
+  }
+
+  .contacts-page .cp-toasts {
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+    width: auto;
+  }
+}
+
+/* nunca criar scroll horizontal na página */
+.contacts-page {
+  overflow-x: clip;
+}
+
+/* =====================================================================
+   Movimento reduzido
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+
+  .contacts-page *,
+  .contacts-page *::before,
+  .contacts-page *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  .contacts-page .cp-card:hover,
+  .contacts-page .cp-card:focus-within {
+    transform: none;
+  }
+}

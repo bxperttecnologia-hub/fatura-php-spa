@@ -1,0 +1,5 @@
+.layout { display: flex; min-height: calc(100vh - 100px); }
+#app { flex: 1; min-width: 0; }
+a[data-spa].active, a[data-link].active { font-weight: 600; }
+/* Visitante (sem sessão): o servidor já não renderiza nav/sidebar; isto é só salvaguarda */
+body.guest .app-navbar, body.guest #sidebar { display: none; }

@@ -1,0 +1,121 @@
+// Carrega uma página PHP legada (app/pages/*.php) para dentro do #app.
+// O servidor (public/view.php) devolve só o conteúdo; aqui injectamos o HTML, executamos os
+// <script> da página e limpamos tudo (DataTables, charts, intervals, handlers) ao sair.
+import { navigate } from '../router.js';
+
+const $ = window.jQuery;
+let active = null;           // página legada actualmente montada
+let patched = false;
+
+const isAbsolute = u => /^([a-z][a-z0-9+.-]*:|\/\/|\/|#)/i.test(u);
+// 'rh/ajax/x.php' ou '../app/y.php' -> '/rh/ajax/x.php' (as rotas SPA não têm profundidade fixa)
+const toAbs = u => (typeof u === 'string' && u && !isAbsolute(u)) ? '/' + u.replace(/^(\.{1,2}\/)+/, '') : u;
+
+// Instalado uma só vez: faz com que o código legado (URLs relativos, listeners globais) funcione numa SPA.
+function patchGlobals() {
+  if (patched) return;
+  patched = true;
+
+  if ($) {
+    $.ajaxPrefilter(o => { if (o.url) o.url = toAbs(o.url); });
+    $.ajaxSetup({ headers: { 'X-CSRF-Token': window.APP.csrf } });
+
+    // Handlers em document/window criados pela página recebem o namespace .spaPage -> off() no destroy
+    const on = $.fn.on;
+    $.fn.on = function (types, ...rest) {
+      if (active && typeof types === 'string' && this.toArray().some(el => el === document || el === window)) {
+        types = types.split(/\s+/).filter(Boolean).map(t => t + '.spaPage').join(' ');
+      }
+      return on.call(this, types, ...rest);
+    };
+  }
+
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (input, init) => _fetch(typeof input === 'string' ? toAbs(input) : input, init);
+
+  const _si = window.setInterval.bind(window);
+  window.setInterval = (...a) => { const id = _si(...a); active?.intervals.add(id); return id; };
+
+  for (const target of [document, window]) {
+    const add = target.addEventListener.bind(target);
+    target.addEventListener = (type, fn, opts) => { active?.listeners.push([target, type, fn, opts]); return add(type, fn, opts); };
+  }
+}
+
+// Scripts: externos já presentes no shell (jQuery, DataTables…) não se recarregam;
+// inline via eval indirecto -> let/const ficam locais (sem "already declared" ao voltar à página),
+// var/function ficam globais (onclick="fn()" continua a funcionar).
+async function runScripts(scripts) {
+  const loaded = new Set([...document.scripts].map(s => s.src).filter(Boolean));
+  for (const s of scripts) {
+    try {
+      const src = s.getAttribute('src');
+      if (src) {
+        const url = new URL(src, location.origin).href;
+        if (loaded.has(url)) continue;
+        await new Promise(ok => {
+          const el = document.createElement('script');
+          el.src = url; el.onload = el.onerror = ok;
+          document.head.appendChild(el);
+          loaded.add(url);
+        });
+      } else {
+        (0, eval)(s.textContent);
+      }
+    } catch (e) { console.error('Erro em script da página', e); }
+  }
+}
+
+function cleanup(page) {
+  page.intervals.forEach(clearInterval);
+  page.listeners.forEach(([t, type, fn, opts]) => t.removeEventListener(type, fn, opts));
+  if ($) { $(document).off('.spaPage'); $(window).off('.spaPage'); }
+  try { $?.fn?.dataTable?.tables?.().forEach(t => $(t).DataTable().destroy()); } catch {}
+  try { Object.values(window.Chart?.instances ?? {}).forEach(c => c.destroy()); } catch {}
+  document.querySelectorAll('.modal-backdrop, .select2-container--open, .select2-dropdown').forEach(n => n.remove());
+  document.body.classList.remove('modal-open');
+  document.body.style.removeProperty('overflow');
+  document.body.style.removeProperty('padding-right');
+}
+
+export function forRoute(routePath) {
+  const page = { intervals: new Set(), listeners: [] };
+
+  return {
+    async render(el) {
+      patchGlobals();
+      const qs = location.search ? '&' + location.search.slice(1) : '';
+      const res = await fetch(`/view.php?__route=${encodeURIComponent(routePath)}${qs}`, {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'spa' },
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 401) { document.dispatchEvent(new Event('app:unauthorized')); return; }
+      if (!res.ok) { el.innerHTML = `<div class="alert alert-danger"></div>`; el.firstChild.textContent = data.message || `Erro ${res.status}`; return; }
+      if (data.redirect) { data.external ? location.assign(data.redirect) : navigate(data.redirect); return; }
+
+      // Algumas páginas trazem <html>/<head>/<body> próprios: ficamos com style/link/script + conteúdo do body
+      const doc = new DOMParser().parseFromString(data.html, 'text/html');
+      const nodes = [...doc.head.children, ...doc.body.childNodes];
+      const holder = document.createElement('div');
+      holder.append(...nodes);
+
+      const scripts = [...holder.querySelectorAll('script')];
+      scripts.forEach(s => s.remove());
+      // O shell já tem <main id="app">: evita <main> aninhado e o margin-left do layout legado
+      holder.querySelectorAll('main.main-content').forEach(m => {
+        const d = document.createElement('div');
+        d.className = m.className; d.append(...m.childNodes); m.replaceWith(d);
+      });
+
+      el.append(...holder.childNodes);
+      active = page;                 // a partir daqui, handlers/intervals criados pertencem a esta página
+      await runScripts(scripts);
+    },
+    destroy() {
+      cleanup(page);
+      if (active === page) active = null;
+    },
+  };
+}

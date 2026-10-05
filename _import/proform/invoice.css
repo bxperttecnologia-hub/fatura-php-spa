@@ -1,0 +1,279 @@
+
+    /*  Ajustes pontuais só deste documento  */
+    .invoice-page {
+      /* border: 1px solid #cecece; */
+      background: #fff;
+      padding: 1.2rem;
+      font-size: .74rem; /* mais espaço */
+      /* Evite reservar um rodapé "fixo" com padding grande: isso causa páginas com muito branco no Dompdf */
+      padding-bottom: 0;
+    }
+
+    /* —— Header geral —— */
+    .inv-header {
+      bottom: 1rem;
+    }
+
+    /* bloco esquerdo */
+    .inv-left {
+      gap: 12px;
+    }
+
+    /* espaço entre logo e texto */
+    #invoice_logoCompanies img {
+      width: 160px;
+      height: auto;
+      object-fit: contain;
+    }
+
+    #company-info h6 {
+      font-size: .9rem;
+      margin-bottom: 2px;
+    }
+
+    #company-info p {
+      margin: 0;
+      font-size: .78rem;
+      line-height: 1.25;
+    }
+
+    /* bloco direito */
+    .inv-right {
+      max-width: 260px;
+    }
+
+    #invoice-qr img {
+      width: 95px;
+      height: 95px;
+      object-fit: contain;
+    }
+
+    #client-info small {
+      font-size: .72rem;
+    }
+
+    #client-info h6 {
+      font-size: .85rem;
+      margin: 0;
+    }
+
+    #client-info p {
+      margin: 0;
+      font-size: .78rem;
+      line-height: 1.2;
+    }
+
+    /* título principal (linha grossa) */
+.title-line{
+  font-weight:700;
+  border-bottom:2px solid #000; 
+}
+
+/* ------ contêiner das duas colunas ------ */
+.meta-row{
+  display:flex;
+  gap:2rem;               /* distância entre colunas */
+  align-items:flex-start; /* topo alinhado */
+}
+
+/* ------ coluna esquerda (já tinhas) ------ */
+.meta-mini{
+  width:20rem;
+  font-size:.8rem;
+}
+.meta-mini .head,
+.meta-mini .vals{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+}
+.meta-mini .head{
+  font-weight:400;
+  border-bottom:1px solid #000;
+  padding-bottom:2px;
+  margin-bottom:4px;
+}
+.meta-mini .head.top{margin-top:2px;}
+.meta-mini .vals{margin-bottom:6px;}
+.meta-mini span{white-space:nowrap;}
+
+/* ------ coluna direita (observações) ------ */
+.meta-obs{
+  flex:1;                     /* ocupa todo o resto */
+  font-size:.8rem;
+}
+.meta-obs .head{
+  font-weight:400;
+  border-bottom:1px solid #000;
+  padding-bottom:2px;
+  margin-bottom:4px;
+  display:block;
+}
+.meta-obs .vals span{
+  display:block;              /* texto em linha completa */
+  word-break:break-word;      /* quebra se observação for longa */
+}
+
+/* ===== grade de itens ===== */
+.items-grid{
+  /* faixa grossa no topo */
+  border-top:2px solid #000;
+  font-size:.8rem;
+  width:100%;
+}
+
+/* cada linha vira um grid de 7 colunas */
+.items-row{
+  display:grid;
+  /* aumenta espaço da descrição reduzindo colunas numéricas */
+  grid-template-columns:50px 1fr 95px 55px 75px 65px 105px;
+  padding:2px 4px;
+}
+
+/* descrição sem negrito e um pouco menor */
+.items-row span:nth-child(2){
+  font-weight:400;
+  font-size:.72rem;
+  line-height:1.2;
+}
+
+/* cabeçalho */
+.items-head{
+  font-weight:700;
+  border-bottom:1px solid #000;   /* linha fina abaixo do cabeçalho */
+  text-align:center;
+}
+
+/* alinha somente algumas colunas nas linhas de dados */
+.items-row span.right  {text-align:right;}
+.items-row span.center {text-align:center;}
+
+/* barra grossa no final da lista */
+ /* ===== bloco lado‑a‑lado ===== */
+.totals-wrap{
+  display:flex;
+  gap:1.5rem;     /* distância entre as duas colunas */
+  font-size:.8rem;
+}
+
+/* ===== coluna ESQUERDA – taxas ===== */
+.tax-grid{
+  flex:1; 
+}
+.tax-head,.tax-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  padding:2px 0;
+}
+.tax-head{
+  font-weight:700;
+  border-bottom:1px solid #000;
+  text-align:center;
+}
+.tax-row span.right{ text-align:right; }
+
+/* ===== coluna DIREITA – sumário ===== */
+.sum-grid{
+  flex:1; 
+}
+.sum-head{
+  font-weight:700;
+  border-bottom:1px solid #000;
+  padding:2px 0 3px;
+}
+.sum-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  padding:1px 0;
+}
+.sum-row span.right{ text-align:right; }
+.sum-row.bold{ font-weight:700; }
+
+/* linha dupla grossa usada duas vezes */
+.sum-row.sep{
+  height:2px;
+  background:#000;
+  margin:4px 0;
+}
+
+/* barra inferior grossa */
+.sum-bottom{
+  height:2px;
+  background:#000;
+  margin-top:4px;
+}
+.page-break{
+  page-break-after: always;   /* só afeta impressão / pdf */
+}
+
+/* 210 mm é a largura do A4.
+   Tirando 10 mm de margem de cada lado, sobra 190 mm.  */
+.invoice-page{
+  width:190mm;          /* ≈ 718 px a 96 dpi              */
+  max-width:100%;
+  margin:0 auto;        /* centraliza no ecrã            */
+}
+
+/* Na impressão: controla margens do PDF e evita "empurrar" conteúdo para baixo */
+@media print{
+  @page{
+    /* Dompdf: controla a área útil do A4. Topo quase zero para não criar "espaço em branco".
+       Mantém margem inferior maior por causa do rodapé + numeração. */
+    margin: 0mm 10mm 28mm 10mm;
+  }
+
+  html, body{
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto;
+  }
+
+  /* Dompdf tem suporte limitado a flex; no PDF, usa layout com floats */
+  .inv-header{
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 0 4mm 0 !important;
+    page-break-inside: avoid;
+  }
+  .inv-left{ float:left; width:60%; }
+  .inv-right{ float:right; width:38%; }
+  .inv-header:after{ content:""; display:block; clear:both; }
+
+  /* Conteúdo principal */
+  .invoice-page{
+    width: auto !important;
+    margin: 0 !important;
+    padding: 4mm 0 0 0 !important; /* pequeno respiro controlado */
+  }
+
+  /* Evita qualquer offset inesperado */
+  .inv-header{ top: 0; bottom: auto; }
+}
+
+/* ---------- Badges de estado ---------- */
+
+.badge{
+  display: inline-block;
+  padding:.20rem .45rem;
+  font-size:.75rem;
+  font-weight:600;
+  line-height:1;
+  border-radius:.2rem;
+  color:#fff;              /* texto branco por padrão */
+}
+
+/* totalmente pago  – verde */
+.badge.pago{
+  background:#28a745;
+}
+
+/* pago parcial   – laranja/âmbar */
+.badge.parcial{
+  background:#fd7e14;
+}
+
+/* pendente (nenhum recibo) – amarelo, texto escuro  */
+.badge.pendente{
+  background:#ffc107;
+  color:#212529;
+}
+
