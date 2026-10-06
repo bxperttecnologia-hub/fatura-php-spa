@@ -38,7 +38,10 @@ foreach ($__pages as $r => [$f]) $__fileRoutes[$f] ??= $r;
 $__fileRoutes['login.php'] = '/login';
 
 // Corre também quando a página faz exit (ex.: redirect para a subscrição).
-register_shutdown_function(function () use ($__title, $__fileRoutes) {
+$__responseHandled = false;
+register_shutdown_function(function () use ($__title, $__fileRoutes, &$__responseHandled) {
+    if ($__responseHandled) return;
+
     $html = '';
     while (ob_get_level() > 0) $html = ob_get_clean() . $html;
 
@@ -77,9 +80,11 @@ register_shutdown_function(function () use ($__title, $__fileRoutes) {
 
 ob_start();
 try {
+    $pdo = Database::pdo();    // fornece a conexão global esperada pelos helpers legados
     include $__path;           // ao nível global: $pdo & co. ficam visíveis para os helpers legados
 } catch (Throwable $e) {
     error_log((string)$e);
     while (ob_get_level() > 0) ob_end_clean();
+    $__responseHandled = true;
     spa_json(500, ['message' => config('debug') ? $e->getMessage() : 'Erro interno']);
 }

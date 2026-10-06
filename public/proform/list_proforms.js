@@ -6,6 +6,17 @@ $(document).ready(function () {
   let sortKey = "codigo";
   let sortDir = "desc";
 
+  function formatCurrency(value, symbol = "", position = "left") {
+    const formatted = Number(value || 0).toLocaleString("pt-PT", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (!symbol) return formatted;
+    return position === "right"
+      ? `${formatted} ${symbol}`
+      : `${symbol} ${formatted}`;
+  }
+
   loadProformas();
 
   $(document).on("reload-proformas", loadProformas);
@@ -166,7 +177,7 @@ $(document).ready(function () {
           <button
             class="btn btn-sm text-danger ms-1"
             title="Eliminar"
-            onclick="event.stopPropagation(); deleteInvoice(${row.id}, ${row.company_id})"
+            onclick="event.stopPropagation(); deleteProforma(${row.id}, ${row.company_id})"
           >
             <i class="bi bi-trash"></i>
           </button>
@@ -727,12 +738,12 @@ function downloadPDF(invoiceId) {
 // ==================================================
 // ELIMINAR PROFORMA
 // ==================================================
-let invoiceToDelete = null;
-let invoice_companyId = null;
+let proformaToDelete = null;
+let proformaCompanyId = null;
 
-const deleteInvoice = (id, companyId) => {
-  invoiceToDelete = id;
-  invoice_companyId = companyId;
+const deleteProforma = (id, companyId) => {
+  proformaToDelete = id;
+  proformaCompanyId = companyId;
 
   const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
   modal.show();
@@ -741,12 +752,12 @@ const deleteInvoice = (id, companyId) => {
 $("#confirmDelete")
   .off("click")
   .on("click", function () {
-    if (!invoiceToDelete) return;
+    if (!proformaToDelete) return;
 
     $.ajax({
       url: "proform/ajax/delete_invoice.php",
       type: "POST",
-      data: { invoice_id: invoiceToDelete, company_id: invoice_companyId },
+      data: { invoice_id: proformaToDelete, company_id: proformaCompanyId },
 
       success: function (response) {
         const modalEl = document.getElementById("deleteModal");

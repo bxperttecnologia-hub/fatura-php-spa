@@ -37,6 +37,7 @@
         margin-left: 250px;
         padding: 20px;
         width: calc(100% - 250px);
+        max-width: none;
         transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
         padding-bottom: 2rem;
     }
@@ -356,7 +357,7 @@
         <a href="/" data-spa>
             <img src="/assets/img/logo/BXpert2-Branca.png" alt="logo">
         </a>
-        <button id="sidebarToggle" class="sidebar-toggle-btn" title="Ocultar/Mostrar menu">
+        <button id="sidebarToggle" class="sidebar-toggle-btn" type="button" title="Ocultar menu" aria-label="Ocultar menu" aria-expanded="true">
             <i data-lucide="panel-left-close"></i>
         </button>
     </div>
@@ -445,7 +446,7 @@
 
     <div class="footer">
 
-        <a href="/subscription" class="nav-item" data-spa data-tooltip="Definições">
+        <a href="/settings" class="nav-item" data-spa data-tooltip="Definições">
             <span><i data-lucide="settings"></i> <span>Definições</span></span>
         </a>
 
@@ -478,6 +479,25 @@
     window.lucide && lucide.createIcons();
 
     $(document).ready(function() {
+
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        sidebarToggle?.addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            const main = document.querySelector('main');
+            const header = document.querySelector('header');
+            if (!sidebar || !main || !header) return;
+
+            const collapsed = sidebar.classList.toggle('collapsed');
+            main.classList.toggle('collapsed', collapsed);
+            header.classList.toggle('collapsed', collapsed);
+
+            const label = collapsed ? 'Mostrar menu' : 'Ocultar menu';
+            sidebarToggle.title = label;
+            sidebarToggle.setAttribute('aria-label', label);
+            sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+            sidebarToggle.innerHTML = `<i data-lucide="${collapsed ? 'panel-left-open' : 'panel-left-close'}"></i>`;
+            window.lucide?.createIcons();
+        });
 
         // Accordion dos submenus (responsabilidade exclusiva da sidebar)
         document.querySelectorAll('.nav-item[data-submenu]').forEach(button => {

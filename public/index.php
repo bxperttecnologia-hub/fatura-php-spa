@@ -52,7 +52,7 @@ $boot = [
   <?php endif; ?>
   <div class="layout">
     <?php if ($user) include ROOT . '/app/partials/side.php'; ?>
-    <main id="app" class="p-4 container w-full"><!-- páginas injetadas aqui --></main>
+    <main id="app" class="p-4 w-full"><!-- páginas injetadas aqui --></main>
   </div>
   <?php include ROOT . '/app/partials/footer.php'; ?>
   <?php if ($user): ?>

@@ -123,7 +123,7 @@
 
                     <!-- IDS -->
                     <input type="hidden" name="id">
-                    <input type="hidden" name="id_company" value="<?= (int)($_SESSION['user']['company_id'] ?? 0) ?>">
+                    <input type="hidden" name="id_company" value="<?= $_SESSION['user']['company_id'] ?>">
 
                     <!-- ========================= -->
                     <!-- 1. IDENTIFICAÇÃO -->
@@ -319,5 +319,3 @@
         </div>
     </div>
 </div>
-
-<script src="/assets/js/modal_item.js"></script>

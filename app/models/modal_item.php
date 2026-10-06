@@ -175,7 +175,7 @@
 
                     <form id="itemForm">
 
-                        <input type="hidden" value="<?= (int)($_SESSION['user']['company_id'] ?? 0) ?>" name="id_company">
+                        <input type="hidden" value="<?= $_SESSION['user']['company_id'] ?>" name="id_company">
                         <input type="hidden" value="0" name="item_id" id="item_id">
 
                         <!-- ========================= -->
@@ -365,7 +365,3 @@
         </div>
     </div>
 </div>
-
-<script src="/assets/js/preset_items.js?v=1.0"></script>
-<script src="/assets/js/quick_add.js?v=1.0"></script>
-<script src="/assets/js/modal_item.js?v=1.8"></script>

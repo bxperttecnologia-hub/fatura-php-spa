@@ -650,7 +650,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
                 </button>
 
                 <div class="popup-menu text-left mt-2" id="perfil-menu">
-                    <a class="popup-item p-2" href="/perfil" data-spa><i class="bi bi-person"></i> <?= t('Perfil do utilizador') ?></a>
+                    <a class="popup-item p-2" href="/profile" data-spa><i class="bi bi-person"></i> <?= t('Perfil do utilizador') ?></a>
                     <a class="popup-item p-2" href="/subscription" data-spa><i class="bi bi-credit-card-2-back"></i> Meu Plano</a>
                     <hr class="opacity-25">
                     <a class="popup-item p-2" href="#" id="btn-logout"><i class="bi bi-box-arrow-in-left"></i> <?= t('Sair') ?></a>

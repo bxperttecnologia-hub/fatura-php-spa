@@ -113,10 +113,12 @@ export function forRoute(routePath) {
 
       const scripts = [...holder.querySelectorAll('script')];
       scripts.forEach(s => s.remove());
-      // O shell já tem <main id="app">: evita <main> aninhado e o margin-left do layout legado
-      holder.querySelectorAll('main.main-content').forEach(m => {
+      // O shell já tem <main id="app">: evita aplicar novamente o layout global a <main> legado
+      holder.querySelectorAll('main').forEach(m => {
         const d = document.createElement('div');
-        d.className = m.className; d.append(...m.childNodes); m.replaceWith(d);
+        for (const attr of m.attributes) d.setAttribute(attr.name, attr.value);
+        d.append(...m.childNodes);
+        m.replaceWith(d);
       });
 
       const abs = window.__spaAbs ?? (u => u);
