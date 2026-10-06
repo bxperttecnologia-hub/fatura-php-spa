@@ -82,7 +82,7 @@ $isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESS
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
 
   <!-- Estilos da app (caminhos absolutos: com rotas SPA como /clientes/5 os relativos partiam) -->
-  <link rel="stylesheet" href="/assets/css/style.css?v=0.3">
+  <link rel="stylesheet" href="/assets/css/style.css?v=0.4">
   <?php foreach (['assets/css/side.css', 'assets/css/support-chat.css'] as $css):
     if ($u = asset_if_exists($css)): ?>
   <link rel="stylesheet" href="<?= $u ?>">
