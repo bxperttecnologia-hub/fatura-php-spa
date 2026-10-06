@@ -8,11 +8,6 @@
         --border: rgba(255, 255, 255, 0.15);
     }
 
-    body {
-        margin: 0;
-        font-family: sans-serif;
-    }
-
     /* SIDEBAR */
     .sidebar {
         width: 260px;
