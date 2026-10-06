@@ -1,95 +1,30 @@
-window.BXpertModal = window.BXpertModal || {};
+APP_ENV=development
+APP_URL=http://localhost
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=bxpert
+DB_USER=root
+DB_PASS=
 
-(function () {
-  'use strict';
+TWILIO_SID=
+TWILIO_TOKEN=
+TWILIO_FROM=
 
-  function open(selectorOrElement) {
-    const element = typeof selectorOrElement === 'string'
-      ? document.querySelector(selectorOrElement)
-      : selectorOrElement;
+AGT_NIF_PASSWORD=
+AGT_CLIENT_ID=
+AGT_CLIENT_SECRET=
 
-    if (!element) return null;
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
 
-    const instance = window.bootstrap && window.bootstrap.Modal
-      ? new bootstrap.Modal(element)
-      : null;
+APP_KEY=
+SESSION_LIFETIME=3600
+SECURITY_SALT=
 
-    if (instance) {
-      instance.show();
-    }
-
-    return instance;
-  }
-
-  function close(selectorOrElement) {
-    const element = typeof selectorOrElement === 'string'
-      ? document.querySelector(selectorOrElement)
-      : selectorOrElement;
-
-    if (!element) return null;
-
-    const instance = window.bootstrap && window.bootstrap.Modal
-      ? window.bootstrap.Modal.getInstance(element)
-      : null;
-
-    if (instance) {
-      instance.hide();
-    }
-
-    setTimeout(() => {
-      document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
-      document.body.classList.remove('modal-open');
-      document.body.style.removeProperty('padding-right');
-      document.body.style.removeProperty('overflow');
-    }, 200);
-
-    return instance;
-  }
-
-  function destroy(selectorOrElement) {
-    const element = typeof selectorOrElement === 'string'
-      ? document.querySelector(selectorOrElement)
-      : selectorOrElement;
-
-    if (!element) return;
-
-    const instance = window.bootstrap && window.bootstrap.Modal
-      ? window.bootstrap.Modal.getInstance(element)
-      : null;
-
-    if (instance) {
-      instance.dispose();
-    }
-  }
-
-  window.BXpertModal = {
-    open,
-    close,
-    destroy
-  };
-})();
+# keep secrets out of source control and never expose in JS
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+-------------------------------
