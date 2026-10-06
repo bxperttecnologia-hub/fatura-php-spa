@@ -1,7 +1,3 @@
-<?php
-require_once '../app/views/layout_creation.php';
-?>
-
 <style>
     #contactModal .modal-dialog {
         max-width: 1080px;
@@ -497,7 +493,7 @@ require_once '../app/views/layout_creation.php';
 
 
     <main class="contacts-page" id="contactsApp">
-        <div class="container mt-5">
+        <div class="mt-5">
 
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="mb-0"><?= t('Meus Clientes') ?></h2>

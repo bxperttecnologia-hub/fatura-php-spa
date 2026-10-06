@@ -34,7 +34,7 @@ $expertPlan = in_array($planCode, ['XPERT', 'ENTERPRISE'], true);
     }
 
     .ai-actions-shell {
-        max-width: 1360px;
+        max-width: 100% !important;
         margin: 32px auto 64px;
         padding: 0 18px;
     }

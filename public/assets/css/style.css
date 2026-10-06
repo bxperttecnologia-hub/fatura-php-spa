@@ -1221,8 +1221,8 @@ iframe {
     max-width: calc(100% - 1rem);
   }
 
-  main#app-main {
-    padding: 12px !important;
+  main#app {
+    padding: 0px !important;
   }
 
   .card,
