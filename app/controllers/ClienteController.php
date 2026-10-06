@@ -14,14 +14,14 @@ class ClienteController {
     }
 
     private function find(string $id): array {
-        $st = Database::pdo()->prepare('SELECT * FROM clientes WHERE id = ?');
+        $st = Database::pdo()->prepare('SELECT * FROM contacts WHERE id = ?');
         $st->execute([$id]);
         return $st->fetch() ?: throw new HttpException(404, 'Cliente não encontrado');
     }
 
     public function index(): array {
         $q = '%' . addcslashes(trim((string)($_GET['q'] ?? '')), '%_\\') . '%';
-        $st = Database::pdo()->prepare('SELECT * FROM clientes WHERE nome LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 200');
+        $st = Database::pdo()->prepare('SELECT * FROM contacts WHERE nome LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 200');
         $st->execute([$q, $q]);
         return ['data' => $st->fetchAll()];
     }

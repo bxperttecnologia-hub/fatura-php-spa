@@ -2,6 +2,7 @@
 require __DIR__ . '/../app/core/bootstrap.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
+ini_set('display_errors', '0');   // avisos PHP no corpo estragariam o JSON (ficam no log)
 
 try {
     $method = $_SERVER['REQUEST_METHOD'];
@@ -11,6 +12,7 @@ try {
     if (!is_array($input)) throw new HttpException(400, 'JSON inválido');
 
     if ($method !== 'GET') Csrf::check($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+    if ($path === 'auth/me') Auth::noRenew();   // verificação periódica: não pode prolongar a sessão
 
     $r = new Router();
     $r->add('POST',   'auth/login',     [AuthController::class, 'login'], true);

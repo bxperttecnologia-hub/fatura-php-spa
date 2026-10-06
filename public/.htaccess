@@ -1,4 +1,12 @@
+Options -Indexes
+# Rotas da SPA como /contacts, /items, /stock, /login coincidem com nomes de pastas de endpoints:
+# sem isto o Apache redireciona /login -> /login/ antes de a reescrita correr.
+DirectorySlash Off
+
 RewriteEngine On
+
+# Scripts de migração (CLI): nunca por HTTP
+RewriteRule ^rh/migrations(/|$) - [F,L]
 
 # API: /api/clientes/5 -> api.php?r=clientes/5
 RewriteRule ^api/(.*)$ api.php?r=$1 [L,QSA]

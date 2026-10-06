@@ -1,5 +1,1258 @@
-.layout { display: flex; min-height: calc(100vh - 100px); }
-#app { flex: 1; min-width: 0; }
-a[data-spa].active, a[data-link].active { font-weight: 600; }
-/* Visitante (sem sessão): o servidor já não renderiza nav/sidebar; isto é só salvaguarda */
-body.guest .app-navbar, body.guest #sidebar { display: none; }
+:root {
+  /* Vermelho vibrante */
+  --primary-color: #007abd;
+  /* Amarelo ouro */
+  --secondary-color: #0d0d0c;
+  /* Preto escuro */
+  --dark-color: #1a1a1a;
+  /* Branco */
+  --light-color: #ffffff;
+  /* Cinza claro */
+  --gray-color: #e0e0e0;
+  /* Gradiente de fundo */
+  --background-gradient: linear-gradient(135deg, #007abd, #0d0d0c);
+  /* Cinza escuro para cartões */
+  --card-background: #2b2b2b;
+  /* Azul para realces */
+  --blue: #04349a;
+
+  --font-default: "Quarion", sans-serif;
+  --font-light: 300;
+  --font-regular: 400;
+  --font-bold: 700;
+  --font-extrabold: 800;
+  --font-heavy: 900;
+  --font-hairline: 100;
+  --font-extralight: 200;
+}
+
+/* Fonte: Quarion - importando todas as variações */
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-Book.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-BookItalic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-ExtraBoldItalic.ttf") format("truetype");
+  font-weight: 800;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-ExtraLight.ttf") format("truetype");
+  font-weight: 200;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-ExtraLightItalic.ttf") format("truetype");
+  font-weight: 200;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-Hairline.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-HairlineItalic.ttf") format("truetype");
+  font-weight: 100;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-Heavy.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-HeavyItalic.ttf") format("truetype");
+  font-weight: 900;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Quarion";
+  src: url("../assets/font/Quarion-LightItalic.ttf") format("truetype");
+  font-weight: 300;
+  font-style: italic;
+}
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lilita+One&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+
+body {
+  font-family: "Roboto", sans-serif;
+  background: #f7f7f7;
+}
+
+main {
+  background: #f7f7f7 !important;
+}
+
+header {
+  background-color: #fff;
+  border-bottom: solid 0px none;
+}
+
+.layout-container,
+body,
+html {
+  overflow: visible;
+}
+
+.text-primary {
+  color: #000 !important;
+}
+
+/* Inputs, Selects e Textarea */
+
+.form-control,
+.form-select,
+.select2-container--default .select2-selection--single {
+  border: 1px solid #ced4da !important;
+  border-radius: 0.375rem !important;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+  background-color: #fff;
+  background-clip: padding-box;
+  transition:
+    border-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
+  min-height: 38px;
+}
+
+.form-control:focus,
+.form-select:focus,
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--single {
+  border-color: var(--primary-color) !important;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(0, 122, 189, 0.25) !important;
+}
+
+.select2-container .select2-selection--single {
+  height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  padding-left: 0 !important;
+  color: #212529 !important;
+  line-height: normal !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 36px !important;
+  top: 1px !important;
+  right: 1px !important;
+}
+
+/* Asterisco de campo obrigatório */
+.form-label.required::after {
+  content: " *";
+  color: #af0012;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+/* Fim Inputs, Selects e Textarea */
+
+.form-label {
+  margin-bottom: 0rem !important;
+}
+
+a {
+  text-decoration: none !important;
+}
+
+.text-grey {
+  font-size: 12px;
+  color: #969696;
+  font-weight: 300;
+}
+
+.font-logo {
+  font-family: var(--font-default) !important;
+  font-weight: var(--font-bold);
+}
+
+#registerForm div label {
+  font-size: 14px;
+  color: #8a92a6;
+  font-weight: 300;
+}
+
+#registerForm div input {
+  border: 1px var(--blue) solid;
+  border-radius: 0.3rem;
+}
+
+#registerForm div select {
+  border: 1px var(--blue) solid;
+  border-radius: 0.3rem;
+}
+
+#registerForm div a {
+  color: var(--blue) !important;
+}
+
+#registerForm div #remember_me {
+  border: 1px #a8a8a8 solid;
+  border-radius: 0.2rem;
+}
+
+.f-14 {
+  font-size: 14px !important;
+}
+
+@media (max-width: 767px) {
+  #bgRegister {
+    display: none !important;
+    /* Oculta a imagem em telas menores que 768px */
+  }
+}
+
+.bg-blue {
+  background-color: var(--blue);
+  border: none;
+  font-size: 14px;
+}
+
+/* Botao do continuar com o google */
+.gsi-material-button {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-appearance: none;
+  background-color: #f2f2f2;
+  background-image: none;
+  border: none;
+  -webkit-border-radius: 4px;
+  border-radius: 4px;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-family: "Roboto", arial, sans-serif;
+  font-size: 14px;
+  height: 40px;
+  letter-spacing: 0.25px;
+  outline: none;
+  overflow: hidden;
+  padding: 0 12px;
+  position: relative;
+  text-align: center;
+  -webkit-transition:
+    background-color 0.218s,
+    border-color 0.218s,
+    box-shadow 0.218s;
+  transition:
+    background-color 0.218s,
+    border-color 0.218s,
+    box-shadow 0.218s;
+  vertical-align: middle;
+  white-space: nowrap;
+  width: auto;
+  max-width: 400px;
+  min-width: min-content;
+}
+
+.gsi-material-button .gsi-material-button-icon {
+  height: 20px;
+  margin-right: 12px;
+  min-width: 20px;
+  width: 20px;
+}
+
+.gsi-material-button .gsi-material-button-content-wrapper {
+  -webkit-align-items: center;
+  align-items: center;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-flex-wrap: nowrap;
+  flex-wrap: nowrap;
+  height: 100%;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+}
+
+.gsi-material-button .gsi-material-button-contents {
+  -webkit-flex-grow: 1;
+  flex-grow: 1;
+  font-family: "Roboto", arial, sans-serif;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+
+.gsi-material-button .gsi-material-button-state {
+  -webkit-transition: opacity 0.218s;
+  transition: opacity 0.218s;
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.gsi-material-button:disabled {
+  cursor: default;
+  background-color: #ffffff61;
+}
+
+.gsi-material-button:disabled .gsi-material-button-state {
+  background-color: #1f1f1f1f;
+}
+
+.gsi-material-button:disabled .gsi-material-button-contents {
+  opacity: 38%;
+}
+
+.gsi-material-button:disabled .gsi-material-button-icon {
+  opacity: 38%;
+}
+
+.gsi-material-button:not(:disabled):active .gsi-material-button-state,
+.gsi-material-button:not(:disabled):focus .gsi-material-button-state {
+  background-color: #001d35;
+  opacity: 12%;
+}
+
+.gsi-material-button:not(:disabled):hover {
+  -webkit-box-shadow:
+    0 1px 2px 0 rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  box-shadow:
+    0 1px 2px 0 rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.gsi-material-button:not(:disabled):hover .gsi-material-button-state {
+  background-color: #001d35;
+  opacity: 8%;
+}
+
+/* Fim google */
+
+/* Select2 */
+
+.select2-dropdown,
+.select2-dropdown--below {
+  z-index: 2000 !important;
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #005a87, #007abd);
+  color: #fff;
+}
+
+.modal-header button.btn-close {
+  color: #fff !important;
+}
+
+/* FimSelect2 */
+
+.modal-item {
+  background-color: var(--primary-color);
+  color: #fff;
+  font-weight: 900 !important;
+  text-align: center;
+}
+
+.modal-item h5 {
+  background-color: var(--primary-color);
+  color: #fff;
+  font-weight: 900 !important;
+  text-align: center;
+}
+
+.modal-item .btn-close {
+  color: #fff !important;
+}
+
+.modal-item .btn-close {
+  filter: invert(1);
+  /* Deixa o botão branco */
+  outline: none !important;
+  /* Remove a borda de foco */
+  box-shadow: none !important;
+  /* Remove qualquer sombra */
+}
+
+.modal-item .btn-close:focus,
+.modal-item .btn-close:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.modal-footer #saveItem {
+  width: 10rem;
+}
+
+/* Estilo geral da tabela */
+#itemsTable {
+  overflow: hidden;
+}
+
+/* Cabeçalho fixo e estilizado */
+#itemsTable thead {
+  background-color: #343a40;
+  color: white;
+  font-weight: bold;
+}
+
+/* Ajuste na tabela */
+#itemsTable tbody tr {
+  transition: 0.2s ease-in-out;
+}
+
+/* Efeito hover */
+#itemsTable tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+/* Botões de ação */
+.btn-action {
+  padding: 5px 10px;
+  border-radius: 5px;
+  margin: 2px;
+}
+
+.btn-edit {
+  background-color: #ffc107;
+  color: #fff;
+}
+
+.btn-delete {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.btn-print {
+  background-color: #17a2b8;
+  color: #fff;
+}
+
+/* Hover para os botões */
+.btn-action:hover {
+  filter: brightness(0.9);
+}
+
+/* Remove estilos conflitantes do Bootstrap */
+.table tbody tr {
+  background-color: transparent !important;
+}
+
+/* Cor para linhas ímpares */
+tr:nth-child(odd) {
+  background-color: #007abd !important;
+  /* Cinza bem leve */
+}
+
+/* Cor para linhas pares */
+.table tbody tr:nth-child(even) {
+  background-color: #ffffff !important;
+  /* Branco */
+}
+
+/* Hover na linha ao passar o mouse */
+.table tbody tr:hover {
+  background-color: #a8a8a8 !important;
+  /* Cinza um pouco mais escuro */
+  transition: background-color 0.2s ease-in-out;
+}
+
+th {
+  text-align: center;
+}
+
+.text-danger {
+  color: red !important;
+}
+
+.text-info {
+  color: var(--blue) !important;
+}
+
+.text-dark {
+  color: var(--dark-color) !important;
+}
+
+/* Centralizar o conteúdo das células */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+td,
+th {
+  text-align: center;
+  /* Alinha horizontalmente ao centro */
+  vertical-align: middle;
+  /* Alinha verticalmente ao meio */
+  padding: 10px;
+  /* Adiciona um espaçamento interno para melhor visualização */
+}
+
+/* Ajuste para os ícones ficarem centralizados */
+td i,
+td button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-box {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: #f9f9f9;
+}
+
+.item-box input,
+.item-box select {
+  border: 1px solid #ddd;
+  padding: 5px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.item-box input {
+  width: 100%;
+}
+
+.item-box select {
+  width: 100%;
+}
+
+.remove-item {
+  color: #007abd;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.cursor {
+  cursor: pointer;
+}
+
+.modal-dialog {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content {
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.tel {
+  flex: 1;
+  min-width: 150px;
+  /* Evita que o select fique muito pequeno */
+}
+
+.telnumber {
+  flex: 2;
+  min-width: 150px;
+  /* Evita que o input fique muito pequeno */
+}
+
+@media (max-width: 576px) {
+
+  .tel,
+  .telnumber {
+    width: 100%;
+  }
+}
+
+.select2-container .select2-selection--single {
+  height: 38px;
+  /* Ajusta a altura */
+  border: 1px solid #ccc;
+  /* Mantém o mesmo estilo dos inputs */
+  padding: 6px 12px;
+  /* Mantém o espaçamento interno */
+  font-size: 14px;
+  /* Mesmo tamanho de fonte */
+  border-radius: 4px;
+  /* Borda arredondada padrão */
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: 26px;
+  /* Alinha o texto verticalmente */
+  color: #495057;
+  /* Mesma cor do input padrão */
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 34px;
+  /* Ajusta a altura do dropdown */
+}
+
+.select2-results__option .select2-results__option--selectable .select2-results__option--highlighted {
+  font-family: "Roboto", sans-serif !important;
+}
+
+.select2-selection__rendered {
+  font-family: "Roboto", sans-serif !important;
+  font-size: 1rem !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: #212529 !important;
+  padding-left: 0 !important;
+}
+
+.blocked-select {
+  pointer-events: none;
+  /* Impede clique no select */
+  background-color: #e9ecef;
+  /* Aparência de desativado (igual a um campo disabled) */
+}
+
+.edit-contact,
+.delete-contact {
+  background-color: transparent;
+  border: none;
+}
+
+.edit-contact .material-icons-round,
+.delete-contact .material-icons-round {
+  font-size: 1.2rem;
+}
+
+.table-icon {
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.icon-statusFatura {
+  font-size: 12px;
+  border-radius: 0.2rem !important;
+}
+
+.tooltip-inner {
+  font-weight: bold;
+  cursor: default;
+}
+
+/* Garantir que o cabeçalho não quebre */
+.dataTables-BXpert thead th,
+.dataTables-BXpert tfoot th {
+  white-space: nowrap;
+  /* Evita quebra de texto no cabeçalho e rodapé */
+}
+
+/* Linhas de células sem quebra */
+.dataTables-BXpert tbody td {
+  white-space: nowrap;
+}
+
+/* Botões de exportação estilizados */
+button#exportCsv,
+button#exportExcel {
+  margin-bottom: 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  padding: 8px 15px;
+  box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== TABELA ESTILO ===== */
+.table-bx-standard {
+  border-collapse: separate;
+  border-spacing: 0 12px;
+  width: 100%;
+}
+
+/* HEADER */
+.table-bx-standard thead th {
+  border: none;
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 12px 16px;
+}
+
+/* ROW */
+.table-bx-standard tbody tr {
+  background: #fff !important;
+  border-radius: 14px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  text-align: left !important;
+}
+
+/* HOVER PRO */
+.table-bx-standard tbody tr:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+/* CELLS */
+.table-bx-standard tbody td {
+  border: none;
+  padding: 18px 16px;
+  vertical-align: middle;
+  font-size: 0.95rem;
+  background: #fff !important;
+  text-align: left;
+}
+
+/* BORDAS ARREDONDADAS */
+.table-bx-standard tbody td:first-child {
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
+  background: #fff !important;
+}
+
+.table-bx-standard tbody th {
+  text-align: left !important;
+}
+
+.table-bx-standard tbody td:last-child {
+  border-top-right-radius: 14px;
+  border-bottom-right-radius: 14px;
+  text-align: right;
+  padding-right: 24px;
+}
+
+/* ===== NOME (PRINCIPAL) ===== */
+.table-bx-standard tbody td:first-child {
+  font-weight: 600;
+  color: #111;
+}
+
+/* SUBINFO */
+.table-bx-standard tbody td small {
+  display: block;
+  color: #6b7280;
+}
+
+/* ===== ÍCONES ===== */
+.table-icon {
+  font-size: 1.2rem;
+  color: #9ca3af;
+  transition: all 0.2s;
+}
+
+.table-icon:hover {
+  color: #111;
+  transform: scale(1.1);
+}
+
+/* ===== AÇÕES ===== */
+.edit-contact i,
+.delete-contact i {
+  transition: all 0.2s ease;
+}
+
+.edit-contact:hover i {
+  color: #2563eb;
+  transform: scale(1.2);
+}
+
+.delete-contact:hover i {
+  color: #dc2626;
+  transform: scale(1.2);
+}
+
+/* ===== MODAL MAIS PREMIUM ===== */
+.modal-content {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== CARDS DO MODAL ===== */
+.card-header.bg-primary,
+.card-header.bg-info,
+.card-header.bg-secondary,
+.card-header.bg-success,
+.card-header.bg-warning {
+  border-radius: 12px 12px 0 0;
+  font-size: 0.95rem;
+}
+
+/* ===== PHONE CARDS ===== */
+.phone-card {
+  display: inline-flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.phone-card:hover {
+  background: #e5e7eb;
+}
+
+#dt-length-0 {
+  background: #fff !important;
+  border-radius: 8px;
+  padding: 5px;
+  border: 0.5px solid #e5e7eb;
+}
+
+.dt-search {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.dt-search label {
+  display: none !important;
+}
+
+/* ÍCONE */
+.dt-search-0 .search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* INPUT */
+#dt-search-0 {
+  padding-left: 15px !important;
+  border-radius: 12px !important;
+  border: 2px solid #ddd !important;
+}
+
+/* FOCUS */
+#dt-search-0:focus {
+  border-color: #16a34a !important;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  #contactTable thead {
+    display: none;
+  }
+
+  .table-bx-standard,
+  .table-bx-standard tbody,
+  .table-bx-standard tr,
+  .table-bx-standard td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-bx-standard tbody tr {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border-radius: 14px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .table-bx-standard tbody td {
+    padding: 6px 0;
+    text-align: left;
+  }
+
+  .table-bx-standard tbody td:first-child {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .table-bx-standard tbody td[data-label="Ações"] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 10px;
+  }
+}
+
+/* Rodapé da tabela */
+.dataTables-BXpert tfoot {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+/* Paginação personalizada */
+.dataTables_paginate .paginate_button {
+  background-color: #0069d9 !important;
+  color: #ffffff !important;
+  border-radius: 4px;
+  padding: 6px 12px;
+  transition: background-color 0.3s;
+}
+
+.dataTables_paginate .paginate_button:hover {
+  background-color: #0056b3 !important;
+}
+
+.percentageRetention {
+  font-size: 12px;
+  font-weight: 700;
+  color: #212529;
+}
+
+#invoice-number,
+.invoice-number {
+  font-family: "poppins", sans-serif;
+  font-size: 1.2rem;
+  color: #212529;
+  font-weight: 600;
+}
+
+.labelInvoiceDate {
+  font-family: "poppins", sans-serif;
+  font-size: 0.8rem;
+  color: #212529;
+}
+
+.spanInvoiceDate {
+  font-family: "poppins", sans-serif;
+  font-size: 0.9rem;
+  color: #212529;
+}
+
+.invoiceContainer {
+  background-color: #fff !important;
+  border-radius: 0.4rem;
+}
+
+.position-relative {
+  position: relative;
+}
+
+#togglePassword {
+  position: absolute;
+  right: 10px;
+  top: 57% !important;
+  transform: translateY(-50%);
+  color: #6c757d;
+  /* Ajusta a cor do ícone */
+}
+
+#togglePassword:hover {
+  color: #495057;
+  /* Cor ao passar o mouse */
+}
+
+div.dt-length label {
+  padding-right: 0.3rem;
+}
+
+div.dt-length select {
+  font-size: 14px;
+  border: none !important;
+}
+
+body.sidebar-open {
+  overflow: hidden;
+}
+
+#newContact {
+  transform: translateY(-1px);
+  font-size: 0.9rem;
+  padding: 5px 18px !important;
+  height: 35px !important;
+  margin-top: 10px;
+}
+
+.popup-menu {
+  min-width: 200px;
+  max-width: 70vw;
+  background: #fff;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 1000;
+  position: absolute;
+  top: 40px;
+  right: 0;
+  display: none;
+}
+
+.popup-menu.show {
+  display: block;
+}
+
+#mobileMenuBtn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  color: #fff;
+  padding: 6px 8px;
+  margin-bottom: -0.6rem;
+}
+
+#mobileMenuBtn:focus,
+#mobileMenuBtn:active {
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+#mobileMenuBtn i {
+  color: white;
+  font-size: 24px;
+}
+
+@media (min-width: 992px) {
+  #mobileMenuBtn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+  }
+}
+
+@media (max-width: 576px) {
+  .perfil-container .text-start {
+    display: none !important;
+  }
+
+  #empresaDropdown {
+    font-size: 13px;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .popup-menu {
+    right: 0 !important;
+    left: auto !important;
+  }
+
+  #empresaDropdown {
+    font-size: 14px;
+    padding: 4px 8px;
+  }
+
+  #empresaDropdown span.material-icons-round {
+    font-size: 18px;
+  }
+
+  #empresaDropdown {
+    max-width: 130px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+.table th,
+.table td {
+  white-space: nowrap;
+}
+
+#bgLogin {
+  background-image: url("../img/fundo-register.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+#bgRegister {
+  background-image: url("../img/fundo-register.png");
+  background-repeat: no-repeat;
+}
+
+#loginForm div label {
+  font-size: 14px;
+  color: #8a92a6;
+  font-weight: 300;
+}
+
+#loginForm div input {
+  border: 1px var(--blue) solid;
+  border-radius: 0.3rem;
+}
+
+#loginForm div a {
+  color: var(--blue) !important;
+}
+
+#loginForm div #remember_me {
+  border: 1px #a8a8a8 solid;
+  border-radius: 0.2rem;
+}
+
+@media screen and (min-width: 721px) {
+  #bgLogin {
+    display: flex !important;
+  }
+}
+
+@media screen and (device-width: 800px) and (orientation: portrait) {
+
+  /* Força o layout desktop no Xiaomi Pad 5 ou similares */
+  #bgLogin {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 1200px) {
+  .modal-dialog {
+    left: 7rem;
+  }
+}
+
+/* =========================================================
+   MOBILE-FIRST / RESPONSIVIDADE GERAL
+   ========================================================= */
+
+/* Evita scroll horizontal indesejado causado por larguras fixas */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Imagens e vídeos nunca ultrapassam o container */
+img,
+video,
+iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Tabelas simples (sem wrapper .table-responsive) ganham scroll
+   horizontal em telas pequenas, sem precisar alterar o HTML.
+   Não afeta .table-bx-standard, que já tem seu próprio layout
+   em "cartões" para mobile. */
+@media (max-width: 768px) {
+  table.table:not(.table-bx-standard) {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table.table:not(.table-bx-standard)>thead,
+  table.table:not(.table-bx-standard)>tbody {
+    display: table;
+    width: 100%;
+    min-width: 560px;
+  }
+
+  /* DataTables já cria seu próprio wrapper via JS;
+     garantimos que ele possa rolar horizontalmente */
+  .dataTables_wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+
+  main#app-main {
+    padding: 12px !important;
+  }
+
+  .card,
+  .card-body {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* Botões de ação em grupo passam a quebrar linha em vez de
+     espremer/sair do container */
+  .d-flex.gap-2,
+  .d-flex.gap-3 {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 576px) {
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+  }
+
+  .btn {
+    font-size: 0.9rem;
+  }
+}

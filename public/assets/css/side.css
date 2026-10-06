@@ -1,0 +1,346 @@
+/* .sidebar {
+    width: 250px;
+    height: 100vh;
+    background: #f8f9fa;
+    padding: 20px;
+    transition: width 0.3s ease;
+    overflow: hidden;
+ 
+} */
+
+@media (max-width: 992px) {
+  .sidebar {
+    left: -250px;
+    transition: all ease-in-out 0.3s;
+  }
+
+  .sidebar.mobile-active {
+    left: 0;
+    transition: all ease-in-out 0.3s;
+  }
+
+  .main-content,
+  header {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 150vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 9998;
+  }
+
+  .overlay.show {
+    display: block;
+  }
+}
+
+.sidebar .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  /* Suaviza a transição */
+}
+
+.sidebar .logo img {
+  width: 8rem;
+}
+
+.sidebar .logo h2 {
+  font-size: 22px;
+  color: #222;
+  transition:
+    opacity 0.3s ease,
+    width 0.3s ease;
+}
+
+.sidebar ul {
+  list-style: none;
+  transition: opacity 0.3s ease-in-out;
+  /* Animação para os itens do menu */
+}
+
+.sidebar ul h3 {
+  font-size: 14px;
+  color: gray;
+  margin: 15px 0;
+  transition: opacity 0.3s ease;
+}
+
+/* .sidebar ul li {
+     margin-bottom: 10px;  
+} */
+
+.sidebar ul li a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #333;
+  padding: 10px;
+  border-radius: 5px;
+
+  transition: all 0.3s ease-in-out;
+}
+
+.menu {
+  margin-left: -2rem;
+}
+
+.sidebar ul li a i {
+  font-size: 12px;
+}
+
+.sidebar ul li.active a {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.sidebar ul li a:hover {
+  background: var(--dark-color);
+  color: #fff;
+}
+
+/* Estilos quando a sidebar está minimizada */
+.sidebar.collapsed {
+  width: 80px;
+}
+
+.sidebar.collapsed .logo h2 {
+  opacity: 0;
+  width: 0;
+}
+
+.sidebar .logo-collapsed img {
+  margin-left: 0rem !important;
+  width: 2rem;
+  height: 2rem;
+  transition:
+    margin-left 0.3s ease,
+    opacity 0.3s ease-in-out;
+  /* Transição suave */
+}
+
+.sidebar.collapsed ul h3 {
+  opacity: 0;
+}
+
+.sidebar.collapsed ul li a .text {
+  display: none;
+}
+
+.sidebar.collapsed ul li a .material-icons-round {
+  margin-left: -0.2rem;
+}
+
+.item-menu {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+}
+
+.item-menu span {
+  margin-right: 5px;
+}
+
+.sidebar {
+  font-size: 13px !important;
+}
+
+.submenu {
+  display: none;
+  padding-left: 20px;
+}
+
+.dropdown-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  transition: transform 0.3s ease;
+}
+
+.dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.submenu li {
+  list-style: none;
+  cursor: pointer;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  /* justify-content: space-between; */
+  width: 100%;
+}
+.sidebar a.dropdown-toggle::after {
+  display: none !important;
+}
+
+.menu li.active > a,
+.submenu li.active > a {
+  background-color: var(--primary-color);
+  border-radius: 5px;
+}
+
+.layout-container {
+  display: flex;
+  flex-direction: row;
+}
+
+/* Ajusta o conteúdo ao lado da sidebar */
+main {
+  flex-grow: 1;
+  margin-left: 250px;
+  padding: 20px;
+  width: calc(100% - 250px);
+  transition: margin-left 0.3s ease-in-out;
+  /* max-height: calc(100vh - 60px); */
+  padding-bottom: 2rem;
+}
+
+/* Garante que a navbar ocupe a tela corretamente */
+header {
+  width: calc(100% - 250px);
+  padding: 10px 20px;
+  position: fixed;
+  top: 0;
+  left: 250px;
+  right: 0;
+  z-index: 1000;
+  transition:
+    left 0.3s ease-in-out,
+    width 0.3s ease-in-out;
+}
+
+@media (max-width: 992px) {
+  .layout-container {
+    flex-direction: column;
+  }
+
+  main {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  main {
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+  }
+}
+
+/* Garante que os ícones e o dropdown fiquem alinhados corretamente */
+header .d-flex.align-items-center > div {
+  display: flex;
+  align-items: center;
+}
+
+/* Adaptação para telas menores */
+@media (max-width: 992px) {
+  header {
+    width: 100%;
+    margin-left: 0;
+    left: 0;
+  }
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  position: relative;
+  background: transparent;
+  border-radius: 0.3rem;
+  left: 2rem;
+  padding: 2px;
+  transition: all 0.3s ease-in-out;
+}
+
+.search-box input {
+  width: 0;
+  padding: 0;
+  border: none !important;
+  outline: none;
+  font-size: 16px;
+  background: none;
+  transition:
+    width 0.3s ease-in-out,
+    padding 0.3s ease-in-out;
+  background-color: #fff;
+}
+
+.search-box.active {
+  padding-right: 10px;
+}
+
+.search-box.active input {
+  width: 15rem;
+  padding: 5px 10px;
+  color: #fff;
+  background-color: #fff;
+}
+
+.search-box .search-icon {
+  cursor: pointer;
+  font-size: 24px;
+  color: #fff;
+
+  padding: 3px;
+  transition: all 0.3s ease-in-out;
+}
+
+.popup-menu {
+  display: none;
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 250px;
+  background: white;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 1000;
+}
+
+.popup-menu.show {
+  display: block;
+}
+
+.popup-header {
+  font-size: 16px;
+  font-weight: bold;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.popup-item {
+  font-size: 14px;
+  padding: 8px 12px;
+  display: block;
+  color: #333;
+  text-decoration: none;
+}
+
+.popup-item:hover {
+  background-color: #f4f4f4;
+}
+
+.popup-divider {
+  margin: 5px 0;
+  border: none;
+  border-top: 1px solid #ddd;
+}

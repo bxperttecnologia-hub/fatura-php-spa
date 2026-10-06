@@ -1,75 +1,156 @@
-const routes = {};
-let current = null;   // módulo da página atual
-let navId = 0;        // evita corridas entre navegações rápidas
+// ==========================
+// ROTAS
+// ==========================
+const routes = {
+  // =========================
+  // DASHBOARD
+  // =========================
+  "/": "views/dashboard.php",
+  // =========================
+  // CLIENTES / EMPRESAS
+  // =========================
+  "/contacts": "views/contacts.php",
+  "/contacts/create": "views/register_contact.php",
 
-export function route(path, load, { auth = true, title = '' } = {}) {
-  routes[path] = { load, auth, title };
-}
+  // =========================
+  // PRODUTOS / ITENS
+  // =========================
+  "/items": "views/items.php",
 
-// "/clientes/" -> "/clientes"; ignora query/hash
-function normalize(path) {
-  const p = path.split(/[?#]/)[0].replace(/\/+$/, '');
-  return p === '' ? '/' : p;
-}
+  // =========================
+  // PROFORMAS
+  // =========================
+  "/proformas/create": "views/create_proforma.php",
+  "/proformas/list": "views/list_proformas.php",
 
-export function updateChrome() {
-  const u = window.APP.user;
-  document.body.classList.toggle('guest', !u);
-  const el = document.getElementById('nav-user');   // opcional
-  if (el) el.textContent = u ? u.nome : '';
-}
+  // =========================
+  // FACTURAS
+  // =========================
+  "/invoices/create": "views/create_invoices.php",
+  "/invoices/list": "views/list_invoices.php",
 
-export async function navigate(url, push = true) {
-  const id = ++navId;
-  // Preserva a query string (?id=5): as páginas legadas lêem-na via $_GET
-  const [rawPath, ...q] = url.split('#')[0].split('?');
-  let path = normalize(rawPath);
-  let search = q.length ? '?' + q.join('?') : '';
+  // =========================
+  // STOCK / COMPRAS
+  // =========================
+  "/stock": "views/stock.php",
+  "/purchases": "views/purchases.php",
 
-  // Guardas de acesso
-  if (!window.APP.user && (routes[path] ?? routes['/404']).auth) { path = '/login'; search = ''; }
-  if (window.APP.user && path === '/login') { path = '/'; search = ''; }
+  // =========================
+  // RH (RECURSOS HUMANOS)
+  // =========================
+  "/employees": "views/employees.php",
+  "/ponto": "views/ponto.php",
+  "/vacations": "views/vacations.php",
+  "/positions": "views/positions.php",
+  "/payroll": "views/payroll.php",
 
-  if (path + search !== location.pathname + location.search) {
-    history[push ? 'pushState' : 'replaceState']({}, '', path + search);
-  }
+  // =========================
+  // AJUDA
+  // =========================
+  "/help": "views/help.php",
 
-  const r = routes[path] ?? routes['/404'];
-  const el = document.getElementById('app');
+  // =========================
+  // PLANO / SUBSCRIÇÃO
+  // =========================
+  "/subscription": "views/subscription.php",
+};
 
-  try { current?.destroy?.(); } catch (e) { console.error(e); }  // limpa DataTables, charts, mapas...
-  current = null;
+// Cache
+const pageCache = {};
+let controller = null;
 
-  updateChrome();
-  el.innerHTML = '<div class="spinner-border"></div>';
+// ==========================
+// LOAD ROUTE
+// ==========================
+async function loadRoute(path, addToHistory = true) {
+  const app = document.getElementById("app");
+
+  const route = routes[path] || routes["/"];
 
   try {
-    const page = await r.load();
-    if (id !== navId) return;                // chegou outra navegação entretanto
-    current = page;
-    document.title = (r.title ? r.title + ' · ' : '') + 'BXpert';
-    el.innerHTML = '';
-    await page.render(el);
-    window.lucide?.createIcons();            // ícones de conteúdo injectado
-  } catch (e) {
-    if (id === navId) el.innerHTML = '<div class="alert alert-danger">Erro ao carregar a página.</div>';
-    console.error(e);
+    // Cancela request anterior
+    if (controller) controller.abort();
+    controller = new AbortController();
+
+    // Loading UI
+    app.innerHTML = `
+      <div class="text-center p-5">
+        <div class="spinner-border"></div>
+      </div>
+    `;
+
+    let html;
+
+    if (pageCache[path]) {
+      html = pageCache[path];
+    } else {
+      const res = await fetch(route, {
+        signal: controller.signal,
+      });
+      html = await res.text();
+      pageCache[path] = html;
+    }
+
+    app.innerHTML = html;
+
+    // Atualiza URL
+    if (addToHistory) {
+      history.pushState({}, "", path);
+    }
+
+    // Executa scripts da view (IMPORTANTE)
+    executeScripts(app);
+
+    //  CHAMA O APP.JS
+    initPage(path);
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      app.innerHTML = "<h4>Erro ao carregar</h4>";
+    }
   }
-
-  if (id !== navId) return;
-  document.querySelectorAll('a[data-link], a[data-spa]').forEach(a =>
-    a.classList.toggle('active', normalize(a.getAttribute('href') || '') === path));
 }
 
-export function initRouter() {
-  document.addEventListener('click', e => {
-    const a = e.target.closest('a[data-link], a[data-spa]');
-    if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || a.target === '_blank') return;
-    const href = a.getAttribute('href');
-    if (!href || !href.startsWith('/')) return;
-    e.preventDefault();
-    navigate(href);
+// ==========================
+// EXECUTA SCRIPTS DINÂMICOS
+// ==========================
+function executeScripts(container) {
+  const scripts = container.querySelectorAll("script");
+
+  scripts.forEach((oldScript) => {
+    const newScript = document.createElement("script");
+
+    [...oldScript.attributes].forEach((attr) => {
+      newScript.setAttribute(attr.name, attr.value);
+    });
+
+    newScript.textContent = oldScript.textContent;
+
+    oldScript.parentNode.replaceChild(newScript, oldScript);
   });
-  window.addEventListener('popstate', () => navigate(location.pathname + location.search, false));
-  navigate(location.pathname + location.search, false);
 }
+
+// ==========================
+// NAVEGAÇÃO (LINKS)
+// ==========================
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a[data-link]");
+
+  if (link) {
+    e.preventDefault();
+    loadRoute(link.getAttribute("href"));
+  }
+});
+
+// ==========================
+// BACK / FORWARD
+// ==========================
+window.addEventListener("popstate", () => {
+  loadRoute(location.pathname, false);
+});
+
+// ==========================
+// INIT
+// ==========================
+window.addEventListener("load", () => {
+  loadRoute(location.pathname, false);
+});

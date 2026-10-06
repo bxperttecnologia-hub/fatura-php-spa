@@ -2,7 +2,7 @@
 require_once '../app/helpers/translation.php';
 require_once '../app/config/db.php';
 require_once '../app/helpers/functions.php';
-require_once '../app/views/head.php';
+require_once '../app/partials/head.php';
 ?>
 <style>
     .login-col {

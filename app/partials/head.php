@@ -1,7 +1,7 @@
 <?php
 // A sessão arranca em app/core/bootstrap.php (antes de qualquer output).
 $pageTitle  = $pageTitle ?? 'BXpert';
-$isLoggedIn = !empty($_SESSION['user']);
+$isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESSION['user'] existe também para visitantes
 ?>
 <!DOCTYPE html>
 <html lang="pt">
@@ -10,6 +10,18 @@ $isLoggedIn = !empty($_SESSION['user']);
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($pageTitle, ENT_QUOTES) ?></title>
+
+  <!-- Compat SPA: o código legado usa URLs relativos ('rh/ajax/x.php'); numa rota como /invoices/create
+       resolveriam para /invoices/rh/... Reescreve-os para a raiz antes de qualquer outro script correr. -->
+  <script>
+    (function () {
+      var abs = function (u) { return (typeof u === 'string' && u && !/^([a-z][a-z0-9+.\-]*:|\/|#|\?)/i.test(u)) ? '/' + u.replace(/^(\.{1,2}\/)+/, '').replace(/^app\/helpers\/translation\.php$/, 'set_lang.php') : u; };
+      var f = window.fetch; if (f) window.fetch = function (i, o) { return f.call(this, abs(i), o); };
+      var x = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (m, u) { var a = [].slice.call(arguments); a[1] = abs(u); return x.apply(this, a); };
+      window.__spaAbs = abs;
+    })();
+  </script>
 
   <link rel="icon" href="/assets/img/logo/BXpert.ico" type="image/x-icon">
   <link rel="apple-touch-icon" href="/assets/img/logo/BXpert.png">
@@ -67,6 +79,7 @@ $isLoggedIn = !empty($_SESSION['user']);
 
   <!-- Ícones Lucide (usados pela nav e sidebar; o ficheiro local assets/js/lucide.js não existia) -->
   <script src="https://unpkg.com/lucide@0.378.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
 
   <!-- Estilos da app (caminhos absolutos: com rotas SPA como /clientes/5 os relativos partiam) -->
   <link rel="stylesheet" href="/assets/css/style.css?v=0.3">

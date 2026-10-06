@@ -18,7 +18,11 @@ function patchGlobals() {
 
   if ($) {
     $.ajaxPrefilter(o => { if (o.url) o.url = toAbs(o.url); });
-    $.ajaxSetup({ headers: { 'X-CSRF-Token': window.APP.csrf } });
+    // 401 em qualquer endpoint AJAX legado (sessão expirada) -> volta ao login
+    $.ajaxSetup({
+      headers: { 'X-CSRF-Token': window.APP.csrf },
+      statusCode: { 401: () => document.dispatchEvent(new Event('app:unauthorized')) },
+    });
 
     // Handlers em document/window criados pela página recebem o namespace .spaPage -> off() no destroy
     const on = $.fn.on;
@@ -30,8 +34,14 @@ function patchGlobals() {
     };
   }
 
+  // (o head.php já converte URLs relativos de fetch/XHR; aqui só se detecta a sessão expirada)
   const _fetch = window.fetch.bind(window);
-  window.fetch = (input, init) => _fetch(typeof input === 'string' ? toAbs(input) : input, init);
+  window.fetch = async (input, init) => {
+    const res = await _fetch(input, init);
+    const url = typeof input === 'string' ? input : input?.url || '';
+    if (res.status === 401 && !url.includes('/api/')) document.dispatchEvent(new Event('app:unauthorized'));
+    return res;
+  };
 
   const _si = window.setInterval.bind(window);
   window.setInterval = (...a) => { const id = _si(...a); active?.intervals.add(id); return id; };
@@ -107,6 +117,14 @@ export function forRoute(routePath) {
       holder.querySelectorAll('main.main-content').forEach(m => {
         const d = document.createElement('div');
         d.className = m.className; d.append(...m.childNodes); m.replaceWith(d);
+      });
+
+      const abs = window.__spaAbs ?? (u => u);
+      holder.querySelectorAll('[src],[href],[action],[poster]').forEach(n => {
+        for (const a of ['src', 'href', 'action', 'poster']) {
+          const v = n.getAttribute(a);
+          if (v && !v.startsWith('{') && !v.includes('<?')) { const r = abs(v); if (r !== v) n.setAttribute(a, r); }
+        }
       });
 
       el.append(...holder.childNodes);

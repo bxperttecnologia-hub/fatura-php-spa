@@ -10,8 +10,6 @@ try {
     header('Location: subscription.php?company_id=' . $cid . '&upgrade=rh');
     exit;
 }
-
-require_once '../app/views/layout_creation.php';
 ?>
 
 <style>
@@ -32,66 +30,66 @@ require_once '../app/views/layout_creation.php';
 </style>
 
 <main class="main-content">
-<div class="container-fluid mt-5">
-    <h4 class="mb-3">Avaliação de Desempenho</h4>
+    <div class="container-fluid mt-5">
+        <h4 class="mb-3">Avaliação de Desempenho</h4>
 
-    <ul class="nav nav-tabs mb-3" id="evalTabs">
-        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabModelos">Modelos</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiclos">Ciclos</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabMinhas">Minhas Avaliações</a></li>
-    </ul>
+        <ul class="nav nav-tabs mb-3" id="evalTabs">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabModelos">Modelos</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCiclos">Ciclos</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabMinhas">Minhas Avaliações</a></li>
+        </ul>
 
-    <div class="tab-content">
+        <div class="tab-content">
 
-        <!-- ===================== MODELOS ===================== -->
-        <div class="tab-pane fade show active" id="tabModelos">
-            <div class="d-flex justify-content-end mb-2">
-                <button class="btn btn-primary btn-sm" id="btnNewTemplate"><i class="bi bi-plus-lg"></i> Novo Modelo</button>
+            <!-- ===================== MODELOS ===================== -->
+            <div class="tab-pane fade show active" id="tabModelos">
+                <div class="d-flex justify-content-end mb-2">
+                    <button class="btn btn-primary btn-sm" id="btnNewTemplate"><i class="bi bi-plus-lg"></i> Novo Modelo</button>
+                </div>
+                <div id="templatesList"></div>
             </div>
-            <div id="templatesList"></div>
-        </div>
 
-        <!-- ===================== CICLOS ===================== -->
-        <div class="tab-pane fade" id="tabCiclos">
-            <div class="d-flex justify-content-end mb-2">
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCycle"><i class="bi bi-plus-lg"></i> Novo Ciclo</button>
+            <!-- ===================== CICLOS ===================== -->
+            <div class="tab-pane fade" id="tabCiclos">
+                <div class="d-flex justify-content-end mb-2">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCycle"><i class="bi bi-plus-lg"></i> Novo Ciclo</button>
+                </div>
+                <div class="table-responsive">
+                    <table id="cyclesTable" class="table align-middle" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Ciclo</th>
+                                <th>Período</th>
+                                <th>Status</th>
+                                <th>Progresso</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
-            <div class="table-responsive">
-                <table id="cyclesTable" class="table align-middle" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>Ciclo</th>
-                            <th>Período</th>
-                            <th>Status</th>
-                            <th>Progresso</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
 
-        <!-- ===================== MINHAS AVALIAÇÕES ===================== -->
-        <div class="tab-pane fade" id="tabMinhas">
-            <div class="table-responsive">
-                <table id="myEvaluationsTable" class="table align-middle" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>Funcionário</th>
-                            <th>Ciclo</th>
-                            <th>Modelo</th>
-                            <th>Status</th>
-                            <th>Nota final</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <!-- ===================== MINHAS AVALIAÇÕES ===================== -->
+            <div class="tab-pane fade" id="tabMinhas">
+                <div class="table-responsive">
+                    <table id="myEvaluationsTable" class="table align-middle" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Funcionário</th>
+                                <th>Ciclo</th>
+                                <th>Modelo</th>
+                                <th>Status</th>
+                                <th>Nota final</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-</div>
 </main>
 
 <!-- MODAL: novo/editar modelo -->
@@ -230,7 +228,9 @@ require_once '../app/views/layout_creation.php';
         }
 
         $('#btnAddCriterion').on('click', () => $('#criteriaList').append(criterionRowHtml()));
-        $('#criteriaList').on('click', '.btnRemoveCriterion', function() { $(this).closest('.criterion-row').remove(); });
+        $('#criteriaList').on('click', '.btnRemoveCriterion', function() {
+            $(this).closest('.criterion-row').remove();
+        });
 
         function loadTemplates() {
             $.getJSON('rh/ajax/list_evaluation_templates.php', function(resp) {
@@ -287,9 +287,13 @@ require_once '../app/views/layout_creation.php';
                 confirmButtonText: 'Sim, eliminar'
             }).then(result => {
                 if (!result.isConfirmed) return;
-                $.post('rh/ajax/delete_evaluation_template.php', { id: card.data('id') }, function(resp) {
-                    if (resp.success) { loadTemplates(); Swal.fire('Ok', 'Modelo eliminado.', 'success'); }
-                    else Swal.fire('Erro', resp.message, 'error');
+                $.post('rh/ajax/delete_evaluation_template.php', {
+                    id: card.data('id')
+                }, function(resp) {
+                    if (resp.success) {
+                        loadTemplates();
+                        Swal.fire('Ok', 'Modelo eliminado.', 'success');
+                    } else Swal.fire('Erro', resp.message, 'error');
                 }, 'json');
             });
         });
@@ -329,12 +333,24 @@ require_once '../app/views/layout_creation.php';
 
         const cyclesTable = $('#cyclesTable').DataTable({
             ajax: 'rh/ajax/list_evaluation_cycles.php',
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json' },
-            columns: [
-                { data: 'name' },
-                { data: null, render: row => `${row.period_start} a ${row.period_end}` },
-                { data: 'status', render: s => `<span class="badge ${s === 'aberto' ? 'bg-success' : 'bg-secondary'}">${s}</span>` },
-                { data: null, render: row => `${row.concluidas}/${row.total_evaluations} concluídas` },
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json'
+            },
+            columns: [{
+                    data: 'name'
+                },
+                {
+                    data: null,
+                    render: row => `${row.period_start} a ${row.period_end}`
+                },
+                {
+                    data: 'status',
+                    render: s => `<span class="badge ${s === 'aberto' ? 'bg-success' : 'bg-secondary'}">${s}</span>`
+                },
+                {
+                    data: null,
+                    render: row => `${row.concluidas}/${row.total_evaluations} concluídas`
+                },
                 {
                     data: null,
                     render: row => `<button class="btn btn-sm btn-outline-primary btnGenerate" data-id="${row.id}">Gerar avaliações</button>`
@@ -393,25 +409,39 @@ require_once '../app/views/layout_creation.php';
 
         const myEvaluationsTable = $('#myEvaluationsTable').DataTable({
             ajax: 'rh/ajax/list_evaluations.php?minhas=1',
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json' },
-            columns: [
-                { data: 'employee_name' },
-                { data: 'cycle_name' },
-                { data: 'template_name' },
-                { data: 'status' },
-                { data: 'final_score', render: d => d !== null ? d : '—' },
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json'
+            },
+            columns: [{
+                    data: 'employee_name'
+                },
+                {
+                    data: 'cycle_name'
+                },
+                {
+                    data: 'template_name'
+                },
+                {
+                    data: 'status'
+                },
+                {
+                    data: 'final_score',
+                    render: d => d !== null ? d : '—'
+                },
                 {
                     data: null,
-                    render: row => row.status === 'concluida'
-                        ? `<span class="text-muted">Concluída</span>`
-                        : `<button class="btn btn-sm btn-primary btnScore" data-id="${row.id}">Avaliar</button>`
+                    render: row => row.status === 'concluida' ?
+                        `<span class="text-muted">Concluída</span>` :
+                        `<button class="btn btn-sm btn-primary btnScore" data-id="${row.id}">Avaliar</button>`
                 }
             ]
         });
 
         $('#myEvaluationsTable').on('click', '.btnScore', function() {
             const id = $(this).data('id');
-            $.getJSON('rh/ajax/get_evaluation.php', { id })
+            $.getJSON('rh/ajax/get_evaluation.php', {
+                    id
+                })
                 .done(function(resp) {
                     const ev = resp.data;
                     $('#scoreModalTitle').text(`Avaliar ${ev.employee_name} — ${ev.position || ''}`);
@@ -446,10 +476,10 @@ require_once '../app/views/layout_creation.php';
                 });
             });
             $.post('rh/ajax/save_evaluation_answers.php', {
-                evaluation_id: $('#formScore input[name=evaluation_id]').val(),
-                answers: JSON.stringify(answers),
-                finalizar
-            })
+                    evaluation_id: $('#formScore input[name=evaluation_id]').val(),
+                    answers: JSON.stringify(answers),
+                    finalizar
+                })
                 .done(function(resp) {
                     if (resp.success) {
                         $('#modalScore').modal('hide');

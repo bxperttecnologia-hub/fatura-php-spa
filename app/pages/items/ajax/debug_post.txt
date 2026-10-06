@@ -1,0 +1,20 @@
+Array
+(
+    [id_company] => 1
+    [codigo] => 1-ITM-000017
+    [name] => Caixa de Lapiseiras
+    [descricao] => Caixa de Lapiseiras Azuis - Bravo
+    [item_type] => selecione o Tipo de item
+    [subcategory] => other
+    [unit_measure] => unit
+    [currency] => AOA
+    [stock_id] => 
+    [quantidade] => 
+    [min_stock] => 1
+    [unit_price] => 3800
+    [tax_vat] => 14
+    [retention] => 0
+    [cost_price] => 
+    [sale_price] => 
+    [pvp] => 4332.00
+)

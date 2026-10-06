@@ -14,11 +14,11 @@ function spa_json(int $status, array $data): void {
     exit;
 }
 
-$__pages = require ROOT . '/config/pages.php';
+$__pages = require ROOT . '/app/config/pages.php';
 $__route = '/' . trim((string)($_GET['__route'] ?? '/'), '/');
 unset($_GET['__route'], $_REQUEST['__route']);   // as páginas não precisam de o ver
 
-if (!Auth::user())              spa_json(401, ['message' => 'Não autenticado']);
+if (!Auth::user())              spa_json(401, ['message' => 'Sessão expirada ou inexistente', 'session_expired' => true]);
 if (!isset($__pages[$__route])) spa_json(404, ['message' => 'Página não encontrada']);
 
 [$__file, $__title] = $__pages[$__route];
@@ -42,12 +42,27 @@ register_shutdown_function(function () use ($__title, $__fileRoutes) {
     $html = '';
     while (ob_get_level() > 0) $html = ob_get_clean() . $html;
 
+    // Erro fatal na página (ex.: função redeclarada, ficheiro em falta): devolve-o em vez de uma página vazia
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        http_response_code(500);
+        echo json_encode(['message' => config('debug') ? "{$err['message']} em " . basename($err['file']) . ":{$err['line']}" : 'Erro interno'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        return;
+    }
+
     $loc = null;
     foreach (headers_list() as $h) {
         if (stripos($h, 'Location:') === 0) $loc = trim(substr($h, 9));
     }
     header_remove('Location');
     http_response_code(200);
+
+    // A página mandou para o login (sessão inválida): sinaliza-o como 401 para a SPA fazer o fluxo de sessão expirada
+    if ($loc !== null && preg_match('~^(?:\.{0,2}/)*login(?:\.php)?(?:\?.*)?$~', $loc)) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Sessão expirada ou inexistente', 'session_expired' => true]);
+        return;
+    }
 
     if ($loc !== null) {
         if (preg_match('~^(?:\.{1,2}/)*([\w\-]+\.php)(\?.*)?$~', $loc, $m) && isset($__fileRoutes[$m[1]])) {
