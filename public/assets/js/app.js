@@ -1,12 +1,4 @@
-// ==========================
-// CONTROLLERS POR ROTA
-// ==========================
-function initPage(path) {
-  const controllers = {
-    "/": "views/dashboard.php",
-  };
-
-  if (controllers[path]) {
-    controllers[path]();
-  }
-}
+(() => {
+  'use strict';
+  console.warn('Legacy SpaRouter disabled. Use window.BXpertRouter from /assets/js/spa/router.js');
+})();

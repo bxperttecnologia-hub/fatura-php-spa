@@ -1,89 +1,12 @@
-window.BXpertAPI = window.BXpertAPI || {};
-
-(function () {
+(() => {
   'use strict';
-
-  const defaultHeaders = {
-    'X-Requested-With': 'XMLHttpRequest'
-  };
-
-  function handleResponse(response) {
-    if (!response) {
-      throw new Error('Resposta vazia');
+  window.BXpertAuth = window.BXpertAuth || {};
+  window.BXpertAuth.isAuthenticated = function () { return !!(window.__BXPERT_SESSION__ || document.body.dataset.authenticated === 'true'); };
+  window.BXpertAuth.requireAuth = function () { return window.BXpertAuth.isAuthenticated(); };
+  window.BXpertAuth.handleUnauthorized = function () {
+    if (window.confirm('Sessão expirada. Deseja fazer login novamente?')) {
+      window.location.href = '/login';
     }
-
-    if (response.status >= 400) {
-      throw new Error('Request falhou: ' + response.status);
-    }
-
-    return response;
-  }
-
-  async function request(url, options = {}) {
-    const mergedOptions = {
-      credentials: 'same-origin',
-      headers: {
-        ...defaultHeaders,
-        ...(options.headers || {})
-      },
-      ...options
-    };
-
-    const response = await fetch(url, mergedOptions);
-    handleResponse(response);
-    return response;
-  }
-
-  async function get(url, params = {}, options = {}) {
-    const query = new URLSearchParams(params);
-    const finalUrl = query.toString() ? `${url}?${query.toString()}` : url;
-    return request(finalUrl, { ...options, method: 'GET' });
-  }
-
-  async function post(url, data = {}, options = {}) {
-    return request(url, {
-      ...options,
-      method: 'POST',
-      body: data
-    });
-  }
-
-  async function json(url, payload = {}, options = {}) {
-    return request(url, {
-      ...options,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      body: JSON.stringify(payload)
-    }).then((response) => response.json());
-  }
-
-  async function formData(url, payload = {}, options = {}) {
-    const form = payload instanceof FormData ? payload : new FormData();
-
-    Object.entries(payload).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        form.append(key, value);
-      }
-    });
-
-    return post(url, form, {
-      ...options,
-      headers: {
-        ...(options.headers || {})
-      }
-    });
-  }
-
-  window.BXpertAPI = {
-    request,
-    handleResponse,
-    get,
-    post,
-    json,
-    formData
   };
 })();
 
@@ -111,3 +34,315 @@ window.BXpertAPI = window.BXpertAPI || {};
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+a
