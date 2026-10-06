@@ -742,12 +742,12 @@ button#exportExcel {
 #app .bx-list-table {
   width: 100%;
   border-collapse: separate !important;
-  border-spacing: 0 12px !important;
+  border-spacing: 0 10px !important;
   margin-bottom: 0;
 }
 
 #app .bx-list-table thead th {
-  padding: 12px 16px;
+  padding: 9px 12px;
   border: 0 !important;
   background: #f8f9fb;
   color: #9299a7;
@@ -784,30 +784,86 @@ button#exportExcel {
 }
 
 #app .bx-list-table tbody td {
-  padding: 14px 16px;
+  padding: 8px 12px;
   border: 0 !important;
   background: #fff !important;
   color: #111827;
-  font-size: 0.92rem;
+  font-size: 0.87rem;
   vertical-align: middle;
+  text-align: left;
 }
 
 #app .bx-list-table tbody tr td:first-child {
-  border-top-left-radius: 15px;
-  border-bottom-left-radius: 15px;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
 }
 
 #app .bx-list-table tbody tr td:last-child {
-  border-top-right-radius: 15px;
-  border-bottom-right-radius: 15px;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 
 #app .bx-list-table tbody tr td:only-child {
-  border-radius: 15px;
+  border-radius: 10px;
 }
 
 #app .bx-list-table tbody tr.is-selected td {
   background: #eaf1ff !important;
+}
+
+#app .bx-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#app .bx-list-header h1,
+#app .bx-list-header h2,
+#app .bx-list-header h3 {
+  margin: 0;
+  color: #212529;
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  font-weight: 700;
+}
+
+#app .bx-list-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.88rem;
+}
+
+#app .bx-list-filter-panel {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #eef0f3;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+#app .bx-list-filter-panel label,
+#app .bx-list-filter-panel .form-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #737d8c;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+#app .bx-list-filter-panel .form-control,
+#app .bx-list-filter-panel .form-select {
+  min-height: 38px;
+  border-color: #dce2e9;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+#app .bx-list-filter-panel .form-control:focus,
+#app .bx-list-filter-panel .form-select:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.18rem rgba(13, 110, 253, 0.12);
 }
 
 #app .bx-list-table.dataTable thead th.dt-orderable-asc,
@@ -955,43 +1011,34 @@ button#exportExcel {
   background: #e5e7eb;
 }
 
-#dt-length-0 {
+#app .dt-length select {
   background: #fff !important;
-  border-radius: 8px;
-  padding: 5px;
-  border: 0.5px solid #e5e7eb;
+  border-radius: 8px !important;
+  padding: 5px 10px !important;
+  border: 1px solid #dce2e9 !important;
 }
 
-.dt-search {
+#app .dt-search {
   position: relative;
   margin-bottom: 15px;
 }
 
-.dt-search label {
+#app .dt-search label {
   display: none !important;
 }
 
-/* ÍCONE */
-.dt-search-0 .search-icon {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  pointer-events: none;
+#app .dt-search input {
+  min-height: 38px;
+  padding: 7px 12px !important;
+  border: 1px solid #dce2e9 !important;
+  border-radius: 8px !important;
+  background: #fff;
+  font-size: 0.88rem;
 }
 
-/* INPUT */
-#dt-search-0 {
-  padding-left: 15px !important;
-  border-radius: 12px !important;
-  border: 2px solid #ddd !important;
-}
-
-/* FOCUS */
-#dt-search-0:focus {
-  border-color: #16a34a !important;
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
+#app .dt-search input:focus {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 0.18rem rgba(13, 110, 253, 0.12) !important;
 }
 
 /* ===== MOBILE ===== */

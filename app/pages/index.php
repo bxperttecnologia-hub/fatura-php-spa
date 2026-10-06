@@ -679,8 +679,15 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                     <?php if ($dashboardReportsScope === 'full'): ?>
                                         <!-- ================== GRÁFICO ================== -->
                                         <div class="card card-custom p-4" id="chart-card">
-                                            <div class="d-flex justify-content-between mb-3">
-                                                <h6 class="h-title"><i class="bi bi-graph-up"></i> Evolução Anual</h6>
+                                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                                <h6 class="h-title"><i class="bi bi-graph-up"></i> <span id="chartTitleText">Evolução Anual</span></h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <select id="chartPeriodSelect" class="form-select form-select-sm" aria-label="Período do gráfico">
+                                                        <option value="annual">Evolução anual</option>
+                                                        <option value="daily">Evolução diária</option>
+                                                    </select>
+                                                    <select id="chartMonthSelect" class="form-select form-select-sm" aria-label="Mês da evolução diária" hidden></select>
+                                                </div>
                                             </div>
                                             <div style="height: 400px;">
                                                 <canvas id="chart"></canvas>
@@ -1019,6 +1026,8 @@ require_once '../app/views/footer.php';
 
     const currentYear = new Date().getFullYear();
     let selectedYear = new Date().getFullYear();
+    let chartPeriod = "annual";
+    let chartMonth = new Date().getMonth() + 1;
     // Planos BXPERT_BAZA / BXPERT_BASE: o filtro do dashboard é mensal
     const isDailyPlan = <?= $isDailyPlan ? 'true' : 'false' ?>;
     let selectedMonth = new Date().getMonth() + 1;
@@ -1618,6 +1627,32 @@ require_once '../app/views/footer.php';
             }, 1000)
         };
 
+        const chartPeriodSelect = document.getElementById("chartPeriodSelect");
+        const chartMonthSelect = document.getElementById("chartMonthSelect");
+        const monthNames = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+
+        if (chartPeriodSelect && chartMonthSelect) {
+            chartMonthSelect.innerHTML = monthNames.map((name, index) => `
+                <option value="${index + 1}" ${index + 1 === chartMonth ? "selected" : ""}>${name}</option>
+            `).join("");
+            chartMonthSelect.hidden = chartPeriod !== "daily";
+
+            chartPeriodSelect.onchange = () => {
+                chartPeriod = chartPeriodSelect.value;
+                chartMonthSelect.hidden = chartPeriod !== "daily";
+                document.getElementById("chartTitleText").textContent =
+                    `Evolução ${chartPeriod === "daily" ? "Diária" : "Anual"}`;
+                updateChart(selectedYear);
+            };
+            chartMonthSelect.onchange = () => {
+                chartMonth = Number(chartMonthSelect.value);
+                updateChart(selectedYear);
+            };
+        }
+
         updateChart(selectedYear);
     }
 
@@ -1652,21 +1687,37 @@ require_once '../app/views/footer.php';
         const canvas = document.getElementById("chart");
         if (!canvas) return;
 
-        const labels = [];
+        let labels = [];
         const valores = [];
         const valoresAnteriores = [];
 
-        for (let mes = 1; mes <= 12; mes++) {
+        if (chartPeriod === "daily") {
+            const daysInMonth = new Date(selectedYear, chartMonth, 0).getDate();
+            const dailyCurrent = new Map();
+            const dailyPrevious = new Map();
 
-            const mesFormatado =
-                `${selectedYear}-${String(mes).padStart(2, '0')}`;
+            (currentData?.evolucao_diaria || []).forEach(item => {
+                const [year, month, day] = String(item.dia || "").split("-").map(Number);
+                if (month === chartMonth) {
+                    if (year === selectedYear) dailyCurrent.set(day, Number(item.total || 0));
+                    if (year === selectedYear - 1) dailyPrevious.set(day, Number(item.total || 0));
+                }
+            });
 
-            const mesAnteriorFormatado =
-                `${selectedYear - 1}-${String(mes).padStart(2, '0')}`;
+            for (let day = 1; day <= daysInMonth; day++) {
+                labels.push(`${String(day).padStart(2, "0")}/${String(chartMonth).padStart(2, "0")}`);
+                valores.push(dailyCurrent.get(day) || 0);
+                valoresAnteriores.push(dailyPrevious.get(day) || 0);
+            }
+        } else {
+            for (let mes = 1; mes <= 12; mes++) {
+                const mesFormatado = `${selectedYear}-${String(mes).padStart(2, "0")}`;
+                const mesAnteriorFormatado = `${selectedYear - 1}-${String(mes).padStart(2, "0")}`;
 
-            labels.push(nomesMeses[mes - 1]);
-            valores.push(map[mesFormatado] || 0);
-            valoresAnteriores.push(mapAnterior[mesAnteriorFormatado] || 0);
+                labels.push(nomesMeses[mes - 1]);
+                valores.push(map[mesFormatado] || 0);
+                valoresAnteriores.push(mapAnterior[mesAnteriorFormatado] || 0);
+            }
         }
 
         if (chartInstance) {
@@ -1691,7 +1742,7 @@ require_once '../app/views/footer.php';
                         borderRadius: 8,
                         borderSkipped: false,
                         hoverBackgroundColor: "#007abd",
-                        barThickness: 20
+                        barThickness: chartPeriod === "annual" ? 20 : undefined
                     },
                     {
                         label: `Vendas ${selectedYear - 1}`,
@@ -1700,7 +1751,7 @@ require_once '../app/views/footer.php';
                         borderRadius: 8,
                         borderSkipped: false,
                         hoverBackgroundColor: "#a3a29c",
-                        barThickness: 20
+                        barThickness: chartPeriod === "annual" ? 20 : undefined
                     }
                 ]
             },
@@ -1729,6 +1780,12 @@ require_once '../app/views/footer.php';
                 },
 
                 scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: chartPeriod === "daily",
+                            maxTicksLimit: chartPeriod === "daily" ? 16 : 12
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         grid: {

@@ -42,7 +42,7 @@ require_once '../app/views/layout_creation.php';
                  do <hr>, e vazio de botão. O menu ancorava-se a esse wrapper (top:100%; left:0) e por isso
                  aparecia no canto esquerdo, por baixo da linha. Agora botão e menu partilham o mesmo
                  wrapper .bx-export (position:relative) e o menu usa right:0. -->
-            <div class="bx-page-header">
+            <div class="bx-page-header bx-list-header">
                 <h2 class="bx-page-title"><?= t('Minhas Faturas') ?></h2>
 
                 <div class="bx-export" id="exportMenu">
@@ -137,7 +137,7 @@ require_once '../app/views/layout_creation.php';
             </section>
 
             <!-- ============ FILTROS ============ -->
-            <section class="bx-filters" aria-labelledby="bxFiltersTitle">
+            <section class="bx-filters bx-list-filter-panel" aria-labelledby="bxFiltersTitle">
                 <div class="bx-section-title" id="bxFiltersTitle">Filtros</div>
                 <div class="bx-filters__grid">
 
@@ -222,21 +222,19 @@ require_once '../app/views/layout_creation.php';
 
             <!-- ============ DOCUMENTOS ============ -->
             <div class="bx-docs-header">
-                <h3 class="bx-section-title">Documentos</h3>
+                <h3 class="bx-section-title" id="bxDocumentTitle">Faturas</h3>
                 <span class="bx-muted" id="bxResultCount" aria-live="polite"></span>
             </div>
 
-            <div class="bx-table-wrap">
-                <div class="table-responsive">
-                    <table id="invoicesTable" class="table-bx-standard table nowrap w-100 bx-list-table">
-                        <thead id="invoicesTableHead">
-                            <!-- Cabeçalho é gerado dinamicamente via JS conforme o Tipo de Documento selecionado -->
-                        </thead>
-                        <tbody>
-                            <!-- Dados gerados via JS -->
-                        </tbody>
-                    </table>
-                </div>
+            <div class="table-responsive">
+                <table id="invoicesTable" class="table-bx-standard table nowrap w-100 bx-list-table">
+                    <thead id="invoicesTableHead">
+                        <!-- Cabeçalho é gerado dinamicamente via JS conforme o Tipo de Documento selecionado -->
+                    </thead>
+                    <tbody>
+                        <!-- Dados gerados via JS -->
+                    </tbody>
+                </table>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">

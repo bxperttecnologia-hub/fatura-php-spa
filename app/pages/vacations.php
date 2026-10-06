@@ -113,7 +113,7 @@ require_once '../app/views/layout_creation.php';
         <div class="row">
             <div class="col-12">
                 <div class="">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center bx-list-header">
                         <h2 class="mb-0 fw-bold mt-4">Férias e Licenças</h2>
                         <button id="addVacationBtn" class="btn btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#modalVacation">
                             <i class="bi bi-calendar"></i>
@@ -122,7 +122,7 @@ require_once '../app/views/layout_creation.php';
                     </div>
                     <div class="card-body mt-4">
                         <!-- Filtros -->
-                        <div class="d-flex flex-wrap justify-content-between g-2 mb-3 align-items-end">
+                        <div class="bx-list-filter-panel d-flex flex-wrap justify-content-between g-2 mb-3 align-items-end">
                             <div class="col-6 col-md-6 d-flex gap-2">
                                 <div class="col-md-4">
                                     <label class="form-label mb-1">Mês de referência</label>

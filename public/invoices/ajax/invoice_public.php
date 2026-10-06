@@ -116,6 +116,10 @@ if (!$inv) {
 
 $publicBasePath = rtrim(dirname(dirname(dirname($_SERVER['SCRIPT_NAME']))), '/');
 $logoFile = basename((string)($inv['logo_url'] ?? ''));
+$logoDirectory = __DIR__ . '/../../assets/img/companies';
+if ($logoFile !== '' && !is_file($logoDirectory . DIRECTORY_SEPARATOR . $logoFile)) {
+  $logoFile = 'default.png';
+}
 
 // ---------- itens ----------
 $stmt = $pdo->prepare("

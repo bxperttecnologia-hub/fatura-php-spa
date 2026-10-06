@@ -1,34 +1,177 @@
 $(document).ready(function () {
+  const $page = $("#itemsPage");
+  if (!$page.length) return;
+
+  $page.off(".itemsPage");
+
   let items = []; // todos os itens vindos do servidor
   let filteredItems = []; // itens após pesquisa/ordenação
+  const selectedIds = new Set();
   let currentPage = 1;
   let pageSize = 25;
   let sortKey = null;
   let sortDir = "asc";
+  let loadState = "loading";
+  let itemsRequest = null;
 
   const modalEl = document.getElementById("itemModal");
   const modalTitle = document.querySelector("#itemModal .modal-title");
   const defaultTitle = "Adicionar Novo Produto/Serviço";
 
+  renderTable();
   loadItems();
 
   function loadItems() {
-    $.ajax({
+    if (itemsRequest) itemsRequest.abort();
+
+    loadState = "loading";
+    renderTable();
+
+    const request = $.ajax({
       url: "items/ajax/get_items.php",
       method: "GET",
       dataType: "json",
 
       success: function (response) {
-        items = response?.data || [];
-        filteredItems = [...items];
+        if (itemsRequest !== request) return;
+        if (response?.status !== true || !Array.isArray(response.data)) {
+          loadState = "error";
+          renderTable();
+          console.error("Resposta inválida ao carregar produtos:", response);
+          return;
+        }
+
+        items = response.data;
+        populateFilters(items);
+        const validIds = new Set(items.map((item) => String(item.id)));
+        selectedIds.forEach((id) => {
+          if (!validIds.has(id)) selectedIds.delete(id);
+        });
+        loadState = "ready";
         currentPage = 1;
         renderTable();
       },
 
       error: function (xhr, status, error) {
-        console.error("Erro:", error);
+        if (itemsRequest !== request || status === "abort") return;
+        loadState = "error";
+        console.error(
+          "Não foi possível carregar os produtos:",
+          error || xhr.statusText,
+        );
+        renderTable();
+      },
+      complete: function () {
+        if (itemsRequest === request) itemsRequest = null;
       },
     });
+    itemsRequest = request;
+  }
+
+  const escapeHtml = (value) =>
+    String(value ?? "").replace(
+      /[&<>"']/g,
+      (char) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char],
+    );
+
+  function canonicalPrice(value) {
+    let normalized = String(value ?? "")
+      .trim()
+      .replace(/\s/g, "");
+    if (!normalized) return "";
+
+    if (normalized.includes(",")) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else if ((normalized.match(/\./g) || []).length > 1) {
+      normalized = normalized.replace(/\./g, "");
+    }
+
+    if (!/^-?\d+(?:\.\d{0,2})?$/.test(normalized)) return "";
+    const number = Number(normalized);
+    return Number.isFinite(number) ? String(number) : "";
+  }
+
+  function displayPrice(value) {
+    const canonical = canonicalPrice(value);
+    if (!canonical) return "";
+    const [integer, decimal] = canonical.split(".");
+    const sign = integer.startsWith("-") ? "-" : "";
+    const digits = sign ? integer.slice(1) : integer;
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    return `${sign}${grouped}${decimal ? `,${decimal}` : ""}`;
+  }
+
+  function normalizeTax(value) {
+    const raw = String(value ?? "0")
+      .replace("%", "")
+      .trim()
+      .replace(",", ".");
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? String(numeric) : raw.toLowerCase();
+  }
+
+  function displayTax(value) {
+    const raw = String(value ?? "0").trim();
+    return raw.endsWith("%") ? raw : `${raw}%`;
+  }
+
+  function populateFilters(data) {
+    const taxes = [
+      ...new Map(
+        data.map((item) => {
+          const value = String(item.tax ?? "0");
+          return [normalizeTax(value), value];
+        }),
+      ).values(),
+    ].sort((a, b) => {
+      const na = Number(normalizeTax(a));
+      const nb = Number(normalizeTax(b));
+      return Number.isFinite(na) && Number.isFinite(nb)
+        ? na - nb
+        : a.localeCompare(b, "pt");
+    });
+
+    $("#filterTax").html(
+      '<option value="">Todas as taxas</option>' +
+        taxes
+          .map(
+            (tax) =>
+              `<option value="${escapeHtml(normalizeTax(tax))}">${escapeHtml(displayTax(tax))}</option>`,
+          )
+          .join(""),
+    );
+
+    $("#filterItemType").html(
+      '<option value="">Produtos e serviços</option>' +
+        '<option value="product">Produto</option>' +
+        '<option value="service">Serviço</option>',
+    );
+
+    const categories = [
+      ...new Set(data.map((item) => String(item.category ?? "").trim())),
+    ].sort((a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }));
+    $("#filterCategory").html(
+      '<option value="">Todas as categorias</option>' +
+        categories
+          .map((category) => {
+            const value = category || "__uncategorized__";
+            const label = category || "Sem categoria";
+            return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+          })
+          .join(""),
+    );
+  }
+
+  function clearSelection() {
+    selectedIds.clear();
+    refreshSelectionUI();
   }
 
   // ==================================================
@@ -36,9 +179,11 @@ $(document).ready(function () {
   // ==================================================
   function applyFilterAndSort() {
     const term = ($("#searchInput").val() || "").toLowerCase().trim();
+    const taxFilter = $("#filterTax").val();
+    const typeFilter = $("#filterItemType").val();
+    const categoryFilter = $("#filterCategory").val();
 
     filteredItems = items.filter((row) => {
-      if (!term) return true;
       const haystack = [
         row.code,
         row.name,
@@ -48,10 +193,23 @@ $(document).ready(function () {
       ]
         .join(" ")
         .toLowerCase();
-      return haystack.indexOf(term) > -1;
+      if (term && !haystack.includes(term)) return false;
+      if (taxFilter && normalizeTax(row.tax) !== taxFilter) return false;
+      if (
+        typeFilter &&
+        String(row.item_type || "").toLowerCase() !== typeFilter
+      )
+        return false;
+      if (categoryFilter) {
+        const rowCategory =
+          String(row.category ?? "").trim() || "__uncategorized__";
+        if (rowCategory !== categoryFilter) return false;
+      }
+      return true;
     });
 
-    if (sortKey) {
+    const order = $("#filterOrder").val() || "newest";
+    if (sortKey && order === "column") {
       filteredItems.sort((a, b) => {
         let va = a[sortKey] ?? "";
         let vb = b[sortKey] ?? "";
@@ -71,6 +229,20 @@ $(document).ready(function () {
         if (va > vb) return sortDir === "asc" ? 1 : -1;
         return 0;
       });
+    } else {
+      filteredItems.sort((a, b) => {
+        if (order === "name_asc" || order === "name_desc") {
+          const comparison = String(a.name ?? "").localeCompare(
+            String(b.name ?? ""),
+            "pt",
+            { sensitivity: "base" },
+          );
+          return order === "name_asc" ? comparison : -comparison;
+        }
+
+        const comparison = (Number(a.id) || 0) - (Number(b.id) || 0);
+        return order === "oldest" ? comparison : -comparison;
+      });
     }
   }
 
@@ -84,17 +256,43 @@ $(document).ready(function () {
     const $tbody = $table.find("tbody");
     $tbody.empty();
 
-    if (!filteredItems.length) {
-      $tbody.append(`
+    if (loadState === "loading") {
+      $tbody.html(
+        '<tr><td colspan="8" class="items-empty" aria-live="polite"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>A carregar produtos...</td></tr>',
+      );
+      $("#tableInfo").text("A carregar...");
+      renderPagination(0);
+      $("#selectAll").prop({ checked: false, indeterminate: false });
+      return;
+    }
+
+    if (loadState === "error") {
+      $tbody.html(`
         <tr>
-          <td colspan="9" class="text-center text-muted py-4">
-            Nenhum produto ou serviço encontrado
+          <td colspan="8" class="items-empty" role="alert">
+            <div>Não foi possível carregar os produtos.</div>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="retryItems">Tentar novamente</button>
           </td>
         </tr>
       `);
+      $("#tableInfo").text("Erro ao carregar");
+      renderPagination(0);
+      $("#selectAll").prop({ checked: false, indeterminate: false });
+      return;
+    }
+
+    if (!filteredItems.length) {
+      const hasSearch = Boolean(($("#searchInput").val() || "").trim());
+      const emptyContent = hasSearch
+        ? `Nenhum produto corresponde à sua pesquisa.<br><button type="button" class="btn btn-sm btn-link" id="clearItemsSearch">Limpar pesquisa</button>`
+        : `Nenhum produto ou serviço encontrado.<br><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#itemModal"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Novo Produto</button>`;
+      $tbody.html(
+        `<tr><td colspan="8" class="items-empty">${emptyContent}</td></tr>`,
+      );
       $("#tableInfo").text("Sem dados");
       renderPagination(0);
       updateSortIcons();
+      refreshSelectionUI();
       return;
     }
 
@@ -110,63 +308,53 @@ $(document).ready(function () {
 
     pageData.forEach((row) => {
       const rowData = encodeURIComponent(JSON.stringify(row));
-      const description = row.name || row.description || "-";
-      const price = row.unit_price || row.cost_price;
+      const name = row.name || row.description || "-";
+      const description = row.description || "-";
+      const price = row.unit_price ?? row.cost_price ?? 0;
       const tax = row.tax || 0;
+      const itemType = row.item_type === "service" ? "Serviço" : "Produto";
+      const isSelected = selectedIds.has(String(row.id));
+      const itemIcon = row.item_type === "service" ? "bi-tag" : "bi-box-seam";
 
       rowsHtml += `
-        <tr data-id="${row.id}">
-
-          <td data-label="">
-            <input type="checkbox" class="item-checkbox" value="${row.id}">
+        <tr data-id="${escapeHtml(row.id)}" class="${isSelected ? "is-selected" : ""}">
+          <td data-label="Selecionar" class="item-select-cell">
+            <input type="checkbox" class="item-checkbox form-check-input" value="${escapeHtml(row.id)}"
+              aria-label="Selecionar ${itemType.toLowerCase()} ${escapeHtml(name)}" ${isSelected ? "checked" : ""}>
           </td>
-
-          <td data-label="">
-            <i class="${
-              row.item_type === "service"
-                ? "bi bi-tag fw-bold fs-5"
-                : "bi bi-box-seam fw-bold fs-5"
-            }"></i>
+          <td data-label="Tipo" class="item-icon-cell">
+            <i class="bi ${itemIcon} me-1 text-secondary" aria-hidden="true"></i>
           </td>
-
-          <td data-label="Código">${row.code || "-"}</td>
-
-          <td data-label="Nome" class="text-truncate-custom" title="${description}">
-            ${description}
+          <td data-label="Nome" class="item-name" title="${escapeHtml(name)}">
+            ${escapeHtml(name)}
+            <small>${itemType}${row.code ? ` · ${escapeHtml(row.code)}` : ""}</small>
           </td>
-
-          <td data-label="Descrição" class="text-truncate-custom" title="${row.description || ""}">
-            ${row.description || "-"}
+          <td data-label="Descrição" class="item-description" title="${escapeHtml(description)}">
+            ${escapeHtml(description)}
           </td>
-
-          <td data-label="Preço Unitário" class="text-success fw-bold">
+          <td data-label="Preço Unitário" class="item-price">
             ${formatCurrency(price)}
           </td>
-
-          <td data-label="Taxa/IVA">${tax}%</td>
-
-          <td data-label="PVP" class="text-primary fw-bold">
+          <td data-label="Taxa/IVA" class="item-tax">${escapeHtml(tax)}%</td>
+          <td data-label="PVP" class="item-pvp">
             ${formatCurrency(row.pvp ?? 0)}
           </td>
-
-          <td data-label="Ações">
-            <div class="d-flex justify-content-center gap-2">
-              <button class="btn btn-sm text-dark edit-btn"
+          <td data-label="Ações" class="item-actions">
+            <div class="d-inline-flex align-items-center gap-1">
+              <button type="button" class="items-icon-btn edit-btn"
                 data-row="${rowData}"
                 data-bs-toggle="tooltip"
-                title="Editar">
-                <i class="bi bi-pencil fs-6"></i>
+                title="Editar produto" aria-label="Editar produto ${escapeHtml(name)}">
+                <i class="bi bi-pencil" aria-hidden="true"></i>
               </button>
-
-              <button class="btn btn-sm text-danger delete-btn"
-                data-id="${row.id}"
+              <button type="button" class="items-icon-btn delete-btn"
+                data-id="${escapeHtml(row.id)}"
                 data-bs-toggle="tooltip"
-                title="Excluir">
-                <i class="bi bi-trash fs-6"></i>
+                title="Eliminar produto" aria-label="Eliminar produto ${escapeHtml(name)}">
+                <i class="bi bi-trash" aria-hidden="true"></i>
               </button>
             </div>
           </td>
-
         </tr>
       `;
     });
@@ -177,8 +365,10 @@ $(document).ready(function () {
     renderPagination(totalPages);
     updateSortIcons();
 
-    $('[data-bs-toggle="tooltip"]').tooltip("dispose");
-    $('[data-bs-toggle="tooltip"]').tooltip();
+    $page.find('[data-bs-toggle="tooltip"]').each(function () {
+      bootstrap.Tooltip.getOrCreateInstance(this);
+    });
+    refreshSelectionUI();
   }
 
   // ==================================================
@@ -212,7 +402,7 @@ $(document).ready(function () {
     addItem("»", currentPage + 1, currentPage === totalPages);
   }
 
-  $(document).on("click", "#tablePagination .page-link", function (e) {
+  $page.on("click.itemsPage", "#tablePagination .page-link", function (e) {
     e.preventDefault();
     const page = parseInt($(this).data("page"), 10);
     const $li = $(this).closest("li");
@@ -224,7 +414,7 @@ $(document).ready(function () {
   // ==================================================
   // TAMANHO DA PÁGINA
   // ==================================================
-  $(document).on("change", "#pageSizeSelect", function () {
+  $page.on("change.itemsPage", "#pageSizeSelect", function () {
     pageSize = parseInt($(this).val(), 10) || 25;
     currentPage = 1;
     renderTable();
@@ -233,7 +423,7 @@ $(document).ready(function () {
   // ==================================================
   // ORDENAÇÃO POR COLUNA (clique no cabeçalho)
   // ==================================================
-  $(document).on("click", "#itemsTable thead th[data-key]", function () {
+  $page.on("click.itemsPage", "#itemsTable thead th[data-key]", function () {
     const key = $(this).data("key");
 
     if (sortKey === key) {
@@ -243,6 +433,7 @@ $(document).ready(function () {
       sortDir = "asc";
     }
 
+    $("#filterOrder").val("column");
     currentPage = 1;
     renderTable();
   });
@@ -269,7 +460,42 @@ $(document).ready(function () {
   // ==================================================
   // PESQUISA
   // ==================================================
-  $("#searchInput").on("keyup", function () {
+  $page.on("input.itemsPage", "#searchInput", function () {
+    clearSelection();
+    currentPage = 1;
+    renderTable();
+  });
+
+  $page.on(
+    "change.itemsPage",
+    "#filterTax, #filterItemType, #filterCategory",
+    function () {
+      clearSelection();
+      currentPage = 1;
+      renderTable();
+    },
+  );
+
+  $page.on("change.itemsPage", "#filterOrder", function () {
+    const order = this.value;
+    if (order === "name_asc" || order === "name_desc") {
+      sortKey = "name";
+      sortDir = order === "name_asc" ? "asc" : "desc";
+    } else if (order === "newest" || order === "oldest") {
+      sortKey = null;
+      sortDir = order === "newest" ? "desc" : "asc";
+    }
+    currentPage = 1;
+    renderTable();
+  });
+
+  $page.on("click.itemsPage", "#clearItemsFilters", function () {
+    $("#searchInput").val("");
+    $("#filterTax, #filterItemType, #filterCategory").val("");
+    $("#filterOrder").val("newest");
+    sortKey = null;
+    sortDir = "desc";
+    clearSelection();
     currentPage = 1;
     renderTable();
   });
@@ -278,10 +504,14 @@ $(document).ready(function () {
   // FORMATA MOEDA
   // ========================================
   function formatCurrency(value) {
-    return new Intl.NumberFormat("pt-PT", {
-      style: "currency",
-      currency: "AOA",
-    }).format(Number(value || 0));
+    const formatted = new Intl.NumberFormat("pt-PT", {
+      useGrouping: false,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value) || 0);
+    const [integer, decimals] = formatted.split(",");
+    const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+    return `${groupedInteger},${decimals}\u00a0AOA`;
   }
 
   // ========================================
@@ -392,17 +622,46 @@ $(document).ready(function () {
   // ========================================
   // EVENTOS
   // ========================================
-  document
-    .getElementById("downloadCSV")
-    .addEventListener("click", () => exportCSV(items));
-  document
-    .getElementById("downloadExcel")
-    .addEventListener("click", () => exportExcel(items));
-  document
-    .getElementById("downloadPDF")
-    .addEventListener("click", () => exportPDF(items));
+  function closeExportMenu() {
+    $("#itemsExportMenu").prop("hidden", true);
+    $("#itemsExportToggle").attr("aria-expanded", "false");
+  }
 
-  $("#itemsTable").on("click", ".delete-btn", function () {
+  $page.on("click.itemsPage", "#itemsExportToggle", function () {
+    const menu = $("#itemsExportMenu");
+    const opening = menu.prop("hidden");
+    menu.prop("hidden", !opening);
+    $(this).attr("aria-expanded", String(opening));
+  });
+
+  $page.on("click.itemsPage", "#downloadCSV", function () {
+    closeExportMenu();
+    exportCSV(items);
+  });
+  $page.on("click.itemsPage", "#downloadExcel", function () {
+    closeExportMenu();
+    exportExcel(items);
+  });
+  $page.on("click.itemsPage", "#downloadPDF", function () {
+    closeExportMenu();
+    exportPDF(items);
+  });
+  $page.on("click.itemsPage", function (event) {
+    if (!$(event.target).closest(".items-export").length) closeExportMenu();
+  });
+  $page.on("keydown.itemsPage", function (event) {
+    if (event.key === "Escape") closeExportMenu();
+  });
+
+  $page.on("click.itemsPage", "#retryItems", loadItems);
+  $page.on("click.itemsPage", "#clearItemsSearch", function () {
+    $("#searchInput").val("");
+    currentPage = 1;
+    renderTable();
+    $("#searchInput").trigger("focus");
+  });
+
+  $page.on("click.itemsPage", "#itemsTable .delete-btn", function () {
     const itemId = $(this).data("id");
     const $row = $(this).closest("tr");
     deleteWithUndo(itemId, $row);
@@ -456,6 +715,7 @@ $(document).ready(function () {
         .done(function (res) {
           if (res.success) {
             items = items.filter((it) => String(it.id) !== String(itemId));
+            selectedIds.delete(String(itemId));
 
             Swal.fire({
               icon: "success",
@@ -486,24 +746,53 @@ $(document).ready(function () {
   }
 
   // selecionar todos (apenas os visíveis na página atual)
-  $("#selectAll").on("change", function () {
-    $(".item-checkbox").prop("checked", $(this).is(":checked"));
+  $page.on("change.itemsPage", "#selectAll", function () {
+    const select = this.checked;
+    $("#tableBody .item-checkbox").each(function () {
+      const id = String(this.value);
+      this.checked = select;
+      if (select) selectedIds.add(id);
+      else selectedIds.delete(id);
+      $(this).closest("tr").toggleClass("is-selected", select);
+    });
+    refreshSelectionUI();
   });
 
-  $("#deleteSelected").on("click", function () {
-    const selected = $(".item-checkbox:checked")
-      .map(function () {
-        return String($(this).val());
-      })
-      .get();
+  function refreshSelectionUI() {
+    const selectedCount = selectedIds.size;
+    $("#itemsSelectionBar").prop("hidden", selectedCount === 0);
+    $("#itemsSelectionCount").text(
+      `${selectedCount} ${selectedCount === 1 ? "selecionado" : "selecionados"}`,
+    );
+
+    const visible = $("#tableBody .item-checkbox");
+    const checkedCount = visible.filter(":checked").length;
+    $("#selectAll")
+      .prop("checked", visible.length > 0 && checkedCount === visible.length)
+      .prop("indeterminate", checkedCount > 0 && checkedCount < visible.length);
+  }
+
+  $page.on("change.itemsPage", "#tableBody .item-checkbox", function () {
+    const id = String(this.value);
+    if (this.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+    $(this).closest("tr").toggleClass("is-selected", this.checked);
+    refreshSelectionUI();
+  });
+
+  $page.on("click.itemsPage", "#deleteSelected", function () {
+    const selected = [...selectedIds];
 
     if (selected.length === 0) {
       return Swal.fire("Atenção", "Selecione pelo menos um item.", "warning");
     }
 
     Swal.fire({
-      title: `Eliminar ${selected.length} item(s)?`,
-      text: "Esta ação não pode ser desfeita!",
+      title: selected.length === 1 ? "Eliminar produto?" : "Eliminar produtos?",
+      text:
+        selected.length === 1
+          ? `Tem certeza que deseja eliminar "${items.find((item) => String(item.id) === selected[0])?.name || "este produto"}"?`
+          : `Tem certeza que deseja eliminar ${selected.length} produtos?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -526,14 +815,20 @@ $(document).ready(function () {
       })
         .done(function (res) {
           if (res.success) {
-            items = items.filter((it) => !selected.includes(String(it.id)));
+            const deletedIds = (
+              Array.isArray(res.deleted) ? res.deleted : []
+            ).map(String);
+            items = items.filter((it) => !deletedIds.includes(String(it.id)));
+            deletedIds.forEach((id) => selectedIds.delete(id));
             renderTable();
 
             Swal.fire({
               toast: true,
               position: "top-end",
               icon: "success",
-              title: res.message || `${selected.length} item(s) eliminados`,
+              title: res.blocked?.length
+                ? `${deletedIds.length} eliminados; ${res.blocked.length} não puderam ser removidos.`
+                : res.message || `${deletedIds.length} item(s) eliminados`,
               showConfirmButton: false,
               timer: 2500,
             });
@@ -541,7 +836,10 @@ $(document).ready(function () {
             Swal.fire({
               icon: "warning",
               title: "Atenção",
-              text: res.error || "Não foi possível eliminar os itens.",
+              text:
+                res.error ||
+                res.message ||
+                "Não foi possível eliminar os itens.",
             });
           }
         })
@@ -557,7 +855,7 @@ $(document).ready(function () {
     });
   });
 
-  $("#itemsTable").on("click", ".edit-btn", function () {
+  $page.on("click.itemsPage", "#itemsTable .edit-btn", function () {
     const rawData = $(this).data("row");
     if (!rawData) {
       console.error("Dados não encontrados para edição.");
@@ -597,7 +895,10 @@ $(document).ready(function () {
     form.quantidade.value = row.quantity ?? 0;
     form.min_stock.value = row.min_quantity ?? 1;
 
-    form.unit_price.value = row.unit_price ?? 0;
+    form.querySelector("[data-price-value]").value = row.unit_price ?? 0;
+    form.querySelector("[data-price-display]").value = displayPrice(
+      row.unit_price ?? 0,
+    );
     form.cost_price.value = row.cost_price ?? 0;
     form.sale_price.value = row.sale_price ?? 0;
     form.pvp.value = row.pvp ?? 0;
@@ -627,6 +928,8 @@ $(document).ready(function () {
     if (!form) return;
 
     form.reset();
+    const priceDisplay = form.querySelector("[data-price-display]");
+    if (priceDisplay) priceDisplay.value = "";
 
     const idField = form.querySelector("[name='product_id']");
     if (idField) idField.remove();
@@ -653,7 +956,7 @@ $(document).ready(function () {
     resetItemForm();
   });
 
-  $("#saveEdit").on("click", function () {
+  $page.on("click.itemsPage", "#saveEdit", function () {
     const form = $("#editItemForm");
     let formData = form.serialize();
 
@@ -686,12 +989,5 @@ $(document).ready(function () {
         Swal.fire("Erro!", "Erro na requisição!", "error");
       },
     });
-  });
-
-  $(document).on("change", ".item-checkbox", function () {
-    const selectedItems = $(".item-checkbox:checked");
-    $("#deleteSelected").html(`
-      <i class="bi bi-trash"></i> Eliminar ${selectedItems.length > 0 ? selectedItems.length + " item(s)" : ""}
-    `);
   });
 });

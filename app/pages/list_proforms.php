@@ -303,9 +303,8 @@ require_once '../app/views/layout_creation.php';
 
     <main>
         <div class="container mt-5">
-            <h2 class="mb-4"><?= t('Minhas Proformas') ?></h2>
-
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="bx-list-header">
+                <h2><?= t('Minhas Proformas') ?></h2>
                 <div class="custom-dropdown" id="exportMenu">
                     <button type="button" class="custom-dropdown-btn" id="exportMenuBtn">
                         Exportar
@@ -327,7 +326,7 @@ require_once '../app/views/layout_creation.php';
             </div>
 
             <!-- FILTROS -->
-            <div class="card border-0 mb-4" style="background: none !important;">
+            <div class="card bx-list-filter-panel">
                 <div class="card-body">
                     <div class="row g-3 align-items-end">
 

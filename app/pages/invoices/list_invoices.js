@@ -234,23 +234,29 @@ $(document).ready(function () {
       dateField: "issue_date",
       headerHtml: `
         <tr>
-          <th class="bx-th-check"><input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os documentos desta página"></th>
+          <th class="bx-th-check">
+            <div class="bx-status-check">
+              <input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os documentos desta página">
+              <span>Status</span>
+            </div>
+          </th>
           <th data-key="id">Documento ${SORT}</th>
           <th data-key="cliente">Cliente ${SORT}</th>
-          <th>Status</th>
           <th data-key="issue_date">Emissão ${SORT}</th>
           <th data-key="due_date">Vencimento ${SORT}</th>
+          <th>Moeda</th>
           <th data-key="final_total" class="bx-num">Total ${SORT}</th>
           <th class="text-end">Ações</th>
         </tr>
       `,
       renderRow: renderInvoiceRow,
       exportColumns: [
-        ["Documento", (r) => r.codigo],
+        ["Documento", (r) => `${r.document_type || "Fatura"} ${r.codigo || "-"}`],
         ["Cliente", (r) => r.cliente],
         ["Status", (r) => invoiceStatus(r).label],
         ["Emissão", (r) => fmtDate(r.issue_date)],
         ["Vencimento", (r) => fmtDate(r.due_date)],
+        ["Moeda", (r) => r.currency],
         [
           "Total",
           (r) => bxMoney(r.final_total, r.symbol, r.position),
@@ -757,6 +763,7 @@ $(document).ready(function () {
 
     // cabeçalho da tabela
     $("#invoicesTableHead").html(config.headerHtml);
+    $("#bxDocumentTitle").text(config.title);
 
     // label do campo "cliente/referência"
     $("#filterClientLabel").text(config.clientLabel);
@@ -845,7 +852,7 @@ $(document).ready(function () {
 
   // ==================================================
   // RENDER DE LINHA POR TIPO DE DOCUMENTO
-  // (cada <td> leva data-label: no mobile a tabela vira cartões só com CSS)
+  // (a tabela mantém as colunas e usa deslocamento horizontal em ecrãs pequenos)
   // ==================================================
   function renderInvoiceRow(row) {
     const st = invoiceStatus(row);
@@ -876,14 +883,20 @@ $(document).ready(function () {
     return `
       <tr class="invoice-row${checked ? " is-selected" : ""}" data-id="${esc(row.id)}">
         <td class="bx-td-check">
-          <input type="checkbox" class="invoice-check form-check-input" data-id="${esc(row.id)}"
-            value="${esc(row.id)}" aria-label="Selecionar factura ${esc(code)}" ${checked ? "checked" : ""}>
+          <div class="bx-status-check">
+            <input type="checkbox" class="invoice-check form-check-input" data-id="${esc(row.id)}"
+              value="${esc(row.id)}" aria-label="Selecionar factura ${esc(code)}" ${checked ? "checked" : ""}>
+            <span class="icon-statusFatura p-2 py-1"
+              style="background:${esc(row.color || "#000")}; color:${esc(row.text_color || "#fff")};"
+              data-bs-toggle="tooltip" data-bs-title="${esc(st.label)}"
+              aria-label="Estado: ${esc(st.label)}">${esc(st.label.charAt(0).toUpperCase())}</span>
+          </div>
         </td>
-        <td class="bx-td-doc">${docCell("invoices", "Fatura", code)}</td>
+        <td class="bx-td-doc">${docCell("invoices", row.document_type || "Fatura", code)}</td>
         <td class="bx-td-client">${esc(row.cliente || "-")}</td>
-        <td data-label="Status"><span class="bx-badge bx-badge--${st.key}">${esc(st.label)}</span></td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
         <td data-label="Vencimento">${dueHtml}</td>
+        <td data-label="Moeda">${esc(row.currency || "-")}</td>
         <td class="bx-num bx-money bx-td-total" data-label="Total">${bxMoney(row.final_total, row.symbol || "", row.position || "right")}</td>
         <td class="bx-td-actions">${actions}</td>
       </tr>
@@ -1130,9 +1143,11 @@ $(document).ready(function () {
     renderTable();
   }
   $("#btnApplyFilters").on("click", applyFilters);
+  $("#filterClient").on("input", applyFilters);
   $("#filterClient").on("keydown", function (e) {
     if (e.key === "Enter") applyFilters();
   });
+  $("#filterStatus, #filterStartDate, #filterEndDate").on("change", applyFilters);
 
   $("#btnClearFilters").on("click", function () {
     $("#filterClient").val("");

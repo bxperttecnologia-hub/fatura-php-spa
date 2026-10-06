@@ -824,6 +824,28 @@ try {
 
     $evolucaoAnterior = $stmtEvolucaoAnterior->fetchAll(PDO::FETCH_ASSOC);
 
+    // Evolução diária para o mês seleccionado no gráfico.
+    $dailyStart = sprintf('%04d-01-01', $previousYear);
+    $dailySql = "
+        SELECT
+            DATE_FORMAT(i.issue_date, '%Y-%m-%d') AS dia,
+            ROUND(SUM(i.final_total), 2) AS total
+        FROM invoices i
+        WHERE i.company_id = :company_id
+          AND i.status NOT IN (1, 2)
+          AND i.issue_date >= :start
+          AND i.issue_date < DATE_ADD(:end, INTERVAL 1 DAY)
+        GROUP BY DATE(i.issue_date)
+        ORDER BY dia ASC
+    ";
+    $stmtDaily = $pdo->prepare($dailySql);
+    $stmtDaily->execute([
+        'company_id' => $company_id,
+        'start' => $dailyStart,
+        'end' => $today
+    ]);
+    $evolucaoDiaria = $stmtDaily->fetchAll(PDO::FETCH_ASSOC);
+
     // =========================================================
     // ANOS DA FACTURAÇÃO
     // =========================================================
@@ -968,6 +990,7 @@ try {
 
             'evolucao' => $evolucao,
             'evolucao_anterior' => $evolucaoAnterior,
+            'evolucao_diaria' => $evolucaoDiaria,
             'yearsInvoices' => $yearsInvoices,
 
             // CORRIGIDO: sparklines dos 4 cards, consistentes

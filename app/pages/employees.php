@@ -147,6 +147,22 @@ require_once '../app/views/layout_creation.php';
         color: #9ca3af;
     }
 
+    .employees-filter-controls {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .employees-filter-controls .employees-search {
+        flex: 1 1 300px;
+        max-width: 640px;
+    }
+
+    .employees-filter-controls .form-select {
+        min-height: 38px;
+    }
+
     /* ===== MODAL — inspirado no Arion: coluna de foto + navegação vertical,
        conteúdo do lado direito em abas ===== */
     #modalEmployee .modal-dialog {
@@ -272,12 +288,18 @@ require_once '../app/views/layout_creation.php';
 <main class="main-content">
 <div class="container-fluid mt-5">
 
-    <div class="employees-toolbar">
+    <div class="employees-toolbar bx-list-header">
         <div>
             <h2 class="mb-0 fw-bold">Funcionários</h2>
             <p class="text-muted mb-0">Gestão de funcionários da empresa</p>
         </div>
-        <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-primary rounded-pill px-4" id="btnNewEmployee">
+            <i class="bi bi-plus-lg"></i> Novo Funcionário
+        </button>
+    </div>
+
+    <div class="bx-list-filter-panel">
+        <div class="employees-filter-controls">
             <div class="employees-search">
                 <i class="bi bi-search"></i>
                 <input type="text" id="inputSearchEmployee" class="form-control" placeholder="Pesquisar funcionário...">
@@ -290,9 +312,6 @@ require_once '../app/views/layout_creation.php';
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
             </select>
-            <button class="btn btn-primary rounded-pill px-4" id="btnNewEmployee">
-                <i class="bi bi-plus-lg"></i> Novo Funcionário
-            </button>
         </div>
     </div>
 

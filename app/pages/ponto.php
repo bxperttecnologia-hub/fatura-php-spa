@@ -137,7 +137,7 @@ require_once '../app/views/layout_creation.php';
         <div class="row">
             <div class="col-12">
                 <div class="mt-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center bx-list-header">
                         <h2 class="mb-0 fw-bold">Registro de Ponto e Faltas</h2>
                         <button class="btn btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#modalPonto">
                             <i class="bi bi-person-plus"></i>
@@ -145,14 +145,16 @@ require_once '../app/views/layout_creation.php';
                         </button>
                     </div>
                     <div class="card-body mt-4">
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label>Mês</label>
-                                <input type="month" id="filtroMes" class="form-control">
-                            </div>
-                            <div class="col-md-4">
-                                <label>Funcionário</label>
-                                <select id="filtroFuncionario" class="form-control"></select>
+                        <div class="bx-list-filter-panel">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label>Mês</label>
+                                    <input type="month" id="filtroMes" class="form-control">
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Funcionário</label>
+                                    <select id="filtroFuncionario" class="form-control"></select>
+                                </div>
                             </div>
                         </div>
                         <div class="table-responsive">

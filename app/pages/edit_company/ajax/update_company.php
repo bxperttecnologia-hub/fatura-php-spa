@@ -163,7 +163,7 @@ try {
 
         $fileName = uniqid('logo_', true) . '.' . $ext;
 
-        $uploadDir = __DIR__ . '/../../assets/img/companies';
+        $uploadDir = __DIR__ . '/../../../../public/assets/img/companies';
 
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0775, true);

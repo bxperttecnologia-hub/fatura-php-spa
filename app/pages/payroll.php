@@ -135,7 +135,7 @@ require_once '../app/views/layout_creation.php';
 
 <main class="main-content">
     <div class="container-fluid mt-5">
-        <div class="mb-3 d-flex align-items-center">
+        <div class="mb-3 d-flex align-items-center bx-list-filter-panel">
             <input type="month" id="inputMesReferencia" class="form-control w-auto me-2" />
             <button class="btn btn-sm d-flex gap-1 btn-outline-danger rounded-pill" id="btnExportarPDF">
                 <i class="material-icons-round">picture_as_pdf</i> Exportar PDF Geral
@@ -144,7 +144,7 @@ require_once '../app/views/layout_creation.php';
         <div class="row">
             <div class="col-12">
                 <div class="">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center bx-list-header">
                         <h5 class="mb-0">Folha de Pagamento</h5>
                         <div class="d-flex gap-2 mb-3">
                             <button class="btn btn-sm rounded-pill d-flex gap-1 align-items-center btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalPayroll">
