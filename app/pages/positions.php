@@ -120,7 +120,7 @@ require_once '../app/views/layout_creation.php';
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table id="positionsTable" class="table w-100">
+                            <table id="positionsTable" class="table w-100 bx-list-table">
                                 <thead>
                                     <tr>
                                         <th>Nome do Cargo</th>
@@ -216,7 +216,7 @@ require_once '../app/views/layout_creation.php';
         const table = $('#positionsTable').DataTable({
             ajax: 'rh/ajax/list_positions.php',
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json'
+                url: '/assets/translations/datatables-pt.json'
             },
             columns: [{
                     data: 'name'

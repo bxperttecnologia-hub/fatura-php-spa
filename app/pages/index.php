@@ -397,10 +397,10 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                     <div class="col-12">
                         <div class="d-flex justify-content-between col-12 col-sm-12">
                             <div class="tags">
-                                <a href="#" data-tag="sell" class="tag-link active btn">Vendas</a>
+                                <button type="button" data-tag="sell" class="tag-link active btn">Vendas</button>
                                 <!-- Stock permanece oculto para todos os planos (módulo ainda não lançado) -->
-                                <a href="#" data-tag="stock" class="tag-link btn d-none">Stock</a>
-                                <a href="#" data-tag="rh" class="tag-link btn<?= $dashboardCanRH ? '' : ' d-none' ?>">Recursos Humanos</a>
+                                <button type="button" data-tag="stock" class="tag-link btn d-none">Stock</button>
+                                <button type="button" data-tag="rh" class="tag-link btn<?= $dashboardCanRH ? '' : ' d-none' ?>">Recursos Humanos</button>
                             </div>
                             <div class="mb-3">
                                 <div style="width: 180px !important; margin-right: -80px;" name="export" id="exportData">
@@ -647,7 +647,7 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                                     <div class="row g-3">
                                                         <div class="col-md-4 col-6">
                                                             <div class="p-3 border rounded-3 h-100">
-                                                                <div class="small-text text-muted">Faturado Hoje</div>
+                                                                <div class="small-text text-muted">Vendas de Hoje</div>
                                                                 <h5 class="mb-0 fw-semibold fs-6 text-break" id="daily_sales">0</h5>
                                                             </div>
                                                         </div>
@@ -1011,8 +1011,6 @@ require_once '../app/views/footer.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="../vendor/fontawesome-free-5.15.4-web/js/all.js"></script>
-<script src="./assets/js/script.js"></script>
 
 <script>
     /* =============================
@@ -1129,7 +1127,8 @@ require_once '../app/views/footer.php';
     const tagsContent = document.querySelectorAll(".tag-content");
 
     tagsLink.forEach(t => {
-        t.addEventListener("click", () => {
+        t.addEventListener("click", event => {
+            event.preventDefault();
             tagsLink.forEach(x => x.classList.remove("active"));
             t.classList.add("active");
 
@@ -1182,7 +1181,7 @@ require_once '../app/views/footer.php';
                 let html = '';
 
                 if (invoices.length === 0) {
-                    html = `<div class="p-3 text-center text-muted small">Sem faturas neste período</div>`;
+                    html = `<div class="p-3 text-center text-muted small">Sem facturas neste período</div>`;
                 }
 
                 invoices.forEach(inv => {
@@ -1425,8 +1424,8 @@ require_once '../app/views/footer.php';
             const n = Number(kpis.a_receber_documentos) || 0;
             $("#a_receber_mensal_docs").text(
                 n === 0 ?
-                "Sem faturas por receber" :
-                `${n} fatura${n === 1 ? "" : "s"} por receber`
+                "Sem facturas por receber" :
+                `${n} factura${n === 1 ? "" : "s"} por receber`
             );
         }
 
@@ -1686,7 +1685,7 @@ require_once '../app/views/footer.php';
             data: {
                 labels,
                 datasets: [{
-                        label: `Receita ${selectedYear}`,
+                        label: `Vendas ${selectedYear}`,
                         data: valores,
                         backgroundColor: gradient,
                         borderRadius: 8,
@@ -1695,7 +1694,7 @@ require_once '../app/views/footer.php';
                         barThickness: 20
                     },
                     {
-                        label: `Receita ${selectedYear - 1}`,
+                        label: `Vendas ${selectedYear - 1}`,
                         data: valoresAnteriores,
                         backgroundColor: "#c3c2b7",
                         borderRadius: 8,
@@ -1768,7 +1767,7 @@ require_once '../app/views/footer.php';
         <div class="hover-row d-flex justify-content-between p-2 rounded">
             <div title="${nome}">
                 <strong>${nomeCurto}</strong><br>
-                <small class="text-muted">${c.total_faturas || 0} faturas</small>
+                <small class="text-muted">${c.total_faturas || 0} facturas</small>
             </div>
             <span class="text-black small">
                 ${formatCurrency(c.total_faturado)}

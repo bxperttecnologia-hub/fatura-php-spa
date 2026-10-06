@@ -1,11 +1,20 @@
+(() => {
 const currentYear = new Date().getFullYear();
 const pg_serie = document.getElementById("pg_serie");
 const get = new URLSearchParams(window.location.search).get("id");
 const invoiceId = get.substring(get.lastIndexOf("/") + 1);
 let document_type = "FT";
 
+function refreshCurrentInvoice() {
+  if (typeof window.navigateSPA === "function") {
+    window.navigateSPA(window.location.pathname + window.location.search, false);
+    return;
+  }
+  window.location.reload();
+}
+
 if (!invoiceId) {
-  alert("Fatura não encontrada!");
+  alert("Factura não encontrada!");
 }
 
 pg_serie.value = currentYear;
@@ -32,7 +41,7 @@ function loadFaturaWithRetry(invoiceId, maxRetries = 5) {
           $container
             .show()
             .html(
-              '<div style="color:#b12; font-weight:bold; padding: 15px;">Erro ao carregar a fatura. Tente novamente mais tarde.</div>',
+              '<div style="color:#b12; font-weight:bold; padding: 15px;">Erro ao carregar a factura. Tente novamente mais tarde.</div>',
             );
         }
       },
@@ -50,7 +59,7 @@ $(function () {
     .get("id")
     ?.split("/")
     .pop();
-  if (!invoiceId) return alert("Fatura não encontrada");
+  if (!invoiceId) return alert("Factura não encontrada");
 
   // ---------------- VAR GLOBAL ----------------
   let currentInvoice = null; // visível a todos abaixo
@@ -63,10 +72,14 @@ $(function () {
       const inv = response.data;
 
       if (!inv) {
-        throw new Error("Dados da fatura não encontrados.");
+        throw new Error("Dados da factura não encontrados.");
       }
 
       currentInvoice = inv; // guarda para modal
+      document_type = String(inv.document_type || "FT").toUpperCase();
+      $("#invoice-document-label").text(
+        document_type === "FR" ? "Factura-Recibo" : "Factura",
+      );
 
       // Esconde todos os botões antes
       $(
@@ -113,7 +126,7 @@ $(function () {
 
       Swal.fire({
         icon: "error",
-        title: "Erro ao carregar fatura",
+        title: "Erro ao carregar factura",
         text:
           xhr.responseJSON?.message || "Não foi possível carregar os dados.",
         timer: 2000,
@@ -126,7 +139,7 @@ $(function () {
     .on("click", function () {
       Swal.fire({
         title: "Tem a certeza?",
-        text: "Se a fatura estiver em rascunho será eliminada. Caso contrário será cancelada.",
+        text: "Se a factura estiver em rascunho será eliminada. Caso contrário será cancelada.",
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#d33",
@@ -224,7 +237,7 @@ $(function () {
           Swal.fire({
             icon: "warning",
             title: "Aviso",
-            text: res?.message || "Nenhum recibo encontrado para esta fatura.",
+            text: res?.message || "Nenhum recibo encontrado para esta factura.",
           });
           return;
         }
@@ -371,7 +384,7 @@ $(function () {
 
   // ---------- 4) abre modal Pagamento ----------
   $("#modalPagamento").on("show.bs.modal", function () {
-    if (!currentInvoice) return alert("Fatura ainda não carregada!");
+    if (!currentInvoice) return alert("Factura ainda não carregada!");
 
     console.log(currentInvoice);
 
@@ -430,7 +443,7 @@ $(function () {
           title: "Sucesso",
           text: "Pagamento registrado com sucesso!",
         }).then(() => {
-          location.reload();
+          refreshCurrentInvoice();
         });
       })
       .fail((xhr) => {
@@ -832,7 +845,12 @@ $(function () {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    const docTitle = document_type === "PF" ? "Proforma" : "Factura";
+    const docTitle =
+      document_type === "PF"
+        ? "Proforma"
+        : document_type === "FR"
+          ? "Factura-Recibo"
+          : "Factura";
     doc.text(`${docTitle} n.º ${reference || ""}`, MARGIN_LEFT, y);
     y += 20;
 
@@ -1442,7 +1460,12 @@ $(function () {
       })
       .join("");
 
-    const docLabel = inv.document_type === "PF" ? "Proforma" : "Factura";
+    const docLabel =
+      inv.document_type === "PF"
+        ? "Proforma"
+        : inv.document_type === "FR"
+          ? "Factura-Recibo"
+          : "Factura";
     const docNumber =
       inv.reference ||
       inv.codigo ||
@@ -1559,7 +1582,7 @@ $(function () {
     }
 
     function ppFilename() {
-      const base = String(currentInvoice?.reference || "fatura").replace(
+      const base = String(currentInvoice?.reference || "factura").replace(
         /[\\/:*?"<>|]+/g,
         "-",
       );
@@ -1575,7 +1598,7 @@ $(function () {
       const token = ++pp.token;
 
       if (!currentInvoice) {
-        ppSetState("error", "A fatura ainda está a carregar.");
+        ppSetState("error", "A factura ainda está a carregar.");
         return;
       }
 
@@ -1682,7 +1705,7 @@ $(function () {
         return Swal.fire({
           icon: "error",
           title: "Erro",
-          text: "Fatura ainda não carregada.",
+          text: "Factura ainda não carregada.",
         });
       }
 
@@ -1704,7 +1727,7 @@ $(function () {
       // Pergunta antes de emitir
       const result = await Swal.fire({
         title: "Emitir Nota de Crédito?",
-        text: "A Nota de Crédito será associada a esta fatura.",
+        text: "A Nota de Crédito será associada a esta factura.",
         input: "textarea",
         inputLabel: "Motivo (opcional)",
         inputPlaceholder: "Descreva o motivo da correção/anulação…",
@@ -1755,7 +1778,7 @@ $(function () {
         return Swal.fire({
           icon: "error",
           title: "Erro",
-          text: "Fatura ainda não carregada.",
+          text: "Factura ainda não carregada.",
         });
       }
 
@@ -1774,7 +1797,7 @@ $(function () {
 
         const choice = await Swal.fire({
           title: "Nota de Débito",
-          text: `Já existem ${existing.length} nota(s) de débito para esta fatura.`,
+          text: `Já existem ${existing.length} nota(s) de débito para esta factura.`,
           showDenyButton: true,
           showCancelButton: true,
           confirmButtonText: "Emitir nova",
@@ -1950,7 +1973,7 @@ $(function () {
         return Swal.fire({
           icon: "error",
           title: "Erro",
-          text: "Fatura ainda não carregada.",
+          text: "Factura ainda não carregada.",
         });
       }
 
@@ -1975,7 +1998,7 @@ $(function () {
 
         const choice = await Swal.fire({
           title: "Nota de Entrega",
-          text: `Já existem ${existing.length} nota(s) para esta fatura. Ainda há itens por entregar.`,
+          text: `Já existem ${existing.length} nota(s) para esta factura. Ainda há itens por entregar.`,
           showDenyButton: true,
           showCancelButton: true,
           confirmButtonText: "Emitir nova (itens em falta)",
@@ -2077,7 +2100,7 @@ $(function () {
   /* ---------- 2. abre a modal ---------- */
   $("#modalEnviarEmail").on("show.bs.modal", function () {
     if (!currentInvoice) {
-      return alert("Fatura ainda não carregada!");
+      return alert("Factura ainda não carregada!");
     }
 
     // Id oculto
@@ -2086,7 +2109,7 @@ $(function () {
     // Assunto default
     const codigo = `${currentInvoice.reference}`;
     $('input[name="subject"]').val(
-      `Fatura #${codigo} – ${currentInvoice.company_name}`,
+      `Factura #${codigo} – ${currentInvoice.company_name}`,
     );
 
     /* --- Corpo default (HTML) --- */
@@ -2107,7 +2130,7 @@ $(function () {
     const template = `
       <p>Prezado(a) <strong>${currentInvoice.client_name}</strong>,</p>
 
-      <p>Segue em anexo a <strong>fatura nº ${codigo}</strong>,
+      <p>Segue em anexo a <strong>factura nº ${codigo}</strong>,
       no valor de <strong>${currentInvoice.company_symbol} ${total}</strong>,
       emitida em ${issue} e com vencimento em ${dueDate}.</p>
 
@@ -2148,8 +2171,8 @@ $(function () {
   // ---------- 6) Finalizar Fatura (Rascunho -> Pendente) ----------
   $("#btnFinalizar").on("click", function () {
     Swal.fire({
-      title: "Finalizar Fatura?",
-      text: "A fatura deixará de ser rascunho e passará para Pendente.",
+      title: "Finalizar factura?",
+      text: "A factura deixará de ser rascunho e passará para Pendente.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
@@ -2168,9 +2191,9 @@ $(function () {
             if (res.success) {
               Swal.fire(
                 "Sucesso",
-                "Fatura finalizada com sucesso!",
+                "Factura finalizada com sucesso!",
                 "success",
-              ).then(() => location.reload());
+              ).then(refreshCurrentInvoice);
             } else {
               Swal.fire(
                 "Erro",
@@ -2187,7 +2210,9 @@ $(function () {
 
   // ---------- 7) Editar Fatura (Redirecionar) ----------
   $("#btnEditar").on("click", function () {
-    window.location.href = `create_${document_type === "PF" ? "proform" : "invoices"}.php?edit_id=${currentInvoice.id}`;
+    const editUrl = `/create_${document_type === "PF" ? "proform" : "invoices"}.php?edit_id=${currentInvoice.id}`;
+    if (typeof window.navigateSPA === "function") window.navigateSPA(editUrl);
+    else window.location.href = editUrl;
   });
 
   // ===========================================
@@ -2271,7 +2296,9 @@ $(function () {
 
           // redirecionar
           setTimeout(() => {
-            window.location.href = "invoice.php?id=" + data.new_invoice_id;
+            const invoiceUrl = `/invoice.php?id=${encodeURIComponent(data.new_invoice_id)}`;
+            if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
+            else window.location.href = invoiceUrl;
           }, 1500);
         },
 
@@ -2289,6 +2316,7 @@ $(function () {
               xhr.responseText ||
               "Erro ao clonar factura.",
           });
+
         },
 
         // ==========================================
@@ -2311,7 +2339,7 @@ $(document).ready(function () {
   const get = new URLSearchParams(window.location.search).get("id");
   const invoiceId = get.substring(get.lastIndexOf("/") + 1);
   if (!invoiceId) {
-    alert("Fatura não encontrada!");
+    alert("Factura não encontrada!");
     return;
   }
 
@@ -2327,7 +2355,7 @@ $(document).ready(function () {
       }
     },
     error: function () {
-      alert("Erro ao carregar os dados da fatura.");
+      alert("Erro ao carregar os dados da factura.");
     },
   });
 
@@ -2340,3 +2368,4 @@ $(document).ready(function () {
     return base64Image;
   }
 });
+})();

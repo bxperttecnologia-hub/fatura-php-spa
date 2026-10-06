@@ -6,7 +6,7 @@ require_once '../app/views/layout_creation.php';
         <div class="guide-container mt-4 mb-4">
             <h3 class="fw-bold mb-4"><?= t('Guias Emitidas') ?></h3>
             <div class="table-responsive">
-                <table id="guidesTable" class="table table-striped align-middle" style="width:100%">
+                <table id="guidesTable" class="table table-striped align-middle bx-list-table" style="width:100%">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -64,7 +64,7 @@ require_once '../app/views/layout_creation.php';
                 }
             ],
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json'
+                url: '/assets/translations/datatables-pt.json'
             },
             pageLength: 10,
             order: [

@@ -2,6 +2,14 @@
 require_once '../../../app/config/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
+session_start();
+
+$sessionCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);
+if ($sessionCompanyId <= 0) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Sessão inválida.']);
+    exit;
+}
 
 try {
 
@@ -21,6 +29,10 @@ try {
     if (!$companyId || $companyId <= 0) {
         http_response_code(400);
         throw new Exception('ID da empresa inválido.');
+    }
+    if ((int)$companyId !== $sessionCompanyId) {
+        http_response_code(403);
+        throw new Exception('Acesso negado.');
     }
 
     // =============================

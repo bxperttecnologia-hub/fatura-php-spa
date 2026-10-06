@@ -481,7 +481,7 @@ $intelligenceAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], tru
                                     <span class="text-muted small" id="clientsCountLabel"></span>
                                 </div>
                                 <div class="table-responsive">
-                                    <table class="table table-borderless align-middle mb-0" id="clientsTable">
+                                    <table class="table table-borderless align-middle mb-0 bx-list-table" id="clientsTable">
                                         <thead>
                                             <tr class="text-muted small text-uppercase">
                                                 <th>Cliente</th>

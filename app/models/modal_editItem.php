@@ -259,7 +259,8 @@
 
                             <div class="col-md-4">
                                 <label class="form-label"><?= t('Preço Unitário') ?></label>
-                                <input type="number" class="form-control" name="unit_price" step="0.01" required>
+                                <input type="text" class="form-control" id="edit_unit_price_display" data-price-display inputmode="decimal" autocomplete="off" required>
+                                <input type="hidden" name="unit_price" id="edit_unit_price" data-price-value>
                             </div>
 
                             <!-- IVA -->

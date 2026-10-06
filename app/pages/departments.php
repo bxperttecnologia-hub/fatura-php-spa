@@ -67,7 +67,7 @@ require_once '../app/views/layout_creation.php';
     </div>
 
     <div class="table-responsive">
-        <table id="departmentsTable" class="table align-middle" style="width:100%">
+        <table id="departmentsTable" class="table align-middle bx-list-table" style="width:100%">
             <thead>
                 <tr>
                     <th>Nome</th>
@@ -129,7 +129,7 @@ require_once '../app/views/layout_creation.php';
         const table = $('#departmentsTable').DataTable({
             ajax: 'rh/ajax/list_departments.php',
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json'
+                url: '/assets/translations/datatables-pt.json'
             },
             columns: [{
                     data: 'name'

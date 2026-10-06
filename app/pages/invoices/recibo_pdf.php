@@ -134,11 +134,8 @@ $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 | Ajusta automaticamente para localhost
 */
 
-$isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
-
-$basePath = $isLocalhost
-  ? '/projects/bxpert/fatura/public'
-  : '';
+$basePath = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$basePath = $basePath === '.' ? '' : $basePath;
 
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 

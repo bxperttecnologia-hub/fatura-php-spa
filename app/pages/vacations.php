@@ -145,7 +145,7 @@ require_once '../app/views/layout_creation.php';
                         </div>
 
                         <div class="table-responsive">
-                            <table id="vacationsTable" class="table w-100">
+                            <table id="vacationsTable" class="table w-100 bx-list-table">
                                 <thead>
                                     <tr>
                                         <th>Funcionário</th>
@@ -254,7 +254,7 @@ require_once '../app/views/layout_creation.php';
             },
 
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json',
+                url: '/assets/translations/datatables-pt.json',
                 errorLoading: '' // evita warning visual caso falhe o i18n
             },
 

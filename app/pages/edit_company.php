@@ -139,6 +139,16 @@ require_once '../app/views/layout_creation.php';
 
                         <input type="hidden" id="id" name="id">
 
+                        <div class="d-flex gap-2 mb-4" role="group" aria-label="Etapas dos dados da empresa">
+                            <button type="button" class="btn btn-primary" data-company-step-target="1" aria-current="step">
+                                1. <?= t('Dados da Empresa'); ?>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" data-company-step-target="2">
+                                2. <?= t('Contactos'); ?>
+                            </button>
+                        </div>
+
+                        <div data-company-step="1">
                         <!-- DADOS EMPRESA -->
                         <div class="card shadow-sm border-0 mb-4">
                             <div class="card-header bg-white fw-bold fs-5">
@@ -156,24 +166,6 @@ require_once '../app/views/layout_creation.php';
                                     <div class="col-md-6">
                                         <label for="registration_number" class="form-label"><?= t('CNPJ'); ?></label>
                                         <input type="text" class="form-control" id="registration_number" name="registration_number">
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <label class="form-label"><?= t('Telefone'); ?></label>
-                                        <div class="d-flex gap-2">
-                                            <select class="form-select countryPhone tel" name="phone_ddi" id="phone_ddi"></select>
-                                            <input type="text" class="form-control telnumber" name="phone" id="phone">
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <label for="email" class="form-label"><?= t('Email'); ?></label>
-                                        <input type="email" class="form-control" id="email" name="email">
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <label for="website" class="form-label"><?= t('Website'); ?></label>
-                                        <input type="text" class="form-control" id="website" name="website">
                                     </div>
 
                                     <div class="col-md-6">
@@ -210,6 +202,40 @@ require_once '../app/views/layout_creation.php';
                                 </div>
                             </div>
                         </div>
+
+                        <div class="text-end mb-4">
+                            <button type="button" class="btn btn-primary" data-company-step-target="2">
+                                <?= t('Continuar'); ?>
+                            </button>
+                        </div>
+
+                        </div>
+
+                        <div data-company-step="2" hidden>
+                            <div class="card shadow-sm border-0 mb-4">
+                                <div class="card-header bg-white fw-bold fs-5">
+                                    <?= t('Contactos'); ?>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label"><?= t('Telefone'); ?></label>
+                                            <div class="d-flex gap-2">
+                                                <select class="form-select countryPhone tel" name="phone_ddi" id="phone_ddi"></select>
+                                                <input type="text" class="form-control telnumber" name="phone" id="phone">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="email" class="form-label"><?= t('Email'); ?></label>
+                                            <input type="email" class="form-control" id="email" name="email">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="website" class="form-label"><?= t('Website'); ?></label>
+                                            <input type="text" class="form-control" id="website" name="website">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                         <!-- DADOS FISCAIS -->
                         <div class="card shadow-sm border-0 mb-4">
@@ -340,8 +366,12 @@ require_once '../app/views/layout_creation.php';
                         </div>
 
                         <!-- BOTÃO -->
-                        <div class="text-end mb-5">
+                        <div class="d-flex justify-content-between mb-5">
+                            <button type="button" class="btn btn-outline-secondary" data-company-step-target="1">
+                                <?= t('Voltar'); ?>
+                            </button>
                             <button type="submit" class="btn btn-primary"><?= t('Salvar Alterações'); ?></button>
+                        </div>
                         </div>
 
                     </form>
@@ -356,7 +386,7 @@ require_once '../app/views/layout_creation.php';
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-    <script src="edit_company/edit_company.js?v=1.0"></script>
+    <script src="edit_company/edit_company.js?v=1.0" data-spa-repeat></script>
 
     <script>
         function formatAngolaIban(rawValue) {

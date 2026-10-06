@@ -1,4 +1,40 @@
 $(document).ready(function () {
+  const companySteps = [...document.querySelectorAll("[data-company-step]")];
+  let activeCompanyStep = 1;
+
+  function showCompanyStep(step) {
+    activeCompanyStep = step;
+    companySteps.forEach((section) => {
+      section.hidden = Number(section.dataset.companyStep) !== step;
+    });
+    document.querySelectorAll("[data-company-step-target]").forEach((button) => {
+      const isActive = Number(button.dataset.companyStepTarget) === step;
+      button.classList.toggle("btn-primary", isActive);
+      button.classList.toggle("btn-outline-primary", !isActive);
+      if (isActive) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
+  }
+
+  $(document).on("click", "[data-company-step-target]", function () {
+    const target = Number(this.dataset.companyStepTarget);
+    if (target === activeCompanyStep || !companySteps.some((step) => Number(step.dataset.companyStep) === target)) return;
+
+    if (target > activeCompanyStep) {
+      const currentStep = companySteps.find((step) => Number(step.dataset.companyStep) === activeCompanyStep);
+      const invalidField = currentStep?.querySelector(":invalid");
+      if (invalidField) {
+        invalidField.reportValidity();
+        return;
+      }
+    }
+
+    showCompanyStep(target);
+    document.querySelector(`[data-company-step="${target}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  showCompanyStep(activeCompanyStep);
+
   $(".select2").select2();
 
   // --- Config ---
@@ -331,14 +367,26 @@ $(document).ready(function () {
             "Sucesso",
             "Empresa atualizada com sucesso!",
             "success",
-          ).then(() => (window.location.href = "list_companies.php"));
+          ).then(() => {
+            if (typeof window.navigateSPA === "function") {
+              window.navigateSPA("/list_companies.php");
+            } else {
+              window.location.href = "list_companies.php";
+            }
+          });
         } else {
           Swal.fire("Erro", response.message || "Erro desconhecido", "error");
         }
       },
       error: function (xhr) {
         console.error("SERVER ERROR:", xhr.responseText);
-        Swal.fire("Erro", "Erro ao atualizar empresa", "error");
+        Swal.fire(
+          "Erro",
+          xhr.responseJSON?.message ||
+            xhr.responseJSON?.error ||
+            "Erro ao atualizar empresa.",
+          "error",
+        );
       },
       complete: function () {
         $submitBtn.prop("disabled", false);

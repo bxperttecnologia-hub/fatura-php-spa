@@ -9,6 +9,22 @@ header('Content-Type: application/json');
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/invoice_helper.php';
 
+session_start();
+$companyIdSession = (int)($_SESSION['user']['company_id'] ?? 0);
+if ($companyIdSession <= 0) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Sessão inválida.']);
+    exit;
+}
+if (
+    empty($_SESSION['csrf'])
+    || !hash_equals((string)$_SESSION['csrf'], (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))
+) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Token CSRF inválido.']);
+    exit;
+}
+
 // 🔐 FUNÇÃO HASH
 function gerarHash($invoiceDate, $systemEntryDate, $invoiceNo, $grossTotal, $previousHash = "")
 {
@@ -41,10 +57,13 @@ try {
     $stmt = $pdo->prepare("
         SELECT *
         FROM invoices
-        WHERE id = :id
+        WHERE id = :id AND company_id = :company_id
         FOR UPDATE
     ");
-    $stmt->execute([':id' => $invoiceId]);
+    $stmt->execute([
+        ':id' => $invoiceId,
+        ':company_id' => $companyIdSession,
+    ]);
 
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -62,6 +81,9 @@ try {
         : $documentType;
 
     $docType = strtoupper(trim($docType));
+    if (!in_array($docType, ['FT', 'FR'], true)) {
+        throw new Exception("Tipo de documento inválido");
+    }
 
     $statusMap = invoice_status_map();
 
@@ -86,13 +108,14 @@ try {
     $update = $pdo->prepare("
         UPDATE invoices 
         SET status = ?, reference = ?, document_type = ?
-        WHERE id = ?
+        WHERE id = ? AND company_id = ?
     ");
     $update->execute([
         $statusId,
         $newReference,
         $docType,
-        $invoiceId
+        $invoiceId,
+        $companyIdSession
     ]);
 
     // =========================

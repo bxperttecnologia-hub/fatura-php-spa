@@ -52,20 +52,26 @@ function patchGlobals() {
   }
 }
 
-// Scripts: externos já presentes no shell (jQuery, DataTables…) não se recarregam;
+// Scripts externos já presentes no shell (jQuery, DataTables…) não se recarregam.
+// Scripts da aplicação são reiniciados a cada montagem da rota, para refazer handlers e pedidos AJAX;
 // inline via eval indirecto -> let/const ficam locais (sem "already declared" ao voltar à página),
 // var/function ficam globais (onclick="fn()" continua a funcionar).
-async function runScripts(scripts) {
+async function runScripts(scripts, page) {
   const loaded = new Set([...document.scripts].map(s => s.src).filter(Boolean));
   for (const s of scripts) {
     try {
       const src = s.getAttribute('src');
       if (src) {
         const url = new URL(src, location.origin).href;
-        if (loaded.has(url)) continue;
+        const repeat = s.hasAttribute('data-spa-repeat') || new URL(url).origin === location.origin;
+        if (loaded.has(url) && !repeat) continue;
         await new Promise(ok => {
           const el = document.createElement('script');
           el.src = url; el.onload = el.onerror = ok;
+          if (repeat) {
+            el.dataset.spaPageScript = 'true';
+            page.scripts.add(el);
+          }
           document.head.appendChild(el);
           loaded.add(url);
         });
@@ -79,6 +85,7 @@ async function runScripts(scripts) {
 function cleanup(page) {
   page.intervals.forEach(clearInterval);
   page.listeners.forEach(([t, type, fn, opts]) => t.removeEventListener(type, fn, opts));
+  page.scripts.forEach(script => script.remove());
   if ($) { $(document).off('.spaPage'); $(window).off('.spaPage'); }
   try { $?.fn?.dataTable?.tables?.().forEach(t => $(t).DataTable().destroy()); } catch {}
   try { Object.values(window.Chart?.instances ?? {}).forEach(c => c.destroy()); } catch {}
@@ -89,7 +96,7 @@ function cleanup(page) {
 }
 
 export function forRoute(routePath) {
-  const page = { intervals: new Set(), listeners: [] };
+  const page = { intervals: new Set(), listeners: [], scripts: new Set() };
 
   return {
     async render(el) {
@@ -131,7 +138,7 @@ export function forRoute(routePath) {
 
       el.append(...holder.childNodes);
       active = page;                 // a partir daqui, handlers/intervals criados pertencem a esta página
-      await runScripts(scripts);
+      await runScripts(scripts, page);
     },
     destroy() {
       cleanup(page);

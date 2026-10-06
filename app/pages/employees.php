@@ -297,7 +297,7 @@ require_once '../app/views/layout_creation.php';
     </div>
 
     <div class="table-responsive">
-        <table id="employeesTable" class="table align-middle" style="width:100%">
+        <table id="employeesTable" class="table align-middle bx-list-table" style="width:100%">
             <thead>
                 <tr>
                     <th>Funcionário</th>
@@ -625,7 +625,7 @@ require_once '../app/views/layout_creation.php';
                     Swal.fire('Erro ao carregar funcionários', (resp && resp.error) || 'Não foi possível contactar o servidor.', 'error');
                 }
             },
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json' },
+            language: { url: '/assets/translations/datatables-pt.json' },
             order: [],
             columns: [
                 {

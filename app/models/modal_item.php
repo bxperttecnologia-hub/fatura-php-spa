@@ -302,7 +302,8 @@
 
                                 <div class="col-md-4 mb-2">
                                     <label class="form-label"><?= t('Preço Unitário') ?></label>
-                                    <input type="number" class="form-control" name="unit_price" id="unit_price" step="0.00" required>
+                                    <input type="text" class="form-control" id="unit_price_display" data-price-display inputmode="decimal" autocomplete="off" required>
+                                    <input type="hidden" name="unit_price" id="unit_price" data-price-value>
                                 </div>
 
                                 <!-- IVA -->
@@ -360,8 +361,86 @@
                 <button class="btn btn-success w-1/5" id="saveItem">
                     <?= t('Salvar Item') ?>
                 </button>
-            </div>
 
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+(() => {
+    if (window.__itemPriceFormattingInstalled) return;
+    window.__itemPriceFormattingInstalled = true;
+
+    const canonicalPrice = (value) => {
+        let normalized = String(value ?? '').trim().replace(/\s/g, '');
+        if (!normalized) return '';
+
+        if (normalized.includes(',')) {
+            normalized = normalized.replace(/\./g, '').replace(',', '.');
+        } else if ((normalized.match(/\./g) || []).length > 1) {
+            normalized = normalized.replace(/\./g, '');
+        }
+
+        if (!/^-?\d+(?:\.\d{0,2})?$/.test(normalized)) return '';
+        const number = Number(normalized);
+        return Number.isFinite(number) ? String(number) : '';
+    };
+
+    const displayPrice = (value) => {
+        const canonical = canonicalPrice(value);
+        if (!canonical) return '';
+        const [integer, decimal] = canonical.split('.');
+        const sign = integer.startsWith('-') ? '-' : '';
+        const digits = sign ? integer.slice(1) : integer;
+        const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        const formattedInteger = `${sign}${grouped}`;
+        return decimal ? `${formattedInteger},${decimal}` : formattedInteger;
+    };
+
+    const priceValueField = (display) => display.form?.querySelector('[data-price-value]');
+
+    document.addEventListener('input', (event) => {
+        if (!event.target.matches('[data-price-display]')) return;
+        const valueField = priceValueField(event.target);
+        if (!valueField) return;
+        const canonical = canonicalPrice(event.target.value);
+        valueField.value = canonical;
+        event.target.setCustomValidity(
+            event.target.value.trim() && !canonical ? 'Introduza um preço numérico válido.' : ''
+        );
+    });
+
+    document.addEventListener('focusin', (event) => {
+        if (!event.target.matches('[data-price-display]')) return;
+        const valueField = priceValueField(event.target);
+        if (!valueField) return;
+        const canonical = canonicalPrice(valueField.value);
+        if (canonical !== '') event.target.value = canonical;
+    });
+
+    document.addEventListener('focusout', (event) => {
+        if (!event.target.matches('[data-price-display]')) return;
+        const valueField = priceValueField(event.target);
+        if (!valueField) return;
+        const canonical = canonicalPrice(event.target.value);
+        valueField.value = canonical;
+        event.target.setCustomValidity(
+            event.target.value.trim() && !canonical ? 'Introduza um preço numérico válido.' : ''
+        );
+        if (canonical !== '') event.target.value = displayPrice(canonical);
+    });
+
+    document.addEventListener('click', (event) => {
+        const saveButton = event.target.closest('#saveItem, #saveEdit');
+        if (!saveButton) return;
+        const form = saveButton.id === 'saveItem'
+            ? document.getElementById('itemForm')
+            : document.getElementById('editItemForm');
+        if (form && !form.reportValidity()) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }, true);
+})();
+</script>

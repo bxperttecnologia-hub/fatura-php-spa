@@ -407,7 +407,7 @@ require_once '../app/views/layout_creation.php';
 
         <!-- Direita: card com informação + botões -->
         <aside class="invoice-side-card" aria-label="Ações da fatura">
-            <div class="invoice-header__eyebrow">Factura</div>
+            <div class="invoice-header__eyebrow" id="invoice-document-label">Factura</div>
             <h1 class="invoice-header__title">
                 <strong id="fatura-id">-</strong>
                 <span id="status-invoice" class="invoice-status-badge is-draft d-none"></span>
@@ -425,7 +425,7 @@ require_once '../app/views/layout_creation.php';
                     <button class="btn-invoice btn-invoice--secondary" type="button" id="btnFormatoImpressao"
                         data-bs-toggle="modal" data-bs-target="#modalPrintPreview" aria-label="Imprimir ou baixar a factura">
                         <span class="material-icons-outlined" aria-hidden="true">print</span>
-                        Imprimir / Baixar
+                        Imprimir / PDF
                     </button>
                 </div>
 
@@ -827,6 +827,6 @@ require_once '../app/views/layout_creation.php';
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="invoices/invoice.js?v=4.9"></script>
+<script src="invoices/invoice.js?v=4.9" data-spa-repeat></script>
 
 <?php require_once '../app/views/footer.php'; ?>

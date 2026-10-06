@@ -299,7 +299,7 @@ $company_id = $_GET['company_id'];
                 </div>
             </div>
 
-            <table id="usersTable" class="table">
+            <table id="usersTable" class="table bx-list-table">
                 <thead>
                     <tr>
                         <th>Foto</th> <!-- Adicionando coluna para a imagem -->
@@ -388,7 +388,7 @@ $company_id = $_GET['company_id'];
                         searching: true,
                         ordering: true,
                         language: {
-                            url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json',
+                            url: '/assets/translations/datatables-pt.json',
                             emptyTable: 'Nenhum usuário encontrado.'
                         }
                     });

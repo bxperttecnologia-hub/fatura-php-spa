@@ -235,7 +235,7 @@ $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
                 <span class="ci-pill"><i class="bi bi-funnel"></i> Últimos 30 dias</span>
             </div>
             <div class="ci-body">
-                <table class="ci-table" id="customerTable">
+                <table class="ci-table bx-list-table" id="customerTable">
                     <thead>
                         <tr>
                             <th>Cliente</th>

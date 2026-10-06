@@ -481,17 +481,19 @@ $(document).ready(function () {
   // =====================================================================
   // RETENÇÃO NA FONTE (caixa de selecção -> campo escondido #retention)
   // =====================================================================
-  const RETENTION_RATE = parseFloat($("#apply_retention").data("rate")) || 6.5;
+  const RETENTION_RATE = parseFloat($("#apply_retention").data("rate"));
 
   function syncRetentionUI() {
-    $("#apply_retention").prop(
-      "checked",
-      (parseFloat($("#retention").val()) || 0) > 0,
+    const retention = parseFloat($("#retention").val()) || 0;
+    const supportedRate = Number.isFinite(RETENTION_RATE) ? RETENTION_RATE : 0;
+    $("#apply_retention").val(
+      retention === supportedRate && supportedRate > 0 ? String(supportedRate) : "0",
     );
   }
 
   $("#apply_retention").on("change", function () {
-    $("#retention").val(this.checked ? RETENTION_RATE.toFixed(2) : "0.00");
+    const selectedRate = parseFloat(this.value) || 0;
+    $("#retention").val(selectedRate.toFixed(2));
     updateInvoiceSummary();
     if (typeof saveDraft === "function") saveDraft();
   });
@@ -1667,7 +1669,7 @@ $(document).ready(function () {
           return Swal.fire({
             icon: "error",
             title: "Erro",
-            text: response.message || "Erro ao salvar a fatura.",
+            text: response.message || "Erro ao guardar a factura.",
           });
         }
 
@@ -1678,15 +1680,24 @@ $(document).ready(function () {
         Swal.fire({
           icon: "success",
           title: invoiceId
-            ? "Fatura atualizada com sucesso!"
-            : "Fatura criada com sucesso!",
+            ? "Factura atualizada com sucesso!"
+            : "Factura criada com sucesso!",
           text: "Clique abaixo para visualizar.",
-          confirmButtonText: "Ver fatura",
+          confirmButtonText: "Ver factura",
           confirmButtonColor: "#007abd",
         }).then((result) => {
           if (result.isConfirmed) {
-            //  usar ID dinâmico vindo do backend
-            window.location.href = `invoice.php?id=${response.invoice_id}`;
+            if (!response.invoice_id) {
+              Swal.fire("Erro", "A factura foi gravada, mas o servidor não devolveu o identificador para a visualizar.", "error");
+              return;
+            }
+
+            const invoiceUrl = `/invoice.php?id=${encodeURIComponent(response.invoice_id)}`;
+            if (typeof window.navigateSPA === "function") {
+              window.navigateSPA(invoiceUrl);
+            } else {
+              window.location.href = invoiceUrl;
+            }
           }
         });
       },
@@ -1696,7 +1707,10 @@ $(document).ready(function () {
         Swal.fire({
           icon: "error",
           title: "Erro",
-          text: xhr.responseJSON?.error || "Erro ao conectar ao servidor.",
+          text:
+            xhr.responseJSON?.message ||
+            xhr.responseJSON?.error ||
+            "Erro ao conectar ao servidor.",
         });
 
         console.log("STATUS:", status);
@@ -1771,6 +1785,7 @@ $(document).ready(function () {
 
       $("#reference").val(data.reference);
       $("#observation").val(data.observation);
+      $("#document_type").val(data.document_type || "FT");
 
       if ($("#series option[value='" + data.series + "']").length === 0) {
         $("#series").append(new Option(data.series, data.series));

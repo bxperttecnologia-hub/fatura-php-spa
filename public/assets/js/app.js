@@ -1,6 +1,8 @@
 import { route, initRouter, navigate } from './router.js';
 import { api } from './api.js';
 
+window.navigateSPA = navigate;
+
 route('/login',    () => import('./pages/login.js'),     { auth: false, title: 'Entrar' });
 route('/login.php', () => import('./pages/login.js'),    { auth: false, title: 'Entrar' });   // location.href = 'login.php' do código legado
 route('/clientes', () => import('./pages/clientes.js'),  { title: 'Clientes (demo)' });

@@ -11,36 +11,44 @@ export function render(el) {
   const next = safeNext(window.APP.next || new URLSearchParams(location.search).get('next'));
   const expired = new URLSearchParams(location.search).has('expired');
 
+  el.classList.add('login-page');
   el.innerHTML = `
-    <div class="mx-auto" style="max-width:420px;padding-top:6vh">
-      <div class="text-center mb-4">
-        <img src="/assets/img/logo/BXpert.png" alt="BXpert" style="max-height:64px" onerror="this.remove()">
-        <h3 class="mt-3 mb-1">Acesso</h3>
-        <span class="text-muted">Conecte-se com a melhor do mercado!</span>
-      </div>
-      <div id="err">${expired ? '<div class="alert alert-warning py-2 text-center">A sua sessão expirou. Inicie sessão novamente.</div>' : ''}</div>
-      <form id="f" novalidate>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold" for="user_email">Usuário, E-mail ou Telefone</label>
-          <input id="user_email" name="user_email" class="form-control form-control-lg" autocomplete="username" required autofocus>
-        </div>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold" for="password">Senha</label>
-          <div class="input-group input-group-lg">
-            <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required>
-            <button class="btn btn-outline-secondary" type="button" id="toggle" tabindex="-1" aria-label="Mostrar senha"><i class="bi bi-eye"></i></button>
+    <div class="row g-0 login-layout">
+      <section class="col-12 col-md-6 d-flex align-items-center justify-content-center px-4 py-5">
+        <div class="w-100" style="max-width:420px">
+          <div class="text-center mb-4">
+            <img src="/assets/img/logo/BXpert.png" alt="BXpert" style="max-height:64px" onerror="this.remove()">
+            <h3 class="mt-3 mb-1">Acesso</h3>
+            <span class="text-muted">Conecte-se com a melhor do mercado!</span>
           </div>
+          <div id="err">${expired ? '<div class="alert alert-warning py-2 text-center">A sua sessão expirou. Inicie sessão novamente.</div>' : ''}</div>
+          <form id="f" novalidate>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold" for="user_email">Usuário, E-mail ou Telefone</label>
+              <input id="user_email" name="user_email" class="form-control form-control-lg" autocomplete="username" required autofocus>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold" for="password">Senha</label>
+              <div class="input-group input-group-lg">
+                <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required>
+                <button class="btn btn-outline-secondary" type="button" id="toggle" tabindex="-1" aria-label="Mostrar senha"><i class="bi bi-eye"></i></button>
+              </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div class="form-check mb-0">
+                <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                <label class="form-check-label small" for="remember_me">Lembrar de mim</label>
+              </div>
+              <a href="/forgot_password.php" class="small text-decoration-none">Esqueci minha senha</a>
+            </div>
+            <button class="btn btn-primary btn-lg w-100" id="go">Acessar</button>
+          </form>
+          <p class="text-center mt-4 mb-0">Não tem uma conta? <a href="/register.php" class="fw-bold text-decoration-none">Cadastre-se</a></p>
         </div>
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <div class="form-check mb-0">
-            <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
-            <label class="form-check-label small" for="remember_me">Lembrar de mim</label>
-          </div>
-          <a href="/forgot_password.php" class="small text-decoration-none">Esqueci minha senha</a>
-        </div>
-        <button class="btn btn-primary btn-lg w-100" id="go">Acessar</button>
-      </form>
-      <p class="text-center mt-4 mb-0">Não tem uma conta? <a href="/register.php" class="fw-bold text-decoration-none">Cadastre-se</a></p>
+      </section>
+      <aside class="col-md-6 d-none d-md-flex align-items-center justify-content-center login-visual" aria-label="BXpert">
+        <img src="/assets/img/logo/BXpert-Branca.png" alt="BXpert" class="img-fluid">
+      </aside>
     </div>`;
 
   const $ = s => el.querySelector(s);
@@ -81,4 +89,8 @@ export function render(el) {
       btn.disabled = false; btn.textContent = 'Acessar';
     }
   });
+}
+
+export function destroy() {
+  document.getElementById('app')?.classList.remove('login-page');
 }

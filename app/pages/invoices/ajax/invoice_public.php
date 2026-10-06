@@ -59,18 +59,18 @@ function itemHeight(array $it): float
 }
 
 // quebra os itens em páginas (máx. 15 por página e limite vertical)
-function paginateItems(array $items): array
+function paginateItems(array $items, float $firstRowY): array
 {
   $pages = [];
   $current = [];
-  $y = FIRST_ROW_Y;
+  $y = $firstRowY;
 
   foreach ($items as $it) {
     $h = itemHeight($it);
     if ($current && (count($current) >= ITEMS_PER_PAGE || $y + $h > ITEMS_BOTTOM)) {
       $pages[] = $current;
       $current = [];
-      $y = FIRST_ROW_Y;
+      $y = $firstRowY;
     }
     $current[] = $it;
     $y += $h;
@@ -167,9 +167,23 @@ $iban = $ibanRaw !== ''
   : '-';
 
 $isDraft  = (int)$inv['status'] === 1;
-$docTitle = ($isDraft ? 'Factura Rascunho' : 'Factura') . ' n.º ' . ($isDraft ? '' : (string)$inv['reference']);
+$documentType = strtoupper((string)($inv['document_type'] ?? 'FT'));
+$documentLabel = $documentType === 'FR' ? 'Factura-Recibo' : 'Factura';
+$docTitle = ($isDraft ? $documentLabel . ' Rascunho' : $documentLabel) . ' n.º ' . ($isDraft ? '' : (string)$inv['reference']);
 
-$pages = paginateItems($items);
+$observationText = trim((string)($inv['observation'] ?? ''));
+$addressLines = 0;
+foreach (preg_split('/\R/u', $clientAddress) ?: [''] as $line) {
+  $addressLines += max(1, (int)ceil(mb_strlen($line, 'UTF-8') / 95));
+}
+$addressExtra = max(0, $addressLines - 1) * 11;
+$observationLines = 0;
+foreach (preg_split('/\R/u', $observationText) ?: [''] as $line) {
+  $observationLines += max(1, (int)ceil(mb_strlen($line, 'UTF-8') / 95));
+}
+$observationExtra = max(0, $observationLines - 1) * 11;
+$detailsExtra = $addressExtra + $observationExtra;
+$pages = paginateItems($items, FIRST_ROW_Y + $detailsExtra);
 $pageCount = count($pages);
 ?>
 <!DOCTYPE html>
@@ -177,7 +191,7 @@ $pageCount = count($pages);
 
 <head>
   <meta charset="utf-8">
-  <title>Fatura <?= e($inv['codigo']) ?></title>
+  <title><?= e($documentLabel) ?> <?= e($inv['codigo']) ?></title>
   <style>
     @page {
       size: A4;
@@ -339,11 +353,15 @@ $pageCount = count($pages);
     }
 
     .r2 {
-      top: 291pt;
+      top: 286pt;
     }
 
     .r3 {
-      top: 309pt;
+      top: 299pt;
+    }
+
+    .r4 {
+      top: <?= 312 + $addressExtra ?>pt;
     }
 
     .x1 {
@@ -367,11 +385,20 @@ $pageCount = count($pages);
       color: #444;
     }
 
+    .detail-value {
+      position: absolute;
+      left: 145pt;
+      top: 0;
+      width: 405pt;
+      line-height: 11pt;
+      overflow-wrap: anywhere;
+    }
+
     /* ---------- tabela + totais (fluxo) ---------- */
     .flow {
       position: absolute;
       left: 45pt;
-      top: 324pt;
+      top: <?= 324 + $detailsExtra ?>pt;
       width: 505pt;
     }
 
@@ -616,9 +643,11 @@ $pageCount = count($pages);
         </div>
         <div class="drow r3">
           <span class="x1">Endereço:</span>
-          <span class="x2" style="width:180pt"><?= e($clientAddress) ?></span>
-          <span class="x3">Observações:</span>
-          <span class="x4" style="width:95pt"><?= e($inv['observation'] ?: '-') ?></span>
+          <span class="detail-value"><?= e($clientAddress) ?></span>
+        </div>
+        <div class="drow r4">
+          <span class="x1">Observações:</span>
+          <span class="detail-value"><?= nl2br(e($observationText !== '' ? $observationText : '-')) ?></span>
         </div>
 
         <!-- TABELA + TOTAIS -->

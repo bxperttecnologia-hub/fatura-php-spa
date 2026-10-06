@@ -430,7 +430,7 @@ $(function () {
 
   function listHTML(items) {
     return `
-      <table class="cp-table">
+      <table class="cp-table bx-list-table">
         <caption class="visually-hidden-cp">Lista de clientes</caption>
         <thead>
           <tr>

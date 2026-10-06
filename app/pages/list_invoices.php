@@ -228,7 +228,7 @@ require_once '../app/views/layout_creation.php';
 
             <div class="bx-table-wrap">
                 <div class="table-responsive">
-                    <table id="invoicesTable" class="table-bx-standard table nowrap w-100">
+                    <table id="invoicesTable" class="table-bx-standard table nowrap w-100 bx-list-table">
                         <thead id="invoicesTableHead">
                             <!-- Cabeçalho é gerado dinamicamente via JS conforme o Tipo de Documento selecionado -->
                         </thead>

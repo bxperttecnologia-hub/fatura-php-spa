@@ -6,6 +6,15 @@ require_once '../../../app/helpers/anonymous_contact.php';
 header('Content-Type: application/json');
 session_start();
 
+if (
+    empty($_SESSION['csrf'])
+    || !hash_equals((string)$_SESSION['csrf'], (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))
+) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Token CSRF inválido.']);
+    exit;
+}
+
 // 🔥 DEBUG (remove em produção)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -34,6 +43,11 @@ try {
 
     $companyIdSession = (int)$_SESSION['user']['company_id'];
     $userIdSession = (int)$_SESSION['user']['id'];
+
+    $documentType = strtoupper(trim((string)($fatura['document_type'] ?? 'FT')));
+    if (!in_array($documentType, ['FT', 'FR'], true)) {
+        throw new Exception("Tipo de documento inválido.");
+    }
 
     if ($editInvoiceId <= 0) {
         throw new Exception("ID da fatura a editar não informado.");
@@ -108,6 +122,7 @@ try {
         'issue_date' => $fatura['issue_date'],
         'due_date' => (int)$fatura['due_date'],
         'reference' => $fatura['reference'] ?? null,
+        'document_type' => $documentType,
         'observation' => $fatura['observation'] ?? null,
         'series' => $fatura['series'] ?? null,
         'retention' => (float)($fatura['retention'] ?? 0),

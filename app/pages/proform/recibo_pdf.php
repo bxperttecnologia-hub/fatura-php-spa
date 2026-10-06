@@ -40,9 +40,11 @@ function formatMoney(float $value, string $symbol, string $pos): string{
   return ($pos === 'left') ? ($symbol.' '.$formatted) : ($formatted.' '.$symbol);
 }
 
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'https';
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? '';
-$baseUrl = $host ? ($scheme.'://'.$host) : '';
+$basePath = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$basePath = $basePath === '.' ? '' : $basePath;
+$baseUrl = $host ? ($scheme.'://'.$host.$basePath) : '';
 
 $logo = ($d['logo_url'] && $baseUrl) ? ($baseUrl.'/assets/img/companies/'.$d['logo_url']) : '';
 

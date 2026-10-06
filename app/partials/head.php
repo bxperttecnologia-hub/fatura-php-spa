@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../core/bootstrap.php';
+
 // A sessão arranca em app/core/bootstrap.php (antes de qualquer output).
 $pageTitle  = $pageTitle ?? 'BXpert';
 $isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESSION['user'] existe também para visitantes

@@ -1,11 +1,12 @@
 <?php
 require_once '../../../app/config/db.php';
-require '../../../vendor/autoload.php'; // Autoload do PhpSpreadsheet
 require_once '../../../app/helpers/notifications.php'; // onde ficam as funções acima
 
 header('Content-Type: application/json; charset=utf-8');
 
-session_start(); // remove esta linha se a sessão já é iniciada mais acima no bootstrap
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (empty($_SESSION['user']['id'])) {
     http_response_code(401);

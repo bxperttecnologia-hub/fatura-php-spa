@@ -55,7 +55,7 @@ try {
                     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCycle"><i class="bi bi-plus-lg"></i> Novo Ciclo</button>
                 </div>
                 <div class="table-responsive">
-                    <table id="cyclesTable" class="table align-middle" style="width:100%">
+                    <table id="cyclesTable" class="table align-middle bx-list-table" style="width:100%">
                         <thead>
                             <tr>
                                 <th>Ciclo</th>
@@ -73,7 +73,7 @@ try {
             <!-- ===================== MINHAS AVALIAÇÕES ===================== -->
             <div class="tab-pane fade" id="tabMinhas">
                 <div class="table-responsive">
-                    <table id="myEvaluationsTable" class="table align-middle" style="width:100%">
+                    <table id="myEvaluationsTable" class="table align-middle bx-list-table" style="width:100%">
                         <thead>
                             <tr>
                                 <th>Funcionário</th>
@@ -334,7 +334,7 @@ try {
         const cyclesTable = $('#cyclesTable').DataTable({
             ajax: 'rh/ajax/list_evaluation_cycles.php',
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json'
+                url: '/assets/translations/datatables-pt.json'
             },
             columns: [{
                     data: 'name'
@@ -410,7 +410,7 @@ try {
         const myEvaluationsTable = $('#myEvaluationsTable').DataTable({
             ajax: 'rh/ajax/list_evaluations.php?minhas=1',
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-PT.json'
+                url: '/assets/translations/datatables-pt.json'
             },
             columns: [{
                     data: 'employee_name'

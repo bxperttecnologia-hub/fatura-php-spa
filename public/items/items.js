@@ -10,6 +10,32 @@ $(document).ready(function () {
   const modalTitle = document.querySelector("#itemModal .modal-title");
   const defaultTitle = "Adicionar Novo Produto/Serviço";
 
+  function canonicalPrice(value) {
+    let normalized = String(value ?? "").trim().replace(/\s/g, "");
+    if (!normalized) return "";
+
+    if (normalized.includes(",")) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else if ((normalized.match(/\./g) || []).length > 1) {
+      normalized = normalized.replace(/\./g, "");
+    }
+
+    if (!/^-?\d+(?:\.\d{0,2})?$/.test(normalized)) return "";
+    const number = Number(normalized);
+    return Number.isFinite(number) ? String(number) : "";
+  }
+
+  function displayPrice(value) {
+    const canonical = canonicalPrice(value);
+    if (!canonical) return "";
+    const [integer, decimal] = canonical.split(".");
+    const sign = integer.startsWith("-") ? "-" : "";
+    const digits = sign ? integer.slice(1) : integer;
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    const formattedInteger = `${sign}${grouped}`;
+    return decimal ? `${formattedInteger},${decimal}` : formattedInteger;
+  }
+
   loadItems();
 
   function loadItems() {
@@ -597,7 +623,8 @@ $(document).ready(function () {
     form.quantidade.value = row.quantity ?? 0;
     form.min_stock.value = row.min_quantity ?? 1;
 
-    form.unit_price.value = row.unit_price ?? 0;
+    form.querySelector("[data-price-value]").value = row.unit_price ?? 0;
+    form.querySelector("[data-price-display]").value = displayPrice(row.unit_price ?? 0);
     form.cost_price.value = row.cost_price ?? 0;
     form.sale_price.value = row.sale_price ?? 0;
     form.pvp.value = row.pvp ?? 0;
@@ -627,6 +654,7 @@ $(document).ready(function () {
     if (!form) return;
 
     form.reset();
+    form.querySelector("[data-price-display]").value = "";
 
     const idField = form.querySelector("[name='product_id']");
     if (idField) idField.remove();
@@ -649,11 +677,11 @@ $(document).ready(function () {
     }
   }
 
-  modalEl.addEventListener("hidden.bs.modal", () => {
-    resetItemForm();
-  });
+  $(modalEl)
+    .off("hidden.bs.modal.itemsPage")
+    .on("hidden.bs.modal.itemsPage", resetItemForm);
 
-  $("#saveEdit").on("click", function () {
+  $("#saveEdit").off("click.itemsPage").on("click.itemsPage", function () {
     const form = $("#editItemForm");
     let formData = form.serialize();
 

@@ -171,7 +171,7 @@ require_once '../app/views/layout_creation.php';
 
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table id="payrollTable" class="table w-100">
+                            <table id="payrollTable" class="table w-100 bx-list-table">
                                 <thead>
                                     <tr>
                                         <th>Funcionário</th>
@@ -371,7 +371,7 @@ require_once '../app/views/layout_creation.php';
                 }
             },
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json'
+                url: '/assets/translations/datatables-pt.json'
             },
             columns: [{
                     data: 'employee_name'

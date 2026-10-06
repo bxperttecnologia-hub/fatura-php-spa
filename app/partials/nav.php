@@ -75,87 +75,6 @@
         display: none;
     }
 
-    /* ---- Botão do Assistente IA (robô piscando) ---- */
-    .ai-agent-btn {
-        position: relative;
-    }
-
-    .ai-agent-btn i {
-        color: #6f42c1;
-    }
-
-    .nav-icon-btn.has-alert::before {
-        content: '';
-        position: absolute;
-        inset: 2px;
-        border-radius: 10px;
-        box-shadow: 0 0 0 0 rgba(111, 66, 193, 0.55);
-        animation: aiPulseRing 1.8s ease-out infinite;
-        pointer-events: none;
-    }
-
-    .nav-icon-btn.has-alert i {
-        animation: aiIconBlink 1.8s ease-in-out infinite;
-    }
-
-    /* Anel de pulso: só ativo quando há insights novos (classe .has-alert) */
-    .ai-agent-btn.has-alert::before {
-        content: '';
-        position: absolute;
-        inset: 2px;
-        border-radius: 10px;
-        box-shadow: 0 0 0 0 rgba(111, 66, 193, 0.55);
-        animation: aiPulseRing 1.8s ease-out infinite;
-        pointer-events: none;
-    }
-
-    .ai-agent-btn.has-alert i {
-        animation: aiIconBlink 1.8s ease-in-out infinite;
-    }
-
-    @keyframes aiPulseRing {
-        0% {
-            box-shadow: 0 0 0 0 rgba(111, 66, 193, 0.5);
-        }
-
-        70% {
-            box-shadow: 0 0 0 8px rgba(111, 66, 193, 0);
-        }
-
-        100% {
-            box-shadow: 0 0 0 0 rgba(111, 66, 193, 0);
-        }
-    }
-
-    @keyframes aiIconBlink {
-
-        0%,
-        100% {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.45;
-        }
-    }
-
-    .aiInsightCount {
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        background: #6f42c1;
-        color: #fff;
-        font-size: 10px;
-        padding: 2px 6px;
-        border-radius: 50px;
-        min-width: 14px;
-        text-align: center;
-    }
-
-    .aiInsightCount[hidden] {
-        display: none;
-    }
-
     .dropdown-modern .dropdown-item.ai-insight-item {
         display: flex;
         flex-direction: column;
@@ -180,7 +99,6 @@
         pointer-events: auto;
     }
 
-    .ai-panel,
     .notification-panel {
         position: fixed;
         top: 0;
@@ -196,7 +114,6 @@
         z-index: 1040;
     }
 
-    .ai-panel.show,
     .notification-panel.show {
         right: 0;
     }
@@ -227,87 +144,6 @@
 
     .notification-panel .ai-panel-body {
         padding: 10px;
-    }
-
-    .copilot-thread {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-bottom: 14px;
-    }
-
-    .copilot-bubble {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        max-width: 85%;
-        padding: 10px 12px;
-        border-radius: 14px;
-        line-height: 1.55;
-        font-size: 0.88rem;
-    }
-
-    .copilot-bubble.user {
-        align-self: flex-end;
-        background: linear-gradient(135deg, #5f3dc4, #7b5ef5);
-        color: white;
-        border-bottom-right-radius: 6px;
-    }
-
-    .copilot-bubble.assistant {
-        align-self: flex-start;
-        background: #f6f2ff;
-        color: #2f2b3a;
-        border: 1px solid rgba(95, 61, 196, 0.1);
-        border-bottom-left-radius: 6px;
-    }
-
-    .copilot-suggestions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 12px;
-    }
-
-    .copilot-suggestion {
-        border: 1px solid rgba(95, 61, 196, 0.15);
-        background: rgba(95, 61, 196, 0.04);
-        color: #4f2ea4;
-        border-radius: 999px;
-        padding: 7px 10px;
-        font-size: 0.74rem;
-        font-weight: 700;
-        cursor: pointer;
-    }
-
-    .copilot-input-wrap {
-        display: flex;
-        gap: 8px;
-        align-items: flex-end;
-        padding-top: 12px;
-        border-top: 1px solid #f0f0f0;
-    }
-
-    .copilot-input {
-        flex: 1;
-        min-height: 48px;
-        max-height: 120px;
-        resize: vertical;
-        border-radius: 12px;
-        border: 1px solid #e6e2f5;
-        background: #fff;
-        padding: 10px 12px;
-        font-size: 0.88rem;
-    }
-
-    .copilot-send {
-        border: none;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #5f3dc4, #7b5ef5);
-        color: #fff;
-        font-weight: 700;
-        padding: 10px 14px;
-        min-width: 92px;
     }
 
     .ai-panel-item {
@@ -519,7 +355,6 @@ if ($currentCompany > 0 && $currentPlanCode === '') {
 }
 
 $copilotAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], true);
-$intelligenceAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], true);
 
 // Token CSRF simples para as chamadas AJAX que alteram estado (ex.: trocar empresa)
 $csrfToken = Csrf::token(); // um único token CSRF para toda a app
@@ -595,45 +430,6 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
                 </div>
             </aside>
 
-            <?php if ($copilotAvailable): ?>
-                <!-- 🤖 ASSISTENTE IA -->
-                <div class="position-relative">
-                    <button class="btn nav-icon-btn ai-agent-btn" type="button" id="aiAgentBtn" aria-haspopup="false" aria-expanded="false" aria-label="Assistente IA" title="Assistente IA">
-                        <i class="bi bi-robot"></i>
-                        <span class="aiInsightCount" id="aiInsightCount" hidden>0</span>
-                    </button>
-                </div>
-
-                <div class="ai-panel-backdrop" id="aiPanelBackdrop"></div>
-                <aside class="ai-panel" id="aiPanel" aria-label="Painel do Assistente IA">
-                    <div class="ai-panel-header">
-                        <div class="d-flex align-items-center gap-2 fw-semibold">
-                            <i class="bi bi-robot text-primary"></i>
-                            <span>Assistente IA</span>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-light border-0" id="closeAiPanelBtn" aria-label="Fechar painel">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-
-                    <div class="ai-panel-body">
-                        <div class="copilot-thread" id="copilotThread"></div>
-                        <div class="copilot-suggestions" id="copilotSuggestions"></div>
-                        <div id="aiInsightList">
-                            <small class="d-block px-3 py-2 text-muted">Sem novidades por agora</small>
-                        </div>
-                    </div>
-
-                    <div class="px-3 pb-3 pt-2 border-top">
-                        <div class="copilot-input-wrap">
-                            <textarea id="copilotInput" class="copilot-input" placeholder="Pergunte ao assistente IA..."></textarea>
-                            <button type="button" class="copilot-send" id="sendCopilotBtn">Enviar</button>
-                        </div>
-                        <a class="btn btn-primary w-100 mt-3" href="/insights" data-spa>Ver todos os insights</a>
-                    </div>
-                </aside>
-            <?php endif; ?>
-
             <!-- 👤 PERFIL -->
             <div class="perfil-container position-relative">
                 <button type="button" class="d-flex align-items-center gap-2 border-0 bg-transparent text-decoration-none"
@@ -693,35 +489,10 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             });
         });
 
-        const aiBtn = document.getElementById('aiAgentBtn');
-        const aiPanel = document.getElementById('aiPanel');
-        const aiBackdrop = document.getElementById('aiPanelBackdrop');
-        const closeAiPanelBtn = document.getElementById('closeAiPanelBtn');
-        const copilotThread = document.getElementById('copilotThread');
-        const copilotInput = document.getElementById('copilotInput');
-        const sendCopilotBtn = document.getElementById('sendCopilotBtn');
-        const copilotSuggestions = document.getElementById('copilotSuggestions');
         const notifBtn = document.getElementById('notifBtn');
         const notifPanel = document.getElementById('notificationPanel');
         const notifBackdrop = document.getElementById('notificationPanelBackdrop');
         const closeNotifPanelBtn = document.getElementById('closeNotificationPanelBtn');
-
-        function closeAiPanel() {
-            if (!aiPanel || !aiBackdrop || !aiBtn) return;
-            aiPanel.classList.remove('show');
-            aiBackdrop.classList.remove('show');
-            aiBtn.setAttribute('aria-expanded', 'false');
-        }
-
-        function toggleAiPanel() {
-            if (!aiPanel || !aiBackdrop || !aiBtn) return;
-            const isOpen = aiPanel.classList.contains('show');
-            document.querySelectorAll('.popup-menu').forEach(menu => menu.classList.remove('show'));
-            document.querySelectorAll('[aria-expanded]').forEach(b => b.setAttribute('aria-expanded', 'false'));
-            aiPanel.classList.toggle('show', !isOpen);
-            aiBackdrop.classList.toggle('show', !isOpen);
-            aiBtn.setAttribute('aria-expanded', String(!isOpen));
-        }
 
         function closeNotificationPanel() {
             if (!notifPanel || !notifBackdrop || !notifBtn) return;
@@ -740,21 +511,6 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             notifBtn.setAttribute('aria-expanded', String(!isOpen));
         }
 
-        if (aiBtn) {
-            aiBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleAiPanel();
-            });
-        }
-
-        if (closeAiPanelBtn) {
-            closeAiPanelBtn.addEventListener('click', closeAiPanel);
-        }
-
-        if (aiBackdrop) {
-            aiBackdrop.addEventListener('click', closeAiPanel);
-        }
-
         if (notifBtn) {
             notifBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -771,20 +527,17 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
         }
 
         document.addEventListener('click', (e) => {
-            const clickedInsideAiPanel = e.target.closest('.ai-panel, .ai-agent-btn, #aiPanelBackdrop');
             const clickedInsideNotificationPanel = e.target.closest('.notification-panel, #notifBtn, #notificationPanelBackdrop');
             const clickedInsideDropdown = e.target.closest('.perfil-container, .dropdown-custom, .nav-icon-btn');
-            if (!clickedInsideAiPanel && !clickedInsideNotificationPanel && !clickedInsideDropdown) {
+            if (!clickedInsideNotificationPanel && !clickedInsideDropdown) {
                 document.querySelectorAll('.popup-menu').forEach(menu => menu.classList.remove('show'));
                 document.querySelectorAll('[aria-expanded]').forEach(b => b.setAttribute('aria-expanded', 'false'));
-                closeAiPanel();
                 closeNotificationPanel();
             }
         });
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                closeAiPanel();
                 closeNotificationPanel();
             }
         });
@@ -1026,82 +779,6 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
                 isLoadingNotifications = false;
             }
         }
-
-        const copilotSeedMessages = [
-            'O que exige atenção imediata hoje?',
-            'Quais clientes estão em risco?',
-            'Qual é a saúde da empresa esta semana?',
-            'Que ação devo tomar primeiro?'
-        ];
-
-        function renderCopilotSuggestions() {
-            if (!copilotSuggestions) return;
-            copilotSuggestions.innerHTML = copilotSeedMessages.map((text) => `
-                <button type="button" class="copilot-suggestion" data-message="${escapeHtml(text)}">${escapeHtml(text)}</button>
-            `).join('');
-
-            copilotSuggestions.querySelectorAll('.copilot-suggestion').forEach((button) => {
-                button.addEventListener('click', () => {
-                    const message = button.getAttribute('data-message');
-                    if (message && copilotInput) {
-                        copilotInput.value = message;
-                        copilotInput.focus();
-                    }
-                });
-            });
-        }
-
-        function appendCopilotMessage(role, text) {
-            if (!copilotThread) return;
-            const bubble = document.createElement('div');
-            bubble.className = `copilot-bubble ${role}`;
-            bubble.textContent = text;
-            copilotThread.appendChild(bubble);
-            copilotThread.scrollTop = copilotThread.scrollHeight;
-        }
-
-        async function askCopilot(message) {
-            if (!message || !message.trim()) return;
-            if (copilotInput) copilotInput.value = '';
-            appendCopilotMessage('user', message.trim());
-            appendCopilotMessage('assistant', 'A analisar os dados relevantes e a preparar a resposta…');
-
-            try {
-                const response = await fetch('/index/ajax/copilot_ask.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        company_id: companyId,
-                        message: message.trim(),
-                    })
-                });
-
-                const data = await response.json();
-                const answer = data?.answer || data?.message || 'Não foi possível obter uma resposta detalhada neste momento.';
-
-                const lastAssistant = [...copilotThread.querySelectorAll('.copilot-bubble.assistant')].pop();
-                if (lastAssistant) {
-                    lastAssistant.textContent = answer;
-                }
-            } catch (error) {
-                console.error('Falha ao consultar o Copilot:', error);
-                const lastAssistant = [...copilotThread.querySelectorAll('.copilot-bubble.assistant')].pop();
-                if (lastAssistant) {
-                    lastAssistant.textContent = 'Não foi possível contactar o assistente no momento. Tente novamente em alguns segundos.';
-                }
-            }
-        }
-
-        if (sendCopilotBtn && copilotInput) {
-            sendCopilotBtn.addEventListener('click', () => askCopilot(copilotInput.value));
-            copilotInput.addEventListener('keydown', (event) => {
-                if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                    askCopilot(copilotInput.value);
-                }
-            });
-        }
-
-        renderCopilotSuggestions();
 
         // ---------- Assistente IA (alert_logs) ----------
         function normalizeAiInsights(payload) {
@@ -1409,9 +1086,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
         document.addEventListener('DOMContentLoaded', () => {
             carregarEmpresas();
             ajaxLoadNotifications();
-            ajaxLoadAIInsights();
             setInterval(ajaxLoadNotifications, 60000);
-            setInterval(ajaxLoadAIInsights, 60000);
         });
     })();
 </script>

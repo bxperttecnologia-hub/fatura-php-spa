@@ -928,7 +928,7 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                 </select>
             </div>
 
-            <h1 class="visually-hidden"><?= t('Emissão de Fatura') ?></h1>
+            <h1 class="visually-hidden"><?= t('Emissão de Factura') ?></h1>
 
             <!-- ============ TOPO ============ -->
             <div class="inv-top">
@@ -951,7 +951,7 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                     </button>
                     <button type="button" id="saveInvoiceBtn" class="inv-btn inv-btn-primary">
                         <i class="bi bi-check2-circle" aria-hidden="true"></i>
-                        <span class="btn-label"><?= t('Emitir Fatura') ?></span>
+                        <span class="btn-label"><?= t('Emitir Factura') ?></span>
                     </button>
                 </div>
             </div><!-- /inv-top -->
@@ -974,6 +974,14 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                             id="series"
                             name="series"
                             readonly>
+                    </div>
+
+                    <div class="inv-field">
+                        <label class="inv-label" for="document_type"><?= t('Tipo de Documento') ?> *</label>
+                        <select class="inv-select" id="document_type" name="document_type" required>
+                            <option value="FT" selected>FT — <?= t('Factura') ?></option>
+                            <option value="FR">FR — <?= t('Factura-Recibo') ?></option>
+                        </select>
                     </div>
 
 
@@ -1065,10 +1073,15 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                 <hr class="inv-divider">
 
                 <div class="inv-terms">
-                    <label class="inv-check" for="apply_retention">
-                        <input type="checkbox" id="apply_retention" data-rate="<?= $retentionRate ?>">
-                        <span><?= t('Aplicar Retenção na Fonte de Angola') ?> (<?= str_replace('.', ',', (string) $retentionRate) ?>% <?= t('de acordo com o Código do IRT/IVA') ?>)</span>
-                    </label>
+                    <div class="inv-field">
+                        <label class="inv-label" for="apply_retention"><?= t('Tipo de Retenção') ?></label>
+                        <select class="inv-select" id="apply_retention" data-rate="<?= $retentionRate ?>">
+                            <option value="0"><?= t('Sem retenção') ?></option>
+                            <option value="<?= htmlspecialchars((string) $retentionRate, ENT_QUOTES, 'UTF-8') ?>">
+                                <?= t('Retenção na Fonte de Angola') ?> (<?= str_replace('.', ',', (string) $retentionRate) ?>% <?= t('de acordo com o Código do IRT/IVA') ?>)
+                            </option>
+                        </select>
+                    </div>
 
                     <div class="inv-chips" id="due_chips" role="group" aria-label="<?= t('Prazo de pagamento') ?>">
                         <span><?= t('Prazo') ?>:</span>
@@ -1372,4 +1385,4 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 </script>
 
 <!-- v=2.2: nova versão para o navegador não usar o JS antigo em cache -->
-<script src="create_invoices/create_invoices.js?v=2.3"></script>
+<script src="create_invoices/create_invoices.js?v=2.3" data-spa-repeat></script>

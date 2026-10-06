@@ -175,18 +175,13 @@ $protocol = $isHttps ? 'https' : 'http';
 
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
-/*
-|--------------------------------------------------------------------------
-| BASE PATH
-|--------------------------------------------------------------------------
-| Ajusta automaticamente para localhost
-*/
-
-$isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
-
-$basePath = $isLocalhost
-  ? '/projects/bxpert/fatura/public'
-  : '';
+$scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$creditNoteRoutePosition = strrpos($scriptPath, '/credit_notes/ajax/');
+$basePath = $creditNoteRoutePosition === false
+  ? rtrim(dirname($scriptPath), '/')
+  : substr($scriptPath, 0, $creditNoteRoutePosition);
+$basePath = $basePath === '.' ? '' : $basePath;
+$basePath = preg_replace('~/app/pages$~', '', $basePath) ?? $basePath;
 
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 

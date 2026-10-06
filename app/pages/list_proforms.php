@@ -366,7 +366,7 @@ require_once '../app/views/layout_creation.php';
             </div>
 
             <div class="table-responsive">
-                <table id="invoicesTable" class="table-bx-standard table nowrap w-100">
+                <table id="invoicesTable" class="table-bx-standard table nowrap w-100 bx-list-table">
                     <thead style="background: none !important;">
                         <tr>
                             <th><input type="checkbox" id="selectAll"> <?= t('Status') ?></th>
