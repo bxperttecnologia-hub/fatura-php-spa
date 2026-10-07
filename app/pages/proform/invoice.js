@@ -280,7 +280,12 @@ $(function () {
   // 7. EDITAR PROFORMA
   // =========================
   $("#btnEditar").on("click", function () {
-    window.location.href = `create_proform.php?edit_id=${currentInvoice.id}`;
+    const editUrl = `/proformas/create?edit_id=${encodeURIComponent(currentInvoice.id)}&return_to=${encodeURIComponent(`/proformas/view?id=${currentInvoice.id}`)}`;
+    if (typeof window.navigateSPA === "function") {
+      window.navigateSPA(editUrl);
+    } else {
+      window.location.assign(editUrl);
+    }
   });
 
   /* ---------- 1. inicializa Quill ---------- */

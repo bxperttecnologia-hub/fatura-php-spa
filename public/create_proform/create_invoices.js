@@ -451,7 +451,13 @@ $(document).ready(function () {
   });
 
   $("#cancelInvoiceBtn").on("click", function () {
-    const backUrl = $(this).data("href") || "proforms.php";
+    const listUrl = $(this).data("href") || "/proformas";
+    const editId = new URLSearchParams(window.location.search).get("edit_id");
+    const returnTo = new URLSearchParams(window.location.search).get("return_to");
+    const backUrl =
+      editId && returnTo === `/proformas/view?id=${editId}`
+        ? returnTo
+        : listUrl;
     const hasWork =
       $("#items_list .item-list").length > 0 ||
       Boolean($("#contact-select").val());

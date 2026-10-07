@@ -2210,9 +2210,10 @@ $(function () {
 
   // ---------- 7) Editar Fatura (Redirecionar) ----------
   $("#btnEditar").on("click", function () {
-    const editUrl = `/create_${document_type === "PF" ? "proform" : "invoices"}.php?edit_id=${currentInvoice.id}`;
+    const documentRoute = document_type === "PF" ? "/proformas" : "/invoices";
+    const editUrl = `${documentRoute}/create?edit_id=${encodeURIComponent(currentInvoice.id)}&return_to=${encodeURIComponent(`${documentRoute}/view?id=${currentInvoice.id}`)}`;
     if (typeof window.navigateSPA === "function") window.navigateSPA(editUrl);
-    else window.location.href = editUrl;
+    else     window.location.assign(editUrl);
   });
 
   // ===========================================
