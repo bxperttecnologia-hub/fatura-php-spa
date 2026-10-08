@@ -15,6 +15,10 @@ require_once '../app/views/layout_creation.php';
 ?>
 
 <style>
+
+    .dt-sear{
+        display: none !important;
+    }
     /* ===== TABELA — mesmo padrão de linhas soltas com sombra usado em
        positions.php/payroll.php, com o toque do layout de referência
        (avatar circular + nome, badges de status) ===== */
@@ -79,6 +83,11 @@ require_once '../app/views/layout_creation.php';
         color: #4f46e5;
         margin-right: 10px;
         flex-shrink: 0;
+    }
+
+    #modalEmployee .emp-photo-control {
+        margin-bottom: 24px;
+        text-align: center;
     }
 
     .emp-name-cell {
@@ -179,52 +188,81 @@ require_once '../app/views/layout_creation.php';
 
     #modalEmployee .emp-photo-tile {
         position: relative;
-        width: 120px;
-        height: 120px;
-        border-radius: 16px;
-        margin: 0 auto 16px auto;
-        background: #1f2937;
+        display: block;
+        width: 144px;
+        height: 144px;
+        margin: 0 auto 10px;
+        padding: 0;
         overflow: hidden;
+        border: 1px solid #dbe3ed;
+        border-radius: 18px;
+        background: #eef2f7;
         cursor: pointer;
+        appearance: none;
     }
 
-    #modalEmployee .emp-photo-tile img {
+    #modalEmployee .emp-photo-placeholder,
+    #modalEmployee .emp-photo-preview {
         width: 100%;
         height: 100%;
+    }
+
+    #modalEmployee .emp-photo-placeholder {
+        display: grid;
+        place-items: center;
+        color: #64748b;
+        font-size: 3.5rem;
+    }
+
+    #modalEmployee .emp-photo-preview {
+        display: block;
         object-fit: cover;
-        opacity: 0.9;
     }
 
-    #modalEmployee .emp-photo-tile .emp-photo-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 34px;
-        font-weight: 700;
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    }
-
-    #modalEmployee .emp-photo-tile .emp-photo-overlay {
+    #modalEmployee .emp-photo-overlay {
         position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.55);
-        color: #fff;
-        font-size: 11px;
-        text-align: center;
+        inset: auto 0 0;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 4px;
+        gap: 6px;
+        padding: 9px 6px;
+        background: rgba(15, 23, 42, .72);
+        color: #fff;
+        font-size: .78rem;
         opacity: 0;
-        transition: opacity 0.15s ease;
+        transition: opacity .15s ease;
     }
 
-    #modalEmployee .emp-photo-tile:hover .emp-photo-overlay {
+    #modalEmployee .emp-photo-tile:hover .emp-photo-overlay,
+    #modalEmployee .emp-photo-tile:focus-visible .emp-photo-overlay {
         opacity: 1;
+    }
+
+    #modalEmployee .emp-photo-actions {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    #modalEmployee .emp-photo-actions .btn {
+        padding: 3px 8px;
+        font-size: .82rem;
+    }
+
+    #employeePhotoCropCanvas {
+        display: block;
+        width: min(100%, 320px);
+        aspect-ratio: 1;
+        margin: 12px auto;
+        border-radius: 12px;
+        background: #e2e8f0;
+        cursor: grab;
+        touch-action: none;
+    }
+
+    #employeePhotoCropCanvas:active {
+        cursor: grabbing;
     }
 
     #modalEmployee .emp-side-nav {
@@ -315,6 +353,7 @@ require_once '../app/views/layout_creation.php';
         </div>
     </div>
 
+    <div id="employeesTableControls"></div>
     <div class="table-responsive">
         <table id="employeesTable" class="table align-middle bx-list-table" style="width:100%">
             <thead>
@@ -351,14 +390,17 @@ require_once '../app/views/layout_creation.php';
 
                     <!-- COLUNA ESQUERDA: foto + navegação -->
                     <div class="emp-modal-side">
-                        <div class="emp-photo-tile" id="empPhotoTile">
-                            <div class="emp-photo-placeholder" id="empPhotoPlaceholder">?</div>
-                            <img src="" id="empPhotoPreview" style="display:none">
-                            <div class="emp-photo-overlay">
-                                <i class="bi bi-camera"></i>
-                                <span>Alterar foto</span>
+                        <div class="emp-photo-control">
+                            <button type="button" class="emp-photo-tile" id="empPhotoTile" aria-label="Adicionar ou alterar foto">
+                                <span class="emp-photo-placeholder" id="empPhotoPlaceholder"><i class="bi bi-person"></i></span>
+                                <img src="" id="empPhotoPreview" class="emp-photo-preview" style="display:none" alt="Fotografia do funcionário">
+                                <span class="emp-photo-overlay"><i class="bi bi-camera"></i> Alterar foto</span>
+                            </button>
+                            <div class="emp-photo-actions">
+                                <button type="button" class="btn btn-link text-decoration-none" id="btnEmployeePhotoChoose">Adicionar foto</button>
+                                <button type="button" class="btn btn-link text-danger text-decoration-none d-none" id="btnEmployeePhotoRemove">Remover foto</button>
                             </div>
-                            <input type="file" name="photo" id="empPhotoInput" accept="image/png,image/jpeg,image/webp,image/gif" class="d-none">
+                            <input type="file" id="empPhotoInput" accept="image/png,image/jpeg,image/webp" class="d-none">
                         </div>
 
                         <ul class="emp-side-nav">
@@ -568,6 +610,28 @@ require_once '../app/views/layout_creation.php';
     </div>
 </div>
 
+<div class="modal fade" id="modalEmployeePhotoCrop" tabindex="-1" aria-labelledby="employeePhotoCropTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="employeePhotoCropTitle">Foto selecionada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancelar"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="employeePhotoCropCanvas" width="512" height="512" aria-label="Pré-visualização do recorte"></canvas>
+                <label class="form-label w-100">Zoom
+                    <input type="range" class="form-range" id="employeePhotoZoom" min="1" max="3" step="0.05" value="1">
+                </label>
+                <small class="text-muted">Arraste a imagem para ajustar o enquadramento quadrado.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEmployeePhotoUse">Usar esta foto</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     $(document).ready(function() {
 
@@ -608,6 +672,12 @@ require_once '../app/views/layout_creation.php';
                     filterSel.append(`<option value="${d.id}">${d.name}</option>`);
                     modalSel.append(`<option value="${d.id}">${d.name}</option>`);
                 });
+                const requestedDepartment = new URLSearchParams(window.location.search).get('department_id');
+                const hasRequestedDepartment = filterSel.find('option').toArray()
+                    .some(option => option.value === requestedDepartment);
+                if (requestedDepartment && hasRequestedDepartment) {
+                    filterSel.val(requestedDepartment).trigger('change');
+                }
             });
         }
 
@@ -627,44 +697,61 @@ require_once '../app/views/layout_creation.php';
         /* ===================== TABELA ===================== */
 
         function initials(name) {
-            return (name || '?').trim().split(' ').slice(0, 2).map(w => w.charAt(0).toUpperCase()).join('');
+            return (name || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w.charAt(0).toUpperCase()).join('');
         }
 
-        const table = $('#employeesTable').DataTable({
+        function escapeEmployeeHtml(value) {
+            const element = document.createElement('span');
+            element.textContent = value ?? '';
+            return element.innerHTML;
+        }
+
+        const table = BootstrapTable.create({
+            table: '#employeesTable',
+            toolbar: '#employeesTableControls',
+            searchInput: '#inputSearchEmployee',
             ajax: {
                 url: 'rh/ajax/list_employees.php',
-                dataSrc: function(json) {
-                    if (json.error) {
-                        Swal.fire('Erro ao carregar funcionários', json.error, 'error');
-                    }
-                    return json.data || [];
-                },
-                error: function(xhr) {
-                    const resp = xhr.responseJSON;
-                    Swal.fire('Erro ao carregar funcionários', (resp && resp.error) || 'Não foi possível contactar o servidor.', 'error');
-                }
+                method: 'GET'
             },
-            language: { url: '/assets/translations/datatables-pt.json' },
-            order: [],
+            dataSource: json => {
+                if (json.error) {
+                    console.error('Erro ao carregar funcionários:', json.error);
+                    Swal.fire('Erro ao carregar funcionários', json.error, 'error');
+                }
+                return json.data || [];
+            },
+            onError: xhr => {
+                const response = xhr?.responseJSON;
+                Swal.fire('Erro ao carregar funcionários', response?.error || response?.message || 'Não foi possível contactar o servidor.', 'error');
+            },
+            filter: row => {
+                const department = $('#filterDepartment').val();
+                const status = $('#filterStatus').val();
+                return (!department || String(row.department_id) === String(department))
+                    && (!status || row.status === status);
+            },
+            initialSort: { index: 0, direction: 'asc' },
             columns: [
                 {
-                    data: null,
-                    render: row => `
+                    data: 'name',
+                    render: (_, row) => `
                         <div class="emp-name-cell">
                             ${row.photo_url
-                                ? `<img src="assets/img/employees/${row.photo_url}" class="emp-avatar">`
-                                : `<span class="emp-avatar">${initials(row.name)}</span>`}
-                            <div class="emp-meta">${row.name}<small>${row.email || row.bi || ''}</small></div>
+                                ? `<img src="assets/img/employees/${encodeURIComponent(row.photo_url)}" class="emp-avatar" alt="">`
+                                : `<span class="emp-avatar">${escapeEmployeeHtml(initials(row.name))}</span>`}
+                            <div class="emp-meta">${escapeEmployeeHtml(row.name)}<small>${escapeEmployeeHtml(row.email || row.bi || '')}</small></div>
                         </div>
-                    `
+                    `,
+                    searchValue: row => `${row.name || ''} ${row.email || ''} ${row.bi || ''}`
                 },
-                { data: 'admission_date', render: d => d || '—' },
+                { data: 'admission_date', render: d => escapeEmployeeHtml(d || '—') },
                 {
                     data: 'status',
-                    render: s => `<span class="badge-status-${s}">${s === 'ativo' ? 'Ativo' : 'Inativo'}</span>`
+                    render: s => `<span class="badge-status-${s === 'ativo' ? 'ativo' : 'inativo'}">${s === 'ativo' ? 'Ativo' : 'Inativo'}</span>`
                 },
-                { data: 'position', render: d => d || '—' },
-                { data: 'department_name', render: d => d || '—' },
+                { data: 'position', render: d => escapeEmployeeHtml(d || '—') },
+                { data: 'department_name', render: d => escapeEmployeeHtml(d || '—') },
                 {
                     data: 'salary',
                     render: d => 'Kz ' + parseFloat(d || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2 })
@@ -675,25 +762,17 @@ require_once '../app/views/layout_creation.php';
                 },
                 {
                     data: null,
-                    render: row => `
-                        <button class="btn btn-sm text-warning btnEditEmployee" data-id="${row.id}"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm text-danger btnDeleteEmployee" data-id="${row.id}" data-name="${row.name}"><i class="bi bi-trash"></i></button>
+                    sortable: false,
+                    searchable: false,
+                    render: (_, row) => `
+                        <button type="button" class="btn btn-sm text-warning btnEditEmployee" data-id="${escapeEmployeeHtml(row.id)}" aria-label="Editar ${escapeEmployeeHtml(row.name)}"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn btn-sm text-danger btnDeleteEmployee" data-id="${escapeEmployeeHtml(row.id)}" data-name="${escapeEmployeeHtml(row.name)}" aria-label="Eliminar ${escapeEmployeeHtml(row.name)}"><i class="bi bi-trash"></i></button>
                     `
                 }
-            ]
+            ],
         });
 
-        $('#inputSearchEmployee').on('keyup', function() { table.search(this.value).draw(); });
-        $('#filterDepartment, #filterStatus').on('change', function() { table.draw(); });
-
-        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-            const row = table.row(dataIndex).data();
-            const dep = $('#filterDepartment').val();
-            const status = $('#filterStatus').val();
-            if (dep && String(row.department_id) !== String(dep)) return false;
-            if (status && row.status !== status) return false;
-            return true;
-        });
+        $('#filterDepartment, #filterStatus').on('change', function() { table.refresh(); });
 
         /* ===================== ABAS DO MODAL ===================== */
 
@@ -714,16 +793,223 @@ require_once '../app/views/layout_creation.php';
 
         /* ===================== FOTO ===================== */
 
-        $('#empPhotoTile').on('click', () => $('#empPhotoInput').trigger('click'));
+        const photoInput = document.getElementById('empPhotoInput');
+        const photoCropCanvas = document.getElementById('employeePhotoCropCanvas');
+        const photoCropContext = photoCropCanvas.getContext('2d');
+        let photoCropImage = null;
+        let photoCropObjectUrl = null;
+        let photoCropFileName = 'employee-photo.jpg';
+        let photoCropOffset = null;
+        let photoCropDrag = null;
+        let selectedEmployeePhoto = null;
+
+        let employeePhotoPreviewObjectUrl = null;
+        function renderEmployeePhoto(url, name) {
+            if (employeePhotoPreviewObjectUrl) {
+                URL.revokeObjectURL(employeePhotoPreviewObjectUrl);
+                employeePhotoPreviewObjectUrl = null;
+            }
+            if (url && url.startsWith('blob:')) employeePhotoPreviewObjectUrl = url;
+            $('#empPhotoPreview').toggle(!!url).attr('src', url || '');
+            $('#empPhotoPlaceholder').toggle(!url).html(url
+                ? ''
+                : (name ? $('<span>').text(initials(name)).html() : '<i class="bi bi-person"></i>'));
+            $('#btnEmployeePhotoChoose').text(url ? 'Alterar foto' : 'Adicionar foto');
+            $('#btnEmployeePhotoRemove').toggleClass('d-none', !url);
+        }
+
+        function drawEmployeePhotoCrop() {
+            if (!photoCropImage) return;
+            const zoom = Number($('#employeePhotoZoom').val()) || 1;
+            const side = Math.min(photoCropImage.naturalWidth, photoCropImage.naturalHeight) / zoom;
+            const maxX = Math.max(0, photoCropImage.naturalWidth - side);
+            const maxY = Math.max(0, photoCropImage.naturalHeight - side);
+            const offsetX = photoCropOffset ? photoCropOffset.x : (photoCropImage.naturalWidth - side) / 2;
+            const offsetY = photoCropOffset ? photoCropOffset.y : (photoCropImage.naturalHeight - side) / 2;
+            const sx = Math.max(0, Math.min(maxX, offsetX));
+            const sy = Math.max(0, Math.min(maxY, offsetY));
+            photoCropContext.clearRect(0, 0, photoCropCanvas.width, photoCropCanvas.height);
+            photoCropContext.drawImage(photoCropImage, sx, sy, side, side, 0, 0, photoCropCanvas.width, photoCropCanvas.height);
+            photoCropOffset = { x: sx, y: sy };
+        }
+
+        function showEmployeePhotoCrop(file) {
+            photoCropFileName = file.name || 'employee-photo.jpg';
+            if (photoCropObjectUrl) URL.revokeObjectURL(photoCropObjectUrl);
+            photoCropObjectUrl = URL.createObjectURL(file);
+            photoCropImage = new Image();
+            photoCropImage.onload = function() {
+                photoCropOffset = null;
+                photoCropDrag = null;
+                $('#employeePhotoZoom').val(1);
+                drawEmployeePhotoCrop();
+                $('#modalEmployeePhotoCrop').modal('show');
+            };
+            photoCropImage.onerror = function() {
+                Swal.fire('Erro', 'Não foi possível abrir esta imagem.', 'error');
+            };
+            photoCropImage.src = photoCropObjectUrl;
+        }
+
+        function validateEmployeePhoto(file) {
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                Swal.fire('Formato inválido', 'Formato de imagem não suportado.', 'error');
+                return false;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                Swal.fire('Imagem muito grande', 'A imagem deve ter no máximo 5 MB.', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function processEmployeePhoto(file) {
+            if (!validateEmployeePhoto(file)) return;
+            showEmployeePhotoCrop(file);
+        }
+
+        function openEmployeePhotoOptions() {
+            const cameraAvailable = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            Swal.fire({
+                title: 'Adicionar foto',
+                showCancelButton: true,
+                showDenyButton: cameraAvailable,
+                confirmButtonText: 'Escolher do dispositivo',
+                denyButtonText: 'Tirar foto',
+                cancelButtonText: 'Cancelar'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    photoInput.click();
+                } else if (result.isDenied) {
+                    captureEmployeePhoto();
+                }
+            });
+        }
+
+        async function captureEmployeePhoto() {
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                const result = await Swal.fire({
+                    title: 'Tirar foto',
+                    html: '<video id="employeeCameraPreview" autoplay playsinline style="display:block;width:100%;max-height:55vh;border-radius:12px;object-fit:cover"></video>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Capturar',
+                    cancelButtonText: 'Cancelar',
+                    didOpen: popup => {
+                        const preview = popup.querySelector('#employeeCameraPreview');
+                        preview.srcObject = stream;
+                    },
+                    willClose: () => stream.getTracks().forEach(track => track.stop()),
+                    preConfirm: () => {
+                        const preview = document.getElementById('employeeCameraPreview');
+                        if (!preview || !preview.videoWidth) {
+                            Swal.showValidationMessage('A câmara ainda não está pronta.');
+                            return false;
+                        }
+                        const captureCanvas = document.createElement('canvas');
+                        captureCanvas.width = preview.videoWidth;
+                        captureCanvas.height = preview.videoHeight;
+                        captureCanvas.getContext('2d').drawImage(preview, 0, 0);
+                        return new Promise(resolve => captureCanvas.toBlob(resolve, 'image/jpeg', 0.92));
+                    }
+                });
+                if (result.isConfirmed && result.value) {
+                    processEmployeePhoto(new File([result.value], 'camera.jpg', { type: 'image/jpeg' }));
+                }
+            } catch (error) {
+                if (stream) stream.getTracks().forEach(track => track.stop());
+                Swal.fire('Câmara indisponível', 'Não foi possível aceder à câmara neste dispositivo.', 'error');
+            }
+        }
+
+        $('#empPhotoTile, #btnEmployeePhotoChoose').on('click', openEmployeePhotoOptions);
+
         $('#empPhotoInput').on('change', function() {
             const file = this.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                $('#empPhotoPreview').attr('src', e.target.result).show();
-                $('#empPhotoPlaceholder').hide();
-            };
-            reader.readAsDataURL(file);
+            if (file) processEmployeePhoto(file);
+            this.value = '';
+        });
+
+        $('#employeePhotoZoom').on('input', drawEmployeePhotoCrop);
+
+        photoCropCanvas.addEventListener('pointerdown', function(event) {
+            if (!photoCropImage) return;
+            photoCropCanvas.setPointerCapture(event.pointerId);
+            photoCropDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
+        });
+        photoCropCanvas.addEventListener('pointermove', function(event) {
+            if (!photoCropDrag || photoCropDrag.pointerId !== event.pointerId || !photoCropImage) return;
+            const zoom = Number($('#employeePhotoZoom').val()) || 1;
+            const side = Math.min(photoCropImage.naturalWidth, photoCropImage.naturalHeight) / zoom;
+            const scale = side / photoCropCanvas.getBoundingClientRect().width;
+            const nextX = photoCropOffset.x - (event.clientX - photoCropDrag.startX) * scale;
+            const nextY = photoCropOffset.y - (event.clientY - photoCropDrag.startY) * scale;
+            photoCropOffset = { x: nextX, y: nextY };
+            photoCropDrag.startX = event.clientX;
+            photoCropDrag.startY = event.clientY;
+            drawEmployeePhotoCrop();
+        });
+        photoCropCanvas.addEventListener('pointerup', () => { photoCropDrag = null; });
+        photoCropCanvas.addEventListener('pointercancel', () => { photoCropDrag = null; });
+
+        $('#modalEmployeePhotoCrop').on('hidden.bs.modal', function() {
+            if (photoCropObjectUrl) URL.revokeObjectURL(photoCropObjectUrl);
+            photoCropObjectUrl = null;
+            photoCropImage = null;
+            photoCropOffset = null;
+            photoCropDrag = null;
+        });
+
+        $('#btnEmployeePhotoUse').on('click', function() {
+            photoCropCanvas.toBlob(blob => {
+                if (!blob) {
+                    Swal.fire('Erro', 'Não foi possível preparar a fotografia.', 'error');
+                    return;
+                }
+                const croppedPhoto = new File([blob], photoCropFileName.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+                selectedEmployeePhoto = croppedPhoto;
+                renderEmployeePhoto(URL.createObjectURL(croppedPhoto), $('#formEmployee input[name=employee_name]').val());
+                $('#modalEmployeePhotoCrop').modal('hide');
+            }, 'image/jpeg', 0.88);
+        });
+
+        $('#formEmployee input[name=employee_name]').on('input', function() {
+            if (!$('#empPhotoPreview').is(':visible')) renderEmployeePhoto('', this.value);
+        });
+
+        $('#btnEmployeePhotoRemove').on('click', function() {
+            const employeeId = $('#empId').val();
+            Swal.fire({
+                title: 'Remover foto?',
+                text: 'Remover a fotografia deste funcionário?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Remover',
+                cancelButtonText: 'Cancelar'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                if (!employeeId) {
+                    selectedEmployeePhoto = null;
+                    photoInput.value = '';
+                    renderEmployeePhoto('', $('#formEmployee input[name=employee_name]').val());
+                    return;
+                }
+                $.post('rh/ajax/delete_employee_file.php', { employee_id: employeeId, type: 'photo' })
+                    .done(response => {
+                        if (!response.success) {
+                            Swal.fire('Erro', response.error || 'Não foi possível remover a foto.', 'error');
+                            return;
+                        }
+                        selectedEmployeePhoto = null;
+                        photoInput.value = '';
+                        renderEmployeePhoto('', $('#formEmployee input[name=employee_name]').val());
+                        table.reload();
+                        Swal.fire('Foto removida', 'A fotografia foi removida.', 'success');
+                    })
+                    .fail(() => Swal.fire('Erro', 'Não foi possível remover a foto. Tente novamente.', 'error'));
+            });
         });
 
         /* ===================== NOVO FUNCIONÁRIO ===================== */
@@ -732,8 +1018,9 @@ require_once '../app/views/layout_creation.php';
             $('#formEmployee')[0].reset();
             $('#empId').val('');
             $('#employeeModalTitle').text('Novo Funcionário');
-            $('#empPhotoPreview').hide().attr('src', '');
-            $('#empPhotoPlaceholder').show().text('?');
+            photoInput.value = '';
+            selectedEmployeePhoto = null;
+            renderEmployeePhoto('', '');
             $('#salaryWarningHint').addClass('d-none');
             $('#navAvaliacoes, #navSituacao').addClass('disabled');
             $('#doc1CurrentLink, #doc2CurrentLink').empty();
@@ -746,7 +1033,7 @@ require_once '../app/views/layout_creation.php';
 
         $('#employeesTable').on('click', '.btnEditEmployee', function() {
             const id = $(this).data('id');
-            const row = table.rows().data().toArray().find(r => String(r.id) === String(id));
+            const row = table.getRows().find(r => String(r.id) === String(id));
             if (!row) return;
 
             $('#formEmployee')[0].reset();
@@ -777,13 +1064,9 @@ require_once '../app/views/layout_creation.php';
             $('#formEmployee input[name=iban]').val(formatIban(row.iban || ''));
             $('#salaryWarningHint').addClass('d-none');
 
-            if (row.photo_url) {
-                $('#empPhotoPreview').attr('src', 'assets/img/employees/' + row.photo_url).show();
-                $('#empPhotoPlaceholder').hide();
-            } else {
-                $('#empPhotoPreview').hide();
-                $('#empPhotoPlaceholder').show().text((row.name || '?').charAt(0).toUpperCase());
-            }
+            photoInput.value = '';
+            selectedEmployeePhoto = null;
+            renderEmployeePhoto(row.photo_url ? 'assets/img/employees/' + row.photo_url : '', row.name);
 
             $('#doc1CurrentLink').html(row.doc1_url ? `<a href="assets/docs/employees/${row.doc1_url}" target="_blank">Ver documento atual</a>` : '');
             $('#doc2CurrentLink').html(row.doc2_url ? `<a href="assets/docs/employees/${row.doc2_url}" target="_blank">Ver documento atual</a>` : '');
@@ -835,6 +1118,15 @@ require_once '../app/views/layout_creation.php';
         $('#formEmployee').on('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
+            if (selectedEmployeePhoto) {
+                formData.append('photo', selectedEmployeePhoto, selectedEmployeePhoto.name);
+            }
+            const submitButton = e.originalEvent && e.originalEvent.submitter;
+            const submitButtonText = submitButton ? submitButton.innerHTML : '';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>A guardar...';
+            }
             $.ajax({
                 url: 'rh/ajax/save_employee.php',
                 method: 'POST',
@@ -843,9 +1135,14 @@ require_once '../app/views/layout_creation.php';
                 contentType: false,
                 dataType: 'json'
             }).done(function(resp) {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = submitButtonText;
+                }
                 if (resp.success) {
+                    selectedEmployeePhoto = null;
                     $('#modalEmployee').modal('hide');
-                    table.ajax.reload();
+                    table.reload();
                     if (resp.warning) {
                         Swal.fire('Funcionário salvo', resp.warning, 'warning');
                     } else {
@@ -855,7 +1152,21 @@ require_once '../app/views/layout_creation.php';
                     Swal.fire('Erro', resp.message || 'Não foi possível salvar.', 'error');
                 }
             }).fail(function(xhr) {
-                Swal.fire('Erro', xhr.responseText || 'Não foi possível salvar.', 'error');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = submitButtonText;
+                }
+                let errorMessage = 'Não foi possível enviar a foto. Tente novamente.';
+                if (xhr.responseJSON && xhr.responseJSON.message) errorMessage = xhr.responseJSON.message;
+                else if (xhr.responseText) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.message) errorMessage = response.message;
+                    } catch (error) {
+                        errorMessage = xhr.responseText;
+                    }
+                }
+                Swal.fire('Erro', errorMessage, 'error');
             });
         });
 
@@ -875,7 +1186,7 @@ require_once '../app/views/layout_creation.php';
                 $.post('rh/ajax/delete_employee.php', { employee_id: id })
                     .done(function(resp) {
                         if (resp.success) {
-                            table.ajax.reload();
+                            table.reload();
                             Swal.fire('Ok', 'Funcionário eliminado.', 'success');
                         } else {
                             Swal.fire('Não foi possível eliminar', resp.error || resp.message || '', 'error');
@@ -951,7 +1262,7 @@ require_once '../app/views/layout_creation.php';
                 }).done(function(resp) {
                     if (resp.success) {
                         $('#modalEmployee').modal('hide');
-                        table.ajax.reload();
+                        table.reload();
                         Swal.fire('Ok', resp.message, 'success');
                     } else {
                         Swal.fire('Erro', resp.message, 'error');

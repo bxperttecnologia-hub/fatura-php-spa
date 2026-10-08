@@ -17,6 +17,18 @@
 - O browser verifica a sessão ao voltar ao separador e de 60 em 60 s com `GET /api/auth/me`, que **não** prolonga a sessão.
 - 5 senhas erradas seguidas bloqueiam o login durante 5 minutos (por sessão — não substitui rate-limit no servidor web).
 
+## Envio de faturas e proformas
+- Configure `SMTP_USERNAME` e `SMTP_PASSWORD` no ambiente do PHP para habilitar o envio de documentos.
+- `SMTP_FROM_NAME` é opcional; por omissão, o remetente usa o nome `BXpert`. O endereço de origem é o utilizador SMTP configurado.
+- Não coloque credenciais SMTP no código ou em ficheiros servidos pela aplicação. Credenciais anteriormente expostas devem ser rodadas no fornecedor.
+
+## Geração de documentos pela API
+- Recibos, notas de crédito/débito, notas de entrega e folhas salariais são gerados pelo servidor genérico do `bxintelligence-api-rest`.
+- O browser obtém um token de documentos de cinco minutos através da sessão PHP autenticada e envia-o à API; o token restringe a consulta à empresa associada à sessão.
+- Configure `DOCUMENT_API_TOKEN_SECRET` com o mesmo segredo aleatório (mínimo 32 bytes) no ambiente do PHP e da API; configure `DOCUMENT_API_BASE_URL` com a URL pública da API.
+- No ambiente da API, `DB_PASS` ou `DB_PASSWORD` deve apontar para a mesma base de dados MySQL da aplicação. `DOCUMENT_ASSETS_DIR` é opcional e aponta para a pasta local dos logótipos.
+- Não exponha o segredo no frontend, em respostas JSON ou em repositórios. Consulte o README do `bxintelligence-api-rest` para as rotas disponíveis.
+
 ## Estrutura
 - `app/pages/*.php` — páginas do ERP, injetadas no `#app` por `public/view.php` + `assets/js/pages/legacy.js`.
 - `app/config/pages.php` — mapa rota → ficheiro. Nova página = uma linha aqui.

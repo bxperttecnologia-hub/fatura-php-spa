@@ -16,7 +16,9 @@ $(document).ready(function () {
     });
   }
 
-  $(document).on("click", "[data-company-step-target]", function () {
+  $(document)
+    .off("click.companySteps", "[data-company-step-target]")
+    .on("click.companySteps", "[data-company-step-target]", function () {
     const target = Number(this.dataset.companyStepTarget);
     if (target === activeCompanyStep || !companySteps.some((step) => Number(step.dataset.companyStep) === target)) return;
 
@@ -31,7 +33,7 @@ $(document).ready(function () {
 
     showCompanyStep(target);
     document.querySelector(`[data-company-step="${target}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+    });
 
   showCompanyStep(activeCompanyStep);
 
@@ -307,7 +309,7 @@ $(document).ready(function () {
       |--------------------------------------------------------------------------
       */
         if (data.logo_url) {
-          setLogoSrc(`assets/img/companies/${data.logo_url}`);
+          setLogoSrc(`/assets/img/companies/${data.logo_url}`);
         }
 
         /*
@@ -341,7 +343,9 @@ $(document).ready(function () {
     });
   }
 
-  $("#editCompanyForm").submit(function (e) {
+  $("#editCompanyForm")
+    .off("submit.companyEdit")
+    .on("submit.companyEdit", function (e) {
     e.preventDefault();
 
     let formData = new FormData(this);
@@ -355,9 +359,12 @@ $(document).ready(function () {
     $submitBtn.prop("disabled", true);
 
     $.ajax({
-      url: "edit_company/ajax/update_company.php",
+      url: "/edit_company/ajax/update_company.php",
       type: "POST",
       data: formData,
+      headers: {
+        "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || "",
+      },
       contentType: false,
       processData: false,
       dataType: "json",
@@ -369,11 +376,11 @@ $(document).ready(function () {
             "success",
           ).then(() => {
             if (typeof window.navigateSPA === "function") {
-              window.navigateSPA("/list_companies.php");
+              window.navigateSPA("/companies");
             } else {
-              window.location.href = "list_companies.php";
+              window.location.href = "/companies";
             }
-          });
+            });
         } else {
           Swal.fire("Erro", response.message || "Erro desconhecido", "error");
         }

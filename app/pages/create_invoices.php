@@ -5,13 +5,14 @@ require_once '../app/views/layout_creation.php';
  * Ajusta aqui as rotas e o tema do ecrã.
  * $invTheme: 'dark' (igual à captura) ou 'light'.
  */
-$homeUrl       = 'index.php';
-$listUrl       = 'invoices.php';
+$listUrl       = '/invoices';
 $invTheme      = 'dark';
 $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 ?>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="/assets/js/document-tax.js"></script>
+<link rel="stylesheet" href="/assets/css/documents.css?v=1.3">
 <style id="inv-styles">
     /* =====================================================================
    EMISSÃO DE DOCUMENTO — create_invoices.css
@@ -79,17 +80,6 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
         margin-bottom: 2rem;
     }
 
-    .inv-breadcrumb {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.6rem;
-        margin-bottom: 1.4rem;
-        color: var(--inv-muted);
-        font-size: 0.95rem;
-    }
-
-    .inv-breadcrumb a,
     .inv-back {
         color: var(--inv-muted);
         text-decoration: none;
@@ -100,18 +90,8 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
         color: #fff;
     }
 
-    .inv-breadcrumb a:hover,
     .inv-back:hover {
         color: var(--inv-text);
-    }
-
-    .inv-breadcrumb [aria-current="page"] {
-        color: var(--inv-text);
-        font-weight: 600;
-    }
-
-    .inv-breadcrumb .bi-chevron-right {
-        font-size: 0.7rem;
     }
 
     .inv-back {
@@ -897,11 +877,39 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
         flex: 1 1 auto;
         min-width: 0;
     }
+
+/* ---------- Picker de itens: filtro (tipo) + select2 ---------- */
+.inv-picker-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.inv-picker-row .inv-picker-filter {
+    flex: 0 0 150px;
+    width: 150px;
+}
+
+.inv-picker-row .select2-container {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .inv-picker-row {
+        flex-direction: column;
+    }
+
+    .inv-picker-row .inv-picker-filter {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}
 </style>
 <link href="assets/css/select2.min.css" rel="stylesheet" />
 <script src="assets/js/select2.min.js"></script>
 
-<main id="invPage" class="inv-page <?= $invTheme === 'light' ? 'inv-page--light' : '' ?>">
+<main id="invPage" class="inv-page bx-document-editor <?= $invTheme === 'light' ? 'inv-page--light' : '' ?>">
     <div class="container">
 
         <form id="formFatura" autocomplete="off" novalidate>
@@ -933,14 +941,7 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
             <!-- ============ TOPO ============ -->
             <div class="inv-top">
                 <div>
-                    <div class="inv-breadcrumb" role="navigation" aria-label="breadcrumb">
-                        <a href="<?= $homeUrl ?>"><i class="bi bi-house"></i> <?= t('Início') ?></a>
-                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                        <a href="<?= $listUrl ?>"><?= t('Facturação') ?></a>
-                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                        <span id="inv_crumb_current" aria-current="page"><?= t('Emitir Novo Documento') ?></span>
-                    </div>
-                    <a href="<?= $listUrl ?>" class="inv-back">
+                    <a href="<?= $listUrl ?>" class="inv-back" data-spa>
                         <i class="bi bi-arrow-left" aria-hidden="true"></i> <?= t('Voltar à lista de facturas') ?>
                     </a>
                 </div>
@@ -1023,7 +1024,8 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 
                             <!-- Novo cliente -->
                             <a
-                                href="register_contact.php"
+                                href="/contacts/create"
+                                data-spa
                                 class="inv-icon-btn"
                                 title="<?= t('Novo cliente') ?>"
                                 aria-label="<?= t('Novo cliente') ?>">
@@ -1175,9 +1177,16 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 
                 <div class="inv-picker">
                     <label class="inv-label" for="item_select"><?= t('Adicionar artigo do catálogo') ?></label>
-                    <select class="select2 inv-select" id="item_select" data-width="100%">
-                        <option value=""><?= t('Carregando itens...') ?></option>
-                    </select>
+                    <div class="inv-picker-row">
+                        <select class="inv-select inv-picker-filter" id="item_type_filter" aria-label="<?= t('Filtrar por tipo') ?>">
+                            <option value="all"><?= t('Todos') ?></option>
+                            <option value="product"><?= t('Produtos') ?></option>
+                            <option value="service"><?= t('Serviços') ?></option>
+                        </select>
+                        <select class="select2 inv-select" id="item_select" data-width="100%">
+                            <option value=""><?= t('Carregando itens...') ?></option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Observações + resumo -->
@@ -1345,9 +1354,9 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
     document.addEventListener("DOMContentLoaded", loadDraft);
 
     /* ===== MOEDA ===== */
-    let userCurrency = "<?= $_SESSION['user']['iso_code'] ?>";
-    let currencySymbol = "<?= $_SESSION['user']['symbol'] ?>";
-    let currencyPosition = "<?= $_SESSION['user']['position'] ?>";
+    window.userCurrency = <?= json_encode($_SESSION['user']['iso_code'] ?? 'AOA', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    window.currencySymbol = <?= json_encode($_SESSION['user']['symbol'] ?? 'Kz', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    window.currencyPosition = <?= json_encode($_SESSION['user']['position'] ?? 'left', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
     /* ===== SÉRIE ===== */
     const seriesField = document.getElementById("series");
@@ -1384,5 +1393,5 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
     setTimeout(fetchCompany, 100);
 </script>
 
-<!-- v=2.2: nova versão para o navegador não usar o JS antigo em cache -->
-<script src="create_invoices/create_invoices.js?v=2.3" data-spa-repeat></script>
+<!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
+<script src="create_invoices/create_invoices.js?v=2.8" data-spa-repeat></script>

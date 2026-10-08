@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# API: /api/clientes/5 -> api.php?r=clientes/5
+RewriteRule ^api/(.*)$ api.php?r=$1 [L,QSA]
+
+# Tudo o que não for ficheiro real devolve o shell
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]

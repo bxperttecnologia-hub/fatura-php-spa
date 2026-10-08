@@ -11,7 +11,7 @@ export function render(el) {
   const next = safeNext(window.APP.next || new URLSearchParams(location.search).get('next'));
   const expired = new URLSearchParams(location.search).has('expired');
 
-  el.classList.add('login-page');
+  document.getElementById('app')?.classList.add('login-page');
   el.innerHTML = `
     <div class="row g-0 login-layout">
       <section class="col-12 col-md-6 d-flex align-items-center justify-content-center px-4 py-5">

@@ -1,6 +1,6 @@
 // Carrega uma página PHP legada (app/pages/*.php) para dentro do #app.
 // O servidor (public/view.php) devolve só o conteúdo; aqui injectamos o HTML, executamos os
-// <script> da página e limpamos tudo (DataTables, charts, intervals, handlers) ao sair.
+// <script> da página e limpamos os recursos e handlers ao sair.
 import { navigate } from '../router.js';
 
 const $ = window.jQuery;
@@ -17,10 +17,15 @@ function patchGlobals() {
   patched = true;
 
   if ($) {
-    $.ajaxPrefilter(o => { if (o.url) o.url = toAbs(o.url); });
+    $.ajaxPrefilter((o, _originalOptions, xhr) => {
+      if (!o.url) return;
+      o.url = toAbs(o.url);
+      if (new URL(o.url, location.href).origin === location.origin && window.APP.csrf) {
+        xhr.setRequestHeader('X-CSRF-Token', window.APP.csrf);
+      }
+    });
     // 401 em qualquer endpoint AJAX legado (sessão expirada) -> volta ao login
     $.ajaxSetup({
-      headers: { 'X-CSRF-Token': window.APP.csrf },
       statusCode: { 401: () => document.dispatchEvent(new Event('app:unauthorized')) },
     });
 
@@ -52,7 +57,7 @@ function patchGlobals() {
   }
 }
 
-// Scripts externos já presentes no shell (jQuery, DataTables…) não se recarregam.
+// Scripts externos já presentes no shell não se recarregam.
 // Scripts da aplicação são reiniciados a cada montagem da rota, para refazer handlers e pedidos AJAX;
 // inline via eval indirecto -> let/const ficam locais (sem "already declared" ao voltar à página),
 // var/function ficam globais (onclick="fn()" continua a funcionar).
@@ -78,7 +83,7 @@ async function runScripts(scripts, page) {
       } else {
         (0, eval)(s.textContent);
       }
-    } catch (e) { console.error('Erro em script da página', e); }
+    } catch (e) { console.error('Erro em script da página'); }
   }
 }
 
@@ -87,7 +92,6 @@ function cleanup(page) {
   page.listeners.forEach(([t, type, fn, opts]) => t.removeEventListener(type, fn, opts));
   page.scripts.forEach(script => script.remove());
   if ($) { $(document).off('.spaPage'); $(window).off('.spaPage'); }
-  try { $?.fn?.dataTable?.tables?.().forEach(t => $(t).DataTable().destroy()); } catch {}
   try { Object.values(window.Chart?.instances ?? {}).forEach(c => c.destroy()); } catch {}
   document.querySelectorAll('.modal-backdrop, .select2-container--open, .select2-dropdown').forEach(n => n.remove());
   document.body.classList.remove('modal-open');

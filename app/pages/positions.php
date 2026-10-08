@@ -119,8 +119,9 @@ require_once '../app/views/layout_creation.php';
                         </button>
                     </div>
                     <div class="card-body">
+                        <div id="positionsTableControls"></div>
                         <div class="table-responsive">
-                            <table id="positionsTable" class="table w-100 bx-list-table">
+                            <table id="positionsTable" class="table table-hover align-middle w-100 bx-list-table">
                                 <thead>
                                     <tr>
                                         <th>Nome do Cargo</th>
@@ -213,74 +214,54 @@ require_once '../app/views/layout_creation.php';
             });
         });
 
-        const table = $('#positionsTable').DataTable({
-            ajax: 'rh/ajax/list_positions.php',
-            language: {
-                url: '/assets/translations/datatables-pt.json'
-            },
-            columns: [{
-                    data: 'name'
-                },
-                {
-                    data: 'suggested_salary',
-                    render: function(data) {
-                        return `Kz ${parseFloat(data).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`;
-                    }
-                },
-                {
-                    data: 'food_allowance',
-                    render: function(data) {
-                        return `Kz ${parseFloat(data || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`;
-                    }
-                },
-                {
-                    data: 'transport_allowance',
-                    render: function(data) {
-                        return `Kz ${parseFloat(data || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`;
-                    }
-                },
-                {
-                    data: 'vacation_subsidy_pct',
-                    render: function(data) {
-                        return `${parseInt(data || 0)}%`;
-                    }
-                },
-                {
-                    data: 'thirteenth_subsidy_pct',
-                    render: function(data) {
-                        return `${parseInt(data || 0)}%`;
-                    }
-                },
+        const escapeHtml = value => {
+            const element = document.createElement('span');
+            element.textContent = value ?? '';
+            return element.innerHTML;
+        };
+        const formatCurrency = value => `Kz ${Number(value || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`;
+        const table = BootstrapTable.create({
+            table: '#positionsTable',
+            toolbar: '#positionsTableControls',
+            ajax: { url: 'rh/ajax/list_positions.php', method: 'GET' },
+            initialSort: { index: 0, direction: 'asc' },
+            emptyText: 'Nenhum cargo encontrado.',
+            columns: [
+                { data: 'name' },
+                { data: 'suggested_salary', render: formatCurrency, sortValue: row => Number(row.suggested_salary || 0) },
+                { data: 'food_allowance', render: formatCurrency, sortValue: row => Number(row.food_allowance || 0) },
+                { data: 'transport_allowance', render: formatCurrency, sortValue: row => Number(row.transport_allowance || 0) },
+                { data: 'vacation_subsidy_pct', render: value => `${parseInt(value || 0)}%`, sortValue: row => Number(row.vacation_subsidy_pct || 0) },
+                { data: 'thirteenth_subsidy_pct', render: value => `${parseInt(value || 0)}%`, sortValue: row => Number(row.thirteenth_subsidy_pct || 0) },
                 {
                     data: null,
-                    render: function(row) {
-                        return `
-                          <button class='btn btn-sm text-warning editPosition'
-                            data-id='${row.id}'
-                            data-name='${row.name}'
-                            data-salary='${row.suggested_salary}'
-                            data-food_allowance='${row.food_allowance || 0}'
-                            data-transport_allowance='${row.transport_allowance || 0}'
-                            data-vacation_subsidy_pct='${row.vacation_subsidy_pct || 0}'
-                            data-thirteenth_subsidy_pct='${row.thirteenth_subsidy_pct || 0}'
-                            data-department_id='${row.department_id || ''}'
-                          ><i class="bi bi-pencil"></i></button>
-                          <button class='btn btn-sm text-danger deletePosition'
-                            data-id='${row.id}'
-                            data-name='${row.name}'
-                          ><i class="bi bi-trash"></i></button>
-                        `;
-                    }
+                    sortable: false,
+                    searchable: false,
+                    render: (_, row) => `
+                        <button type="button" class="btn btn-sm text-warning editPosition"
+                            data-id="${escapeHtml(row.id)}"
+                            data-name="${escapeHtml(row.name)}"
+                            data-salary="${escapeHtml(row.suggested_salary)}"
+                            data-food_allowance="${escapeHtml(row.food_allowance || 0)}"
+                            data-transport_allowance="${escapeHtml(row.transport_allowance || 0)}"
+                            data-vacation_subsidy_pct="${escapeHtml(row.vacation_subsidy_pct || 0)}"
+                            data-thirteenth_subsidy_pct="${escapeHtml(row.thirteenth_subsidy_pct || 0)}"
+                            data-department_id="${escapeHtml(row.department_id || '')}"
+                            aria-label="Editar ${escapeHtml(row.name)}" title="Editar"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn btn-sm text-danger deletePosition"
+                            data-id="${escapeHtml(row.id)}"
+                            data-name="${escapeHtml(row.name)}"
+                            aria-label="Eliminar ${escapeHtml(row.name)}" title="Eliminar"><i class="bi bi-trash"></i></button>
+                    `
                 }
             ]
         });
-
         $('#formPosition').on('submit', function(e) {
             e.preventDefault();
             $.post('rh/ajax/save_position.php', $(this).serialize())
                 .done(function() {
                     $('#modalPosition').modal('hide');
-                    table.ajax.reload();
+                    table.reload();
                     Swal.fire('Sucesso', 'Cargo salvo com sucesso!', 'success');
                     $('#editPositionId').remove();
                 })
@@ -319,7 +300,7 @@ require_once '../app/views/layout_creation.php';
                     id
                 }, function(resp) {
                     if (resp.success) {
-                        table.ajax.reload();
+                        table.reload();
                         Swal.fire('Ok', 'Cargo eliminado.', 'success');
                     } else {
                         Swal.fire('Erro', resp.message || 'Não foi possível eliminar.', 'error');

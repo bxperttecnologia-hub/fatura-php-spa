@@ -1,4 +1,51 @@
 $(document).ready(function () {
+  const companySteps = [...document.querySelectorAll("[data-company-step]")];
+  let activeCompanyStep = 1;
+
+  function showCompanyStep(step) {
+    activeCompanyStep = step;
+    companySteps.forEach((section) => {
+      section.hidden = Number(section.dataset.companyStep) !== step;
+    });
+    document.querySelectorAll("[data-company-step-target]").forEach((button) => {
+      const isActive = Number(button.dataset.companyStepTarget) === step;
+      button.classList.toggle("btn-primary", isActive);
+      button.classList.toggle("btn-outline-primary", !isActive);
+      if (isActive) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
+  }
+
+  $(document)
+    .off("click.companySteps", "[data-company-step-target]")
+    .on("click.companySteps", "[data-company-step-target]", function () {
+      const target = Number(this.dataset.companyStepTarget);
+      if (
+        target === activeCompanyStep ||
+        !companySteps.some((step) => Number(step.dataset.companyStep) === target)
+      ) {
+        return;
+      }
+
+      if (target > activeCompanyStep) {
+        const currentStep = companySteps.find(
+          (step) => Number(step.dataset.companyStep) === activeCompanyStep,
+        );
+        const invalidField = currentStep?.querySelector(":invalid");
+        if (invalidField) {
+          invalidField.reportValidity();
+          return;
+        }
+      }
+
+      showCompanyStep(target);
+      document
+        .querySelector(`[data-company-step="${target}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+  showCompanyStep(activeCompanyStep);
+
   $(".select2").select2();
 
   // --- Config ---
@@ -271,7 +318,7 @@ $(document).ready(function () {
       |--------------------------------------------------------------------------
       */
         if (data.logo_url) {
-          setLogoSrc(`assets/img/companies/${data.logo_url}`);
+          setLogoSrc(`/assets/img/companies/${data.logo_url}`);
         }
 
         /*
@@ -305,7 +352,9 @@ $(document).ready(function () {
     });
   }
 
-  $("#editCompanyForm").submit(function (e) {
+  $("#editCompanyForm")
+    .off("submit.companyEdit")
+    .on("submit.companyEdit", function (e) {
     e.preventDefault();
 
     let formData = new FormData(this);
@@ -319,9 +368,12 @@ $(document).ready(function () {
     $submitBtn.prop("disabled", true);
 
     $.ajax({
-      url: "edit_company/ajax/update_company.php",
+      url: "/edit_company/ajax/update_company.php",
       type: "POST",
       data: formData,
+      headers: {
+        "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || "",
+      },
       contentType: false,
       processData: false,
       dataType: "json",
@@ -331,7 +383,13 @@ $(document).ready(function () {
             "Sucesso",
             "Empresa atualizada com sucesso!",
             "success",
-          ).then(() => (window.location.href = "list_companies.php"));
+          ).then(() => {
+            if (typeof window.navigateSPA === "function") {
+              window.navigateSPA("/companies");
+            } else {
+              window.location.href = "/companies";
+            }
+            });
         } else {
           Swal.fire("Erro", response.message || "Erro desconhecido", "error");
         }

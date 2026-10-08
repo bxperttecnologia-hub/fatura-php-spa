@@ -7,6 +7,7 @@ require_once '../../../vendor/autoload.php';
 use chillerlan\QRCode\{QRCode, QROptions};
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 
 // ---------- utils ----------
 function formatCurrency(float $value, string $currencySymbol, string $currencyPosition = 'left'): string
@@ -199,7 +200,9 @@ if (!$inv) {
   die('<h3>Proforma não encontrada.</h3>');
 }
 
-$publicBasePath = rtrim(dirname(dirname(dirname($_SERVER['SCRIPT_NAME']))), '/');
+$scriptPath = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+$publicBasePath = str_replace('\\', '/', dirname(dirname(dirname($scriptPath))));
+$publicBasePath = ($publicBasePath === '/' || $publicBasePath === '.') ? '' : rtrim($publicBasePath, '/');
 $logoFile = basename((string)($inv['logo_url'] ?? ''));
 
 if (empty(trim($inv['goods_services'] ?? ''))) {
@@ -269,6 +272,26 @@ $stmt->execute([
 ]);
 
 $taxes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$taxSummary = bx_document_tax_summary(
+  $items,
+  (string)($inv['vat_regime'] ?? '')
+);
+$retentionValue = max(
+  0.0,
+  ($taxSummary['subtotal'] + $taxSummary['total_tax'])
+    * (float)($inv['retention'] ?? 0) / 100
+);
+$taxSummary = bx_document_tax_summary(
+  $items,
+  (string)($inv['vat_regime'] ?? ''),
+  $retentionValue
+);
+$inv['total_sum'] = $taxSummary['total_sum'];
+$inv['total_discount'] = $taxSummary['total_discount'];
+$inv['subtotal_without_tax'] = $taxSummary['subtotal'];
+$inv['total_tax'] = $taxSummary['total_tax'];
+$inv['final_total'] = $taxSummary['final_total'];
+$inv['retention_value'] = $taxSummary['retention'];
 
 $isProforma = !empty($_GET['proforma']);
 
@@ -326,7 +349,39 @@ if ($paid_total >= $inv['final_total']) {  // quitada
   <title>Fatura <?= htmlspecialchars($inv['codigo']) ?></title>
   <link rel="stylesheet" href="<?= htmlspecialchars($publicBasePath . '/invoices/invoice.css') ?>">
   <link rel="stylesheet" href="<?= htmlspecialchars($publicBasePath . '/invoices/invoice_footer.css') ?>">
-
+  <style>
+    .document-tax-summary {
+      margin: 12px 0 16px;
+      color: #555;
+      font-size: 9px;
+    }
+    .document-tax-summary h2 {
+      margin: 0 0 5px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .document-tax-summary table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+    .document-tax-summary th,
+    .document-tax-summary td {
+      padding: 4px 6px;
+      border-bottom: 1px solid #d2d2d2;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .document-tax-summary th:first-child,
+    .document-tax-summary td:first-child {
+      text-align: left;
+    }
+    @media (max-width: 640px) {
+      .document-tax-summary table {
+        min-width: 520px;
+      }
+    }
+  </style>
 </head>
 
 
@@ -440,7 +495,8 @@ if ($paid_total >= $inv['final_total']) {  // quitada
       <?php foreach ($items as $it):
         $base = $it['unit_price'] * $it['quantity'];
         $discount = $base * ($it['discount'] / 100);
-        $tax = ($base - $discount) * ($it['tax'] / 100);
+        $effectiveRate = bx_document_effective_tax_rate($it['tax'], (string)($inv['vat_regime'] ?? ''));
+        $tax = ($base - $discount) * ($effectiveRate / 100);
         $total = $base - $discount + $tax; ?>
         <div class="items-row mb-3">
           <span class="fw-light lh-1 mt-1" style="width: 90px !important; font-size: 10px !important;"><?= htmlspecialchars($it['code']) ?></span>
@@ -449,7 +505,7 @@ if ($paid_total >= $inv['final_total']) {  // quitada
             <?= formatCurrency($it['unit_price'], $inv['moneySymbol'], $inv['moneyPos']) ?>
           </span>
           <span class="center fw-light lh-sm" style="margin-left: -38px; font-size: 10px !important;"><?= $it['quantity'] ?></span>
-          <span class="center fw-light lh-sm" style="margin-left: -70px; font-size: 10px !important;"><?= $it['tax'] ?>%</span>
+          <span class="center fw-light lh-sm" style="margin-left: -70px; font-size: 10px !important;"><?= number_format($effectiveRate, 2, ',', '') ?>%</span>
           <span class="center fw-light lh-sm" style="margin-left: -120px; font-size: 10px !important;"><?= $it['discount'] ?>%</span>
           <span class="right fw-light lh-sm" style="margin-left: -66px; width: 100px; font-size: 10px !important;">
             <?= formatCurrency($total, $inv['moneySymbol'], $inv['moneyPos']) ?>
@@ -458,6 +514,28 @@ if ($paid_total >= $inv['final_total']) {  // quitada
       <?php endforeach; ?>
     </div>
 
+
+    <section class="document-tax-summary" aria-labelledby="taxSummaryTitle">
+      <h2 id="taxSummaryTitle">Resumo por taxa de IVA</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Taxa</th><th>Base</th><th>Valor (IVA)</th><th>Retenção</th><th>Líquido</th></tr>
+          </thead>
+          <tbody>
+            <?php foreach ($taxSummary['rows'] as $taxRow): ?>
+              <tr>
+                <td><?= number_format($taxRow['rate'], 2, ',', '') ?>%</td>
+                <td><?= formatCurrency($taxRow['base'], $inv['moneySymbol'], $inv['moneyPos']) ?></td>
+                <td><?= formatCurrency($taxRow['iva'], $inv['moneySymbol'], $inv['moneyPos']) ?></td>
+                <td><?= formatCurrency($taxRow['retention'], $inv['moneySymbol'], $inv['moneyPos']) ?></td>
+                <td><?= formatCurrency($taxRow['net'], $inv['moneySymbol'], $inv['moneyPos']) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- ===== TAXAS & RESUMO (sem <table>) ===== -->
     <div class="totals-wrap">

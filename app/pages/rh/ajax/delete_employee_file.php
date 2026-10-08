@@ -35,11 +35,13 @@ try{
   // Remove do disco
   if($filename){
     $filename = basename($filename); // segurança
-    if($type === 'photo'){
-      $path = __DIR__ . '/../../assets/img/employees/' . $filename;
-    } else {
-      $path = __DIR__ . '/../../assets/docs/employees/' . $filename;
+    $assetRoot = dirname(__DIR__, 2);
+    if (strtolower(basename($assetRoot)) !== 'public') {
+      $assetRoot = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'public';
     }
+    $assetType = $type === 'photo' ? 'img' : 'docs';
+    $path = $assetRoot . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . $assetType
+      . DIRECTORY_SEPARATOR . 'employees' . DIRECTORY_SEPARATOR . $filename;
     if(is_file($path)){
       @unlink($path);
     }

@@ -224,8 +224,13 @@ require_once '../app/views/layout_creation.php';
 
 
             $(document).on("click", ".btn-edit2", function() {
-                let companyId = $(this).data("id");
-                window.location.href = `edit_company.php?id=${companyId}`;
+                const companyId = $(this).data("id");
+                const editUrl = `/companies/edit?id=${encodeURIComponent(companyId)}`;
+                if (typeof window.navigateSPA === "function") {
+                    window.navigateSPA(editUrl);
+                } else {
+                    window.location.href = editUrl;
+                }
             });
             $(document).on("click", ".btn-manage", function() {
                 let companyId = $(this).data("id");

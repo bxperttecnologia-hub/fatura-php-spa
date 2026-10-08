@@ -1,6 +1,22 @@
 <?php
 require_once '../../../app/config/db.php';
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+session_start();
+
+$sessionCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);
+if ($sessionCompanyId <= 0) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Sessão inválida.']);
+    exit;
+}
+
+$expectedToken = (string)($_SESSION['csrf'] ?? '');
+$sentToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+if ($expectedToken === '' || !hash_equals($expectedToken, $sentToken)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Token CSRF inválido.']);
+    exit;
+}
 
 try {
 
@@ -12,6 +28,10 @@ try {
 
     if ($companyId <= 0) {
         throw new Exception('ID da empresa inválido.');
+    }
+    if ($companyId !== $sessionCompanyId) {
+        http_response_code(403);
+        throw new Exception('Acesso negado.');
     }
 
     // =============================
@@ -25,6 +45,7 @@ try {
         throw new Exception('Nome e registo da empresa são obrigatórios.');
     }
 
+    $phone_ddi = trim($_POST['phone_ddi'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $website = trim($_POST['website'] ?? '');
@@ -161,6 +182,7 @@ try {
     $query = "UPDATE companies SET
         name = :name,
         registration_number = :registration_number,
+        phone_ddi = :phone_ddi,
         phone = :phone,
         email = :email,
         website = :website,
@@ -197,6 +219,7 @@ try {
     // =============================
     $stmt->bindValue(':name', $name);
     $stmt->bindValue(':registration_number', $registration_number);
+    $stmt->bindValue(':phone_ddi', $phone_ddi);
     $stmt->bindValue(':phone', $phone);
     $stmt->bindValue(':email', $email);
     $stmt->bindValue(':website', $website);

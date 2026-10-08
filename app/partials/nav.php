@@ -472,6 +472,12 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             'perfilBtn': 'perfil-menu',
         };
 
+        function resetPopupAriaExpanded() {
+            Object.keys(triggers).forEach((btnId) => {
+                document.getElementById(btnId)?.setAttribute('aria-expanded', 'false');
+            });
+        }
+
         Object.entries(triggers).forEach(([btnId, menuId]) => {
             const btn = document.getElementById(btnId);
             const menu = document.getElementById(menuId);
@@ -481,7 +487,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
                 e.stopPropagation();
                 const isOpen = menu.classList.contains('show');
                 document.querySelectorAll('.popup-menu').forEach(m => m.classList.remove('show'));
-                document.querySelectorAll('[aria-expanded]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+                resetPopupAriaExpanded();
                 if (!isOpen) {
                     menu.classList.add('show');
                     btn.setAttribute('aria-expanded', 'true');
@@ -505,7 +511,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             if (!notifPanel || !notifBackdrop || !notifBtn) return;
             const isOpen = notifPanel.classList.contains('show');
             document.querySelectorAll('.popup-menu').forEach(menu => menu.classList.remove('show'));
-            document.querySelectorAll('[aria-expanded]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+            resetPopupAriaExpanded();
             notifPanel.classList.toggle('show', !isOpen);
             notifBackdrop.classList.toggle('show', !isOpen);
             notifBtn.setAttribute('aria-expanded', String(!isOpen));
@@ -531,7 +537,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             const clickedInsideDropdown = e.target.closest('.perfil-container, .dropdown-custom, .nav-icon-btn');
             if (!clickedInsideNotificationPanel && !clickedInsideDropdown) {
                 document.querySelectorAll('.popup-menu').forEach(menu => menu.classList.remove('show'));
-                document.querySelectorAll('[aria-expanded]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+                resetPopupAriaExpanded();
                 closeNotificationPanel();
             }
         });

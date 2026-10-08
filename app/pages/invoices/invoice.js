@@ -106,7 +106,6 @@ $(function () {
       // Mostrar botões conforme status
       if (inv.status_invoice === "Rascunho") {
         $("#btnFinalizar").removeClass("d-none");
-        $("#btnEditar").removeClass("d-none");
         $("#generatePdf").removeClass("d-none");
         $("#btnEnviar").removeClass("d-none");
         $("#btnCloneToInvoice").removeClass("d-none");
@@ -120,6 +119,7 @@ $(function () {
         $("#generatePdf").removeClass("d-none");
         $("#btnEnviar").removeClass("d-none");
       }
+      $("#btnEditar").removeClass("d-none");
     })
     .fail((xhr) => {
       console.error("Erro AJAX:", xhr);
@@ -171,15 +171,12 @@ $(function () {
                 text: response.message,
                 confirmButtonText: "OK",
               }).then(() => {
-                // Atualiza a tabela sem voltar à primeira página
-                $("#invoicesTable").DataTable().ajax.reload(null, false);
-
                 if (typeof loadDashboardCards === "function") {
                   loadDashboardCards();
                 }
 
                 // Se estiver na página de edição pode recarregar
-                location.replace("list_invoices.php");
+                location.replace("invoices");
               });
             } else {
               Swal.fire({
@@ -331,9 +328,9 @@ $(function () {
           <div class="d-flex gap-2 mt-3">
 
             <a
-              href="invoices/recibo_pdf.php?id=${receipt.id}"
-              target="_blank"
-              class="btn btn-sm btn-primary"
+              href="#"
+              data-id="${receipt.id}"
+              class="btn btn-sm btn-primary js-receipt-pdf"
             >
               <i class="fa fa-file-pdf me-1"></i>
               Ver PDF
@@ -379,7 +376,16 @@ $(function () {
 
     if (!id) return;
 
-    window.open(`invoices/recibo_pdf.php?id=${id}`, "_blank");
+    window.BXDocumentApi.openPdf(`/api/documents/receipts/${encodeURIComponent(id)}/pdf`)
+      .catch((error) => Swal.fire("Erro", error.message, "error"));
+  });
+
+  $(document).on("click", ".js-receipt-pdf", function (event) {
+    event.preventDefault();
+    const id = this.dataset.id;
+    if (!id) return;
+    window.BXDocumentApi.openPdf(`/api/documents/receipts/${encodeURIComponent(id)}/pdf`)
+      .catch((error) => Swal.fire("Erro", error.message, "error"));
   });
 
   // ---------- 4) abre modal Pagamento ----------
@@ -424,27 +430,34 @@ $(function () {
     });
 
     $.post("invoices/ajax/registrar_pagamento.php", $form.serialize())
-      .done((resp) => {
+      .done(async (resp) => {
         Swal.close();
         bootstrap.Modal.getInstance(
           document.getElementById("modalPagamento"),
         ).hide();
 
-        // abre o PDF do recibo gerado
+        let receiptDownloadError = null;
         if (resp && resp.receipt_id) {
-          window.open(
-            "invoices/recibo_pdf.php?id=" + resp.receipt_id,
-            "_blank",
-          );
+          try {
+            await window.BXDocumentApi.download(
+              `/api/documents/receipts/${encodeURIComponent(resp.receipt_id)}/pdf`,
+              `Recibo_${resp.receipt_id}.pdf`,
+            );
+          } catch (error) {
+            receiptDownloadError = error;
+          }
         }
 
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso",
-          text: "Pagamento registrado com sucesso!",
-        }).then(() => {
-          refreshCurrentInvoice();
+        await Swal.fire({
+          icon: receiptDownloadError ? "warning" : "success",
+          title: receiptDownloadError
+            ? "Pagamento registrado"
+            : "Sucesso",
+          text: receiptDownloadError
+            ? `O pagamento foi registrado, mas não foi possível descarregar o recibo: ${receiptDownloadError.message}`
+            : "Pagamento registrado com sucesso!",
         });
+        refreshCurrentInvoice();
       })
       .fail((xhr) => {
         Swal.close();
@@ -562,11 +575,11 @@ $(function () {
     return `${dd}/${mm}/${d.getFullYear()}`;
   }
 
-  function calcItemTotal(it) {
-    const base = it.unit_price * it.quantity;
-    const discount = base * ((it.discount || 0) / 100);
-    const tax = (base - discount) * ((it.tax || 0) / 100);
-    return { base, discount, tax, total: base - discount + tax };
+  function calcItemTotal(it, vatRegime) {
+    if (!window.BXDocumentTax) {
+      throw new Error("O cálculo partilhado do IVA não foi carregado.");
+    }
+    return window.BXDocumentTax.calculateItem(it, vatRegime);
   }
 
   async function imageUrlToDataURL(url) {
@@ -930,7 +943,7 @@ $(function () {
 
   function drawItemsTable(doc, invoiceData, y) {
     const { items, moneySymbol = "Kz", moneyPos = "right" } = invoiceData;
-    const bottomLimit = PAGE_HEIGHT - MARGIN_BOTTOM - 90; // reserva espaço p/ sumário
+    const bottomLimit = PAGE_HEIGHT - MARGIN_BOTTOM - 190;
 
     drawTopBorder(doc, y);
     y += 10;
@@ -959,7 +972,7 @@ $(function () {
         y += 5;
       }
 
-      const { total } = calcItemTotal(it);
+      const { total, taxRate } = calcItemTotal(it, invoiceData.vat_regime);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(...BLACK);
@@ -985,7 +998,7 @@ $(function () {
         "right",
       );
       doc.text(String(it.quantity), COL_QTD_CENTER_X, y, { align: "center" });
-      doc.text(`${it.tax || 0}%`, COL_TAXA_CENTER_X, y, { align: "center" });
+      doc.text(`${taxRate}%`, COL_TAXA_CENTER_X, y, { align: "center" });
       doc.text(`${it.discount || 0}%`, COL_DESCPCT_CENTER_X, y, {
         align: "center",
       });
@@ -1014,7 +1027,49 @@ $(function () {
   // Desenho — Dados fiscais/bancários + Sumário
   // ---------------------------------------------------------------------------
 
-  function drawTotalsSection(doc, invoiceData, y) {
+  function drawTaxSummaryTable(doc, rows, y, moneySymbol, moneyPos) {
+    const columns = [
+      { label: "Taxa", x: MARGIN_LEFT, width: 50, align: "left" },
+      { label: "Base", x: 110, width: 95, align: "right" },
+      { label: "Valor (IVA)", x: 215, width: 95, align: "right" },
+      { label: "Retenção", x: 320, width: 95, align: "right" },
+      { label: "Líquido", x: 425, width: 130, align: "right" },
+    ];
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...GRAY_LABEL);
+    columns.forEach((column) =>
+      doc.text(column.label, column.x, y, { align: column.align }),
+    );
+    y += 8;
+    doc.setDrawColor(...GRAY);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN_LEFT, y - 4, CONTENT_RIGHT, y - 4);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...BLACK);
+
+    rows.forEach((row) => {
+      columns.forEach((column, index) => {
+        const value =
+          index === 0
+            ? `${row.rate}%`
+            : formatCurrency(
+                [row.base, row.iva, row.retention, row.net][index - 1],
+                moneySymbol,
+                moneyPos,
+              );
+        doc.text(String(value), column.x, y, {
+          align: column.align,
+          maxWidth: column.width,
+        });
+      });
+      y += 8;
+    });
+    return y + 8;
+  }
+
+  function drawTotalsSection(doc, invoiceData, y, taxSummary) {
     const {
       vat_regime,
       iban,
@@ -1022,25 +1077,13 @@ $(function () {
       moneyPos = "right",
     } = invoiceData;
 
-    const calcTotals = () => {
-      let total_sum = 0,
-        total_discount = 0,
-        total_tax = 0;
-      invoiceData.items.forEach((it) => {
-        const { base, discount, tax } = calcItemTotal(it);
-        total_sum += base;
-        total_discount += discount;
-        total_tax += tax;
-      });
-      return {
-        total_sum,
-        total_discount,
-        total_tax,
-        retention_value: 0,
-        final_total: total_sum - total_discount + total_tax,
-      };
+    const totals = {
+      total_sum: taxSummary.totalSum,
+      total_discount: taxSummary.totalDiscount,
+      total_tax: taxSummary.totalTax,
+      retention_value: taxSummary.retention,
+      final_total: taxSummary.finalTotal,
     };
-    const totals = invoiceData.totals || calcTotals();
 
     const leftX = MARGIN_LEFT;
     const leftWidth = 260;
@@ -1184,7 +1227,19 @@ $(function () {
     let y = drawCompanyHeader(doc, invoiceData.company, assets.logoImg);
     y = drawMeta(doc, invoiceData, y, viaLabel);
     y = drawItemsTable(doc, invoiceData, y);
-    drawTotalsSection(doc, invoiceData, y);
+    const taxSummary = window.BXDocumentTax.summarize(
+      invoiceData.items,
+      invoiceData.vat_regime,
+      Number(invoiceData.totals?.retention_value ?? 0),
+    );
+    y = drawTaxSummaryTable(
+      doc,
+      taxSummary.rows,
+      y,
+      invoiceData.moneySymbol || "Kz",
+      invoiceData.moneyPos || "right",
+    );
+    drawTotalsSection(doc, invoiceData, y, taxSummary);
   }
 
   // ---------------------------------------------------------------------------
@@ -1205,9 +1260,9 @@ $(function () {
 
     const hostname = window.location.hostname;
     const apiBaseUrl =
-      hostname === "api-crm.bxpert.co.ao" ||
-      hostname === "www.api-crm.bxpert.co.ao"
-        ? "https://api-crm.bxpert.co.ao"
+      hostname === "api-sandibox.bxpert.co.ao" ||
+      hostname === "www.api-sandibox.bxpert.co.ao"
+        ? "https://api-sandibox.bxpert.co.ao"
         : "http://localhost:3004";
 
     let response;
@@ -1445,10 +1500,15 @@ $(function () {
     const symbol = inv.symbol || inv.company_symbol || "Kz";
     const position = inv.position || inv.company_position || "right";
     const items = Array.isArray(inv.items) ? inv.items : [];
+    const totals = window.BXDocumentTax.summarize(
+      items,
+      inv.vat_regime,
+      Number(inv.retention_value || 0),
+    );
 
     const rowsHtml = items
       .map((it) => {
-        const { total } = calcItemTotal(it);
+        const { total } = calcItemTotal(it, inv.vat_regime);
         const qty = Number(it.quantity) || 0;
         const price = Number(it.unit_price) || 0;
         return `
@@ -1519,12 +1579,12 @@ $(function () {
   <div class="t-line"></div>
   ${rowsHtml}
   <div class="t-line"></div>
-  <div class="t-row"><span>Subtotal:</span><span>${formatCurrency(inv.total_sum, symbol, position)}</span></div>
-  ${Number(inv.total_discount) > 0 ? `<div class="t-row"><span>Desconto:</span><span>${formatCurrency(inv.total_discount, symbol, position)}</span></div>` : ""}
-  <div class="t-row"><span>IVA:</span><span>${formatCurrency(inv.total_tax, symbol, position)}</span></div>
-  ${Number(inv.retention_value) > 0 ? `<div class="t-row"><span>Retenção:</span><span>${formatCurrency(inv.retention_value, symbol, position)}</span></div>` : ""}
+  <div class="t-row"><span>Subtotal:</span><span>${formatCurrency(totals.totalSum, symbol, position)}</span></div>
+  ${totals.totalDiscount > 0 ? `<div class="t-row"><span>Desconto:</span><span>${formatCurrency(totals.totalDiscount, symbol, position)}</span></div>` : ""}
+  <div class="t-row"><span>IVA:</span><span>${formatCurrency(totals.totalTax, symbol, position)}</span></div>
+  ${totals.retention > 0 ? `<div class="t-row"><span>Retenção:</span><span>${formatCurrency(totals.retention, symbol, position)}</span></div>` : ""}
   <div class="t-line"></div>
-  <div class="t-total-row t-bold"><span>TOTAL:</span><span>${formatCurrency(inv.final_total, symbol, position)}</span></div>
+  <div class="t-total-row t-bold"><span>TOTAL:</span><span>${formatCurrency(totals.finalTotal, symbol, position)}</span></div>
   <div class="t-line"></div>
   <div class="t-footer">
     Obrigado pela preferência!<br>
@@ -1721,7 +1781,11 @@ $(function () {
 
       // Se já existir nota de crédito
       if (verifyResponse?.data?.id) {
-        return (window.location.href = `credit_notes/ajax/generate_pdf.php?id=${verifyResponse.data.id}`);
+        window.BXDocumentApi.download(
+          `/api/documents/credit-notes/${encodeURIComponent(verifyResponse.data.id)}/pdf`,
+          `NotaCredito_${verifyResponse.data.id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
+        return;
       }
 
       // Pergunta antes de emitir
@@ -1752,7 +1816,10 @@ $(function () {
 
       // Sucesso
       if (res?.success && res?.credit_note_id) {
-        window.location.href = `credit_notes/ajax/generate_pdf.php?id=${res.credit_note_id}`;
+        window.BXDocumentApi.download(
+          `/api/documents/credit-notes/${encodeURIComponent(res.credit_note_id)}/pdf`,
+          `NotaCredito_${res.credit_note_id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
       } else {
         Swal.fire({
           icon: "error",
@@ -1806,7 +1873,10 @@ $(function () {
         });
 
         if (choice.isDenied) {
-          return window.open(`invoices/debit_note_pdf.php?id=${last.id}`, "_blank");
+          return window.BXDocumentApi.download(
+            `/api/documents/debit-notes/${encodeURIComponent(last.id)}/pdf`,
+            `NotaDebito_${last.id}.pdf`,
+          ).catch((error) => Swal.fire("Erro", error.message, "error"));
         }
         if (!choice.isConfirmed) return;
       }
@@ -1946,7 +2016,10 @@ $(function () {
       });
 
       if (res?.success && res?.debit_note_id) {
-        window.open(`invoices/debit_note_pdf.php?id=${res.debit_note_id}`, "_blank");
+        window.BXDocumentApi.download(
+          `/api/documents/debit-notes/${encodeURIComponent(res.debit_note_id)}/pdf`,
+          `NotaDebito_${res.debit_note_id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
       } else {
         Swal.fire({
           icon: "error",
@@ -1993,7 +2066,10 @@ $(function () {
         const last = existing[0];
 
         if (!hasPending) {
-          return window.open(`invoices/delivery_note_pdf.php?id=${last.id}`, "_blank");
+          return window.BXDocumentApi.download(
+            `/api/documents/delivery-notes/${encodeURIComponent(last.id)}/pdf`,
+            `NotaEntrega_${last.id}.pdf`,
+          ).catch((error) => Swal.fire("Erro", error.message, "error"));
         }
 
         const choice = await Swal.fire({
@@ -2007,7 +2083,10 @@ $(function () {
         });
 
         if (choice.isDenied) {
-          return window.open(`invoices/delivery_note_pdf.php?id=${last.id}`, "_blank");
+          return window.BXDocumentApi.download(
+            `/api/documents/delivery-notes/${encodeURIComponent(last.id)}/pdf`,
+            `NotaEntrega_${last.id}.pdf`,
+          ).catch((error) => Swal.fire("Erro", error.message, "error"));
         }
         if (!choice.isConfirmed) return;
       }
@@ -2043,7 +2122,10 @@ $(function () {
       });
 
       if (res?.success && res?.delivery_note_id) {
-        window.open(`invoices/delivery_note_pdf.php?id=${res.delivery_note_id}`, "_blank");
+        window.BXDocumentApi.download(
+          `/api/documents/delivery-notes/${encodeURIComponent(res.delivery_note_id)}/pdf`,
+          `NotaEntrega_${res.delivery_note_id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
       } else {
         Swal.fire({
           icon: "error",
@@ -2297,7 +2379,7 @@ $(function () {
 
           // redirecionar
           setTimeout(() => {
-            const invoiceUrl = `/invoice.php?id=${encodeURIComponent(data.new_invoice_id)}`;
+            const invoiceUrl = `/invoices/view?id=${encodeURIComponent(data.new_invoice_id)}`;
             if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
             else window.location.href = invoiceUrl;
           }, 1500);

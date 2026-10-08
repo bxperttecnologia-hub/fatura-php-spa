@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../helpers/document_tax.php';
 
 header('Content-Type: application/json');
 
@@ -47,6 +48,8 @@ try {
     $itemsTable    = $isProforma ? 'proforma_items' : 'invoice_items';
     $statusTable   = $isProforma ? 'proforma_status' : 'invoice_status';
     $statusAlias   = $isProforma ? 'ps' : 'ivs';
+    $documentType  = $isProforma ? "'PF'" : 'd.document_type';
+    $retentionValue = $isProforma ? '0' : 'd.retention_value';
 
     /*
     |--------------------------------------------------------------------------
@@ -78,7 +81,7 @@ try {
             c.city AS client_city,
 
             d.contact_id,
-            d.document_type,
+            {$documentType} AS document_type,
             d.observation,
             d.issue_date,
             d.due_date,
@@ -87,7 +90,7 @@ try {
             d.final_total,
             d.total_discount,
             d.retention,
-            d.retention_value,
+            {$retentionValue} AS retention_value,
             d.total_tax,
             d.manual_exchange_rate,
             d.reference,
@@ -179,55 +182,42 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    $stmtTaxes = $pdo->prepare("
-        SELECT
-            di.tax AS tax_rate,
-
-            ROUND(
-                SUM(di.unit_price * di.quantity)
-                *
-                (1 - (di.discount / 100)),
-                2
-            ) AS tax_base,
-
-            ROUND(
-                SUM(
-                    (di.unit_price * di.quantity)
-                    *
-                    (di.tax / 100)
-                ),
-                2
-            ) AS tax_value,
-
-            d.retention AS retention_rate,
-            d.retention_value,
-            d.total_sum,
-
-            cr.symbol,
-            cr.position
-
-        FROM {$table} d
-
-        INNER JOIN {$itemsTable} di
-            ON di." . ($isProforma ? "proforma_id" : "invoice_id") . " = d.id
-
-        INNER JOIN companies comp
-            ON comp.id = d.company_id
-
-        LEFT JOIN currencies cr
-            ON cr.iso_code = comp.currency
-
-        WHERE d.id = ?
-
-        GROUP BY
-            di.tax,
-            d.retention,
-            d.retention_value
-    ");
-
-    $stmtTaxes->execute([$documentId]);
-
-    $document['tax_details'] = $stmtTaxes->fetchAll(PDO::FETCH_ASSOC);
+    $taxSummary = bx_document_tax_summary(
+        $document['items'],
+        (string)($document['vat_regime'] ?? '')
+    );
+    $retentionValue = (float)($document['retention_value'] ?? 0);
+    if ($isProforma) {
+        $retentionValue = max(
+            0.0,
+            ($taxSummary['subtotal'] + $taxSummary['total_tax'])
+                * (float)($document['retention'] ?? 0) / 100
+        );
+    }
+    $taxSummary = bx_document_tax_summary(
+        $document['items'],
+        (string)($document['vat_regime'] ?? ''),
+        $retentionValue
+    );
+    $document['total_sum'] = $taxSummary['total_sum'];
+    $document['total_discount'] = $taxSummary['total_discount'];
+    $document['subtotal_without_tax'] = $taxSummary['subtotal'];
+    $document['total_tax'] = $taxSummary['total_tax'];
+    $document['retention_value'] = $taxSummary['retention'];
+    $document['final_total'] = $taxSummary['final_total'];
+    $document['tax_details'] = array_map(
+        static fn(array $row): array => [
+            'tax_rate' => $row['rate'],
+            'tax_base' => $row['base'],
+            'tax_value' => $row['iva'],
+            'retention_rate' => (float)($document['retention'] ?? 0),
+            'retention_value' => $row['retention'],
+            'total_sum' => $taxSummary['total_sum'],
+            'symbol' => $document['company_symbol'] ?? '',
+            'position' => $document['company_position'] ?? 'right',
+        ],
+        $taxSummary['rows']
+    );
 
     /*
     |--------------------------------------------------------------------------

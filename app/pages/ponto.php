@@ -138,7 +138,7 @@ require_once '../app/views/layout_creation.php';
             <div class="col-12">
                 <div class="mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center bx-list-header">
-                        <h2 class="mb-0 fw-bold">Registro de Ponto e Faltas</h2>
+                        <h2 class="mb-0 fw-bold">Registro de Faltas</h2>
                         <button class="btn btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#modalPonto">
                             <i class="bi bi-person-plus"></i>
                             Novo Registro
@@ -157,6 +157,7 @@ require_once '../app/views/layout_creation.php';
                                 </div>
                             </div>
                         </div>
+                        <div id="pontoTableControls"></div>
                         <div class="table-responsive">
                             <table id="pontoTable" class="table w-100 bx-list-table">
                                 <thead>
@@ -224,41 +225,36 @@ require_once '../app/views/layout_creation.php';
 </div>
 
 <?php require_once '../app/views/footer.php'; ?>
-
 <script>
     $(document).ready(function() {
-        const table = $('#pontoTable').DataTable({
+        const table = BootstrapTable.create({
+            table: '#pontoTable',
+            toolbar: '#pontoTableControls',
             ajax: {
                 url: 'rh/ajax/list_attendance.php',
-                data: function(d) {
-                    d.mes = $('#filtroMes').val();
-                    d.funcionario = $('#filtroFuncionario').val();
-                }
+                method: 'GET',
+                data: () => ({
+                    mes: $('#filtroMes').val(),
+                    funcionario: $('#filtroFuncionario').val()
+                })
             },
-            language: {
-                url: '/assets/translations/datatables-pt.json'
-            },
-            columns: [{
-                    data: 'employee_name'
-                },
-                {
-                    data: 'date'
-                },
-                {
-                    data: 'type'
-                },
-                {
-                    data: 'justification'
-                },
+            initialSort: { index: 1, direction: 'desc' },
+            columns: [
+                { data: 'employee_name' },
+                { data: 'date' },
+                { data: 'type' },
+                { data: 'justification' },
                 {
                     data: null,
-                    render: row => `<button class='btn btn-sm text-danger deleteRegistro' data-id='${row.id}'><i class="bi bi-trash"></i></button>`
+                    sortable: false,
+                    searchable: false,
+                    render: (_, row) => `<button type="button" class="btn btn-sm text-danger deleteRegistro" data-id="${row.id}" aria-label="Eliminar registo" title="Eliminar"><i class="bi bi-trash"></i></button>`
                 }
             ]
         });
 
         $('#filtroMes, #filtroFuncionario').on('change', function() {
-            table.ajax.reload();
+            table.reload();
         });
 
         $('select[name=employee_id]').select2({
@@ -297,7 +293,7 @@ require_once '../app/views/layout_creation.php';
             $.post('rh/ajax/save_attendance.php', $(this).serialize())
                 .done(function() {
                     $('#modalPonto').modal('hide');
-                    table.ajax.reload();
+                    table.reload();
                     Swal.fire('Sucesso', 'Registro salvo com sucesso', 'success');
                 })
                 .fail(function(xhr) {
@@ -319,7 +315,7 @@ require_once '../app/views/layout_creation.php';
                     $.post('rh/ajax/delete_attendance.php', {
                         id
                     }, function() {
-                        table.ajax.reload();
+                        table.reload();
                         Swal.fire('Excluído', 'Registro removido com sucesso', 'success');
                     });
                 }

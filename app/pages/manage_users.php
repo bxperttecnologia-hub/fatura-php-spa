@@ -299,21 +299,22 @@ $company_id = $_GET['company_id'];
                 </div>
             </div>
 
-            <table id="usersTable" class="table bx-list-table">
-                <thead>
-                    <tr>
-                        <th>Foto</th> <!-- Adicionando coluna para a imagem -->
-                        <th>Nome</th>
-                        <th>Perfil</th>
-                        <th>Status</th> <!-- Coluna para o status (ativo/inativo) -->
-                        <th>Email</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- As linhas da tabela serão preenchidas via AJAX -->
-                </tbody>
-            </table>
+            <div id="usersTableControls"></div>
+            <div class="table-responsive">
+                <table id="usersTable" class="table table-hover align-middle bx-list-table">
+                    <thead>
+                        <tr>
+                            <th>Foto</th>
+                            <th>Nome</th>
+                            <th>Perfil</th>
+                            <th>Status</th>
+                            <th>Email</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </main>
 
@@ -323,79 +324,56 @@ $company_id = $_GET['company_id'];
             const company_id = <?php echo (int)$company_id; ?>; // Obtém o company_id diretamente do PHP
             window.MANAGE_USERS_COMPANY_ID = company_id;
 
-            $.ajax({
-                url: 'manage_users/ajax/get_manage_users.php',
-                type: 'GET',
-                dataType: 'json',
-                data: {
-                    company_id: company_id
+            const escapeHtml = value => {
+                const element = document.createElement('span');
+                element.textContent = value ?? '';
+                return element.innerHTML;
+            };
+            const roles = {
+                owner: 'Proprietário',
+                admin: 'Administrador',
+                employee: 'Funcionário',
+                viewer: 'Visualizador'
+            };
+            BootstrapTable.create({
+                table: '#usersTable',
+                toolbar: '#usersTableControls',
+                ajax: {
+                    url: 'manage_users/ajax/get_manage_users.php',
+                    method: 'GET',
+                    data: { company_id }
                 },
-                success: function(response) {
-                    const users = response.users || [];
-
-                    // limpa a tabela antes de preencher
-                    $('#usersTable tbody').empty();
-
-                    if (users && users.length > 0) {
-                        users.forEach(user => {
-                            // Verifica se há imagem, caso contrário, usa uma imagem padrão
-                            const userImage = user.image ? `<img src="assets/img/profiles/${user.image}" class="rounded-circle" width="40" height="40" />` : '<span class="badge bg-secondary">Sem Foto</span>';
-
-                            // Verifica o status do usuário (ativo ou inativo)
-                            const isActiveBadge = user.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>';
-                            // Traduzindo a role
-                            let roleTranslation = '';
-                            switch (user.role) {
-                                case 'owner':
-                                    roleTranslation = 'Proprietário';
-                                    break;
-                                case 'admin':
-                                    roleTranslation = 'Administrador';
-                                    break;
-                                case 'employee':
-                                    roleTranslation = 'Funcionário';
-                                    break;
-                                case 'viewer':
-                                    roleTranslation = 'Visualizador';
-                                    break;
-                                default:
-                                    roleTranslation = 'Desconhecido';
-                            }
-                            // Monta a linha da tabela
-                            const row = `
-                                <tr>
-                                    <td>${userImage}</td>
-                                    <td>${user.name}</td>
-                                    <td>${roleTranslation}</td>
-                                    <td>${isActiveBadge}</td>
-                                    <td>${user.email}</td>
-                                    <td class="text-nowrap">
-                                        <button type="button" class="btn text-warning btn-sm js-change-role" data-user-id="${user.id}" data-user-name="${user.name}" data-user-email="${user.email}" data-current-role="${user.role}"><i class="bi bi-person-gear"></i></button>
-                                        <button type="button" class="btn text-danger btn-sm js-unlink-user" data-user-id="${user.id}" data-user-name="${user.name}" data-user-email="${user.email}" data-current-role="${user.role}"><i class="bi bi-trash"></i></button>
-                                    </td>
-                                </tr>
-                            `;
-                            $('#usersTable tbody').append(row);
-                        });
+                dataSource: response => response.users || [],
+                emptyText: 'Nenhum usuário encontrado.',
+                columns: [
+                    {
+                        data: 'image',
+                        searchable: false,
+                        render: image => image
+                            ? `<img src="assets/img/profiles/${encodeURIComponent(image)}" class="rounded-circle" width="40" height="40" alt="Foto do usuário">`
+                            : '<span class="badge bg-secondary">Sem Foto</span>'
+                    },
+                    { data: 'name' },
+                    { data: 'role', render: role => escapeHtml(roles[role] || 'Desconhecido') },
+                    {
+                        data: 'is_active',
+                        render: active => active
+                            ? '<span class="badge bg-success">Ativo</span>'
+                            : '<span class="badge bg-danger">Inativo</span>'
+                    },
+                    { data: 'email' },
+                    {
+                        data: null,
+                        sortable: false,
+                        searchable: false,
+                        render: (_, user) => `
+                            <div class="text-nowrap">
+                                <button type="button" class="btn text-warning btn-sm js-change-role" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.name)}" data-user-email="${escapeHtml(user.email)}" data-current-role="${escapeHtml(user.role)}" aria-label="Alterar perfil" title="Alterar perfil"><i class="bi bi-person-gear"></i></button>
+                                <button type="button" class="btn text-danger btn-sm js-unlink-user" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.name)}" data-user-email="${escapeHtml(user.email)}" data-current-role="${escapeHtml(user.role)}" aria-label="Remover vínculo" title="Remover vínculo"><i class="bi bi-trash"></i></button>
+                            </div>`
                     }
-
-                    // Inicializa o DataTable DEPOIS de preencher
-                    if ($.fn.DataTable.isDataTable('#usersTable')) {
-                        $('#usersTable').DataTable().destroy();
-                    }
-                    $('#usersTable').DataTable({
-                        paging: true,
-                        searching: true,
-                        ordering: true,
-                        language: {
-                            url: '/assets/translations/datatables-pt.json',
-                            emptyTable: 'Nenhum usuário encontrado.'
-                        }
-                    });
-                },
-                error: function(xhr, status, error) {
-                    console.error('Erro ao carregar os dados dos usuários:', error);
-                }
+                ],
+                onError: (xhr, error) => console.error('Erro ao carregar os dados dos usuários:', error || xhr.statusText)
             });
         });
     </script>

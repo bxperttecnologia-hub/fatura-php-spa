@@ -1,3 +1,26 @@
+function selectedProformas() {
+  const ids = new Set(
+    $('#invoicesTable tbody .invoice-check:checked')
+      .map(function () {
+        return String(this.value);
+      })
+      .get(),
+  );
+  return (window.proformasForExport || []).filter((row) =>
+    ids.has(String(row.id)),
+  );
+}
+
+function refreshSelectedExportGroup() {
+  const selected = selectedProformas();
+  $("#bxExportSelectedGroup").prop("hidden", selected.length === 0);
+  $("#bxExportSelectedLabel").text(`Selecionados (${selected.length})`);
+  $("#proformaSelectionCount").text(
+    `${selected.length} ${selected.length === 1 ? "selecionada" : "selecionadas"}`,
+  );
+  $("#proformaSelectionBar").toggleClass("is-visible", selected.length > 0);
+}
+
 $(document).ready(function () {
   let proformas = []; // todos os dados vindos do servidor
   let filteredProformas = []; // após filtros/ordenação
@@ -5,6 +28,40 @@ $(document).ready(function () {
   let pageSize = 25;
   let sortKey = "codigo";
   let sortDir = "desc";
+  const escapeHtml = (value) =>
+    String(value ?? "").replace(/[&<>"']/g, (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char],
+    );
+  const formatDate = (value) =>
+    value ? new Date(value).toLocaleDateString("pt-PT") : "-";
+  const normalizeStatus = (value) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+  function updateOverview() {
+    const total = proformas.length;
+    const drafts = proformas.filter(
+      (row) => String(row.status_invoice || "").toLowerCase() === "rascunho",
+    ).length;
+    const paid = proformas.filter((row) =>
+      ["pago", "convertida", "convertido"].includes(
+        String(row.status_invoice || "").toLowerCase(),
+      ),
+    ).length;
+    $("#proformaInsightTotal").text(total);
+    $("#proformaInsightPending").text(Math.max(0, total - drafts - paid));
+    $("#proformaInsightPaid").text(paid);
+    $("#proformaInsightDrafts").text(drafts);
+  }
 
   function formatCurrency(value, symbol = "", position = "left") {
     const formatted = Number(value || 0).toLocaleString("pt-PT", {
@@ -19,7 +76,10 @@ $(document).ready(function () {
 
   loadProformas();
 
-  $(document).on("reload-proformas", loadProformas);
+  $(document).off(".proformaList");
+  $(document)
+    .off("reload-proformas.proformaList")
+    .on("reload-proformas.proformaList.spaPage", loadProformas);
 
   function loadProformas() {
     $.ajax({
@@ -39,6 +99,8 @@ $(document).ready(function () {
           proformas = [];
         }
 
+        window.proformasForExport = proformas;
+        updateOverview();
         currentPage = 1;
         renderTable();
       },
@@ -54,13 +116,13 @@ $(document).ready(function () {
   // ==================================================
   function applyFilterAndSort() {
     const clienteFiltro = ($("#filterClient").val() || "").toLowerCase().trim();
-    const statusFiltro = ($("#filterStatus").val() || "").toLowerCase().trim();
+    const statusFiltro = normalizeStatus($("#filterStatus").val());
     const start = $("#filterStartDate").val();
     const end = $("#filterEndDate").val();
 
     filteredProformas = proformas.filter((row) => {
       const cliente = (row.cliente || "").toLowerCase();
-      const status = (row.status_invoice || "").toLowerCase();
+      const status = normalizeStatus(row.status_invoice);
 
       if (clienteFiltro && !cliente.includes(clienteFiltro)) return false;
       if (statusFiltro && status !== statusFiltro) return false;
@@ -114,6 +176,9 @@ $(document).ready(function () {
     applyFilterAndSort();
 
     const $tbody = $("#invoicesTable tbody");
+    const checkedProformaIds = new Set(
+      selectedProformas().map((row) => String(row.id)),
+    );
     $tbody.empty();
 
     if (!filteredProformas.length) {
@@ -142,103 +207,52 @@ $(document).ready(function () {
 
     pageData.forEach((row) => {
       const status = row.status_invoice || "?";
-
-      const proformaUrl =
-        `proform.php?id=` +
-        `${String(row.issue_date || "").replaceAll("-", "")}` +
-        `/${row.company_id}/${row.id}`;
-
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const due = row.due_date ? new Date(row.due_date) : null;
       if (due) due.setHours(0, 0, 0, 0);
-      const isOverdue = due && due < today;
-
-      let actionsHtml = `
-        <button
-          class="btn btn-action text-primary"
-          title="Ver"
-          onclick="event.stopPropagation();window.location.href='${proformaUrl}'"
-        >
-          <i class="bi bi-card-list"></i>
-        </button>
-      `;
-
-      if ((status || "").toLowerCase() === "rascunho") {
-        actionsHtml += `
-          <button
-            class="btn btn-sm text-warning ms-1"
-            title="Editar"
-            onclick="event.stopPropagation(); window.location.href='create_proform.php?edit_id=${row.id}'"
-          >
-            <i class="bi bi-pencil"></i>
-          </button>
-
-          <button
-            class="btn btn-sm text-danger ms-1"
-            title="Eliminar"
-            onclick="event.stopPropagation(); deleteProforma(${row.id}, ${row.company_id})"
-          >
-            <i class="bi bi-trash"></i>
-          </button>
-        `;
-      } else {
-        actionsHtml += `
-          <button
-            class="btn btn-sm text-success ms-1"
-            title="PDF"
-            onclick="event.stopPropagation(); downloadPDF(${row.id})"
-          >
-            <i class="bi bi-file-earmark-pdf"></i>
-          </button>
-        `;
-      }
+      const isOverdue =
+        due && due < today && String(status).toLowerCase() !== "pago";
+      const normalizedStatus = String(status).toLowerCase();
+      const statusSlug = normalizedStatus
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const statusKey = isOverdue
+        ? "vencido"
+        : ["pago", "pendente", "parcial", "rascunho", "convertida", "convertido"].includes(statusSlug)
+          ? statusSlug
+          : "outro";
+      const rowId = escapeHtml(row.id);
+      const code = escapeHtml(row.codigo || "-");
+      const client = escapeHtml(row.cliente || "-");
+      const isDraft = normalizedStatus === "rascunho";
+      const isSelected = checkedProformaIds.has(String(row.id));
+      const dueDateHtml = row.due_date
+        ? `<span class="${isOverdue ? "bx-due--overdue" : ""}">${formatDate(row.due_date)}${isOverdue ? '<span class="bx-due__sub">Em atraso</span>' : ""}</span>`
+        : "-";
 
       rowsHtml += `
-        <tr class="invoice-row"
-            data-id="${row.id}"
-            data-cliente="${row.cliente || ""}"
-            data-status="${row.status_invoice || ""}"
-            data-issue-date="${row.issue_date || ""}">
-
-          <td>
-            <div class="d-flex align-items-center gap-3">
-              <input
-                type="checkbox"
-                class="invoice-check"
-                data-id="${row.id}"
-                value="${row.id}"
-              >
-
-              <div
-                class="icon-statusFatura p-2 py-1"
-                data-status="${status}"
-                style="background:${row.color || "#000"}; color:${row.text_color || "#fff"};"
-                data-bs-toggle="tooltip"
-                data-bs-title="${status}"
-              >
-                ${status.charAt(0).toUpperCase()}
-              </div>
-            </div>
+        <tr class="document-row${isSelected ? " is-selected" : ""}" data-id="${rowId}">
+          <td class="bx-td-check">
+            <input type="checkbox" class="invoice-check form-check-input" data-id="${rowId}"
+              value="${rowId}" aria-label="Selecionar proforma ${code}" ${isSelected ? "checked" : ""}>
+            <span class="bx-badge bx-badge--${statusKey}">${escapeHtml(isOverdue ? "Vencido" : status)}</span>
           </td>
-
-          <td>${row.codigo || "-"}</td>
-          <td>${row.cliente || "-"}</td>
-          <td>${row.issue_date ? new Date(row.issue_date).toLocaleDateString("pt-BR") : "-"}</td>
-
-          <td>
-            <span class="${isOverdue ? "text-danger" : ""}">
-              ${row.due_date ? new Date(row.due_date).toLocaleDateString("pt-BR") : "-"}
-            </span>
-          </td>
-
-          <td>${row.currency || "-"}</td>
-
-          <td>${formatCurrency(Number(row.final_total || 0), row.symbol || "", row.position || "left")}</td>
-
-          <td>
-            <div class="d-flex justify-content-end gap-2">
-              ${actionsHtml}
+          <td class="bx-td-doc"><span class="bx-doc"><span class="bx-doc__type">PROFORMA</span><span class="bx-doc__num">${code}</span></span></td>
+          <td class="bx-td-client" data-label="Cliente">${client}</td>
+          <td data-label="Emissão">${formatDate(row.issue_date)}</td>
+          <td data-label="Vencimento">${dueDateHtml}</td>
+          <td data-label="Moeda">${escapeHtml(row.currency || "-")}</td>
+          <td class="bx-num bx-money bx-td-total" data-label="Total">${escapeHtml(formatCurrency(Number(row.final_total || 0), row.symbol || "", row.position || "left"))}</td>
+          <td class="bx-td-actions">
+            <div class="bx-actions">
+              <a class="bx-icon-btn" href="/proformas/view?id=${encodeURIComponent(row.id)}" data-spa
+                aria-label="Ver proforma ${code}" title="Ver"><i class="bi bi-eye" aria-hidden="true"></i></a>
+              ${isDraft ? `<button type="button" class="bx-icon-btn js-edit-proforma" data-id="${rowId}" aria-label="Editar proforma ${code}" title="Editar"><i class="bi bi-pencil" aria-hidden="true"></i></button>` : `<button type="button" class="bx-icon-btn js-pdf-proforma" data-id="${rowId}" aria-label="Descarregar proforma ${code} em PDF" title="PDF"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i></button>`}
+              <button type="button" class="bx-icon-btn js-more" data-id="${rowId}" aria-haspopup="menu" aria-expanded="false"
+                aria-label="Mais ações da proforma ${code}" title="Mais ações"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
             </div>
           </td>
         </tr>
@@ -246,14 +260,12 @@ $(document).ready(function () {
     });
 
     $tbody.html(rowsHtml);
+    refreshSelectedExportGroup();
 
     $("#tableInfo").text(`${start + 1}–${end} de ${totalItems}`);
     renderPagination(totalPages);
     updateSortIcons();
 
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
-      bootstrap.Tooltip.getOrCreateInstance(el);
-    });
 
     // reset "selecionar todos" ao re-renderizar
     $("#selectAll").prop("checked", false);
@@ -290,7 +302,7 @@ $(document).ready(function () {
     addItem("»", currentPage + 1, currentPage === totalPages);
   }
 
-  $(document).on("click", "#tablePagination .page-link", function (e) {
+  $(document).on("click.proformaList.spaPage", "#tablePagination .page-link", function (e) {
     e.preventDefault();
     const page = parseInt($(this).data("page"), 10);
     const $li = $(this).closest("li");
@@ -299,7 +311,7 @@ $(document).ready(function () {
     renderTable();
   });
 
-  $(document).on("change", "#pageSizeSelect", function () {
+  $(document).on("change.proformaList.spaPage", "#pageSizeSelect", function () {
     pageSize = parseInt($(this).val(), 10) || 25;
     currentPage = 1;
     renderTable();
@@ -308,7 +320,7 @@ $(document).ready(function () {
   // ==================================================
   // ORDENAÇÃO POR COLUNA
   // ==================================================
-  $(document).on("click", "#invoicesTable thead th[data-key]", function () {
+  $(document).on("click.proformaList.spaPage", "#invoicesTable thead th[data-key]", function () {
     const key = $(this).data("key");
 
     if (sortKey === key) {
@@ -376,7 +388,7 @@ $(document).ready(function () {
   // ==================================================
   // CLIQUE NA LINHA (navegar para a proforma)
   // ==================================================
-  $("#invoicesTable tbody").on("click", "tr.invoice-row", function (e) {
+  $("#invoicesTable tbody").on("click", "tr.document-row", function (e) {
     const $target = $(e.target);
 
     if ($target.closest("button").length || $target.closest("input").length) {
@@ -388,22 +400,24 @@ $(document).ready(function () {
     if (!row) return;
 
     const url =
-      `proform.php?id=` +
-      `${String(row.issue_date || "").replaceAll("-", "")}` +
-      `/${row.company_id}/${row.id}`;
+      `/proformas/view?id=${encodeURIComponent(row.id)}`;
 
-    window.location.href = url;
+    if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+    else window.location.href = url;
   });
 
   // ==================================================
   // SELECIONAR TODOS (apenas a página atual)
   // ==================================================
-  $(document).on("click", "#selectAll", function () {
+  $(document).on("click.proformaList.spaPage", "#selectAll", function () {
     const isChecked = $(this).is(":checked");
-    $('#invoicesTable tbody input[type="checkbox"]').prop("checked", isChecked);
+    $('#invoicesTable tbody .invoice-check').prop("checked", isChecked);
+    $('#invoicesTable tbody tr.document-row').toggleClass("is-selected", isChecked);
+    refreshSelectedExportGroup();
   });
 
   $("#invoicesTable tbody").on("change", 'input[type="checkbox"]', function () {
+    $(this).closest("tr").toggleClass("is-selected", this.checked);
     const totalCheckboxes = $(
       '#invoicesTable tbody input[type="checkbox"]',
     ).length;
@@ -415,7 +429,99 @@ $(document).ready(function () {
       "checked",
       totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes,
     );
+    refreshSelectedExportGroup();
   });
+
+  $("#clearProformaSelection").on("click", function () {
+    $("#selectAll").prop("checked", false);
+    $('#invoicesTable tbody .invoice-check')
+      .prop("checked", false)
+      .trigger("change");
+  });
+
+  $(document)
+    .off(".proformaRowMenu")
+    .on("click.proformaRowMenu.spaPage", "#invoicesTable .js-edit-proforma", function (event) {
+      event.stopPropagation();
+      const id = encodeURIComponent(this.dataset.id);
+      const url = `/proformas/create?edit_id=${id}`;
+      if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+      else window.location.assign(url);
+    })
+    .on("click.proformaRowMenu.spaPage", "#invoicesTable .js-pdf-proforma", function (event) {
+      event.stopPropagation();
+      downloadPDF(this.dataset.id);
+    })
+    .on("click.proformaRowMenu.spaPage", "#invoicesTable .js-more", function (event) {
+      event.stopPropagation();
+      const row = proformas.find((item) => String(item.id) === String(this.dataset.id));
+      if (!row) return;
+      let menu = document.getElementById("bxRowMenu");
+      if (!menu) {
+        menu = document.createElement("div");
+        menu.id = "bxRowMenu";
+        menu.className = "bx-menu bxRowMenu";
+        menu.setAttribute("role", "menu");
+        document.body.appendChild(menu);
+      }
+      const isDraft = String(row.status_invoice || "").toLowerCase() === "rascunho";
+      const isConverted = ["convertida", "convertido"].includes(normalizeStatus(row.status_invoice));
+      menu.innerHTML = `
+        <button type="button" class="bx-menu__item" role="menuitem" data-row-action="view"><i class="bi bi-eye" aria-hidden="true"></i> Visualizar</button>
+        ${isDraft ? `<button type="button" class="bx-menu__item" role="menuitem" data-row-action="edit"><i class="bi bi-pencil" aria-hidden="true"></i> Editar</button>` : ""}
+        <button type="button" class="bx-menu__item" role="menuitem" data-row-action="pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Descarregar PDF</button>
+        <button type="button" class="bx-menu__item" role="menuitem" data-row-action="send"><i class="bi bi-envelope" aria-hidden="true"></i> Enviar por e-mail</button>
+        ${isConverted ? "" : `<button type="button" class="bx-menu__item" role="menuitem" data-row-action="convert"><i class="bi bi-receipt" aria-hidden="true"></i> Converter em fatura</button>`}
+        ${isDraft ? `<button type="button" class="bx-menu__item bx-menu__item--danger" role="menuitem" data-row-action="delete"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button>` : ""}
+      `;
+      menu.dataset.rowId = row.id;
+      menu.dataset.companyId = row.company_id || "";
+      const rect = this.getBoundingClientRect();
+      menu.classList.add("is-open");
+      const menuRect = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(rect.right - menuRect.width, window.innerWidth - menuRect.width - 8))}px`;
+      menu.style.top = `${Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - menuRect.height - 8))}px`;
+      this.setAttribute("aria-expanded", "true");
+      menu.querySelector("[role='menuitem']")?.focus();
+    })
+    .on("click.proformaRowMenu.spaPage", "#bxRowMenu [data-row-action]", function (event) {
+      event.stopPropagation();
+      const menu = document.getElementById("bxRowMenu");
+      const id = menu?.dataset.rowId;
+      if (!id) return;
+      if (this.dataset.rowAction === "edit") {
+        const url = `/proformas/create?edit_id=${encodeURIComponent(id)}`;
+        if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+        else window.location.assign(url);
+      } else if (this.dataset.rowAction === "view") {
+        const url = `/proformas/view?id=${encodeURIComponent(id)}`;
+        if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+        else window.location.assign(url);
+      } else if (this.dataset.rowAction === "send" || this.dataset.rowAction === "convert") {
+        const action = this.dataset.rowAction === "send" ? "send=1" : "convert=1";
+        const url = `/proformas/view?id=${encodeURIComponent(id)}&${action}`;
+        if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+        else window.location.assign(url);
+      } else if (this.dataset.rowAction === "pdf") {
+        downloadPDF(id);
+      } else if (this.dataset.rowAction === "delete") {
+        deleteProforma(id, menu.dataset.companyId);
+      }
+      menu.classList.remove("is-open");
+      $("#invoicesTable .js-more").attr("aria-expanded", "false");
+    })
+    .on("click.proformaRowMenu.spaPage", function (event) {
+      if (!event.target.closest("#bxRowMenu, #invoicesTable .js-more")) {
+        $("#bxRowMenu").removeClass("is-open");
+        $("#invoicesTable .js-more").attr("aria-expanded", "false");
+      }
+    })
+    .on("keydown.proformaRowMenu.spaPage", function (event) {
+      if (event.key === "Escape") {
+        $("#bxRowMenu").removeClass("is-open");
+        $("#invoicesTable .js-more").attr("aria-expanded", "false").first().trigger("focus");
+      }
+    });
 });
 
 // ==================================================
@@ -428,17 +534,23 @@ function downloadPDF(invoiceId) {
     data: { id: invoiceId },
     dataType: "json",
     success: function (response) {
-      if (response.error) {
-        alert(response.error);
+      if (response?.success === false || response?.error) {
+        alert(response.error || "Não foi possível carregar os dados da proforma.");
         return;
       }
 
+      response = response?.data || response;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
+      const taxSummary = window.BXDocumentTax.summarize(
+        response.items,
+        response.vat_regime,
+        Number(response.retention_value || 0),
+      );
 
       if (response.logo_url) {
         const img = new Image();
-        img.src = `assets/img/companies/${response.logo_url}`;
+        img.src = `/assets/img/companies/${encodeURIComponent(response.logo_url)}`;
         doc.addImage(img, "PNG", 10, 10, 50, 15);
       }
 
@@ -546,23 +658,29 @@ function downloadPDF(invoiceId) {
             "Total",
           ],
         ],
-        body: response.items.map((item) => [
-          item.code,
-          item.description,
-          formatCurrency(
-            item.unit_price,
-            response.company_symbol,
-            response.company_position,
-          ),
-          item.quantity,
-          item.tax,
-          item.discount,
-          formatCurrency(
-            item.unit_price * item.quantity,
-            response.company_symbol,
-            response.company_position,
-          ),
-        ]),
+        body: response.items.map((item) => {
+          const calculated = window.BXDocumentTax.calculateItem(
+            item,
+            response.vat_regime,
+          );
+          return [
+            item.code,
+            item.description,
+            formatCurrency(
+              item.unit_price,
+              response.company_symbol,
+              response.company_position,
+            ),
+            item.quantity,
+            calculated.taxRate,
+            item.discount,
+            formatCurrency(
+              calculated.total,
+              response.company_symbol,
+              response.company_position,
+            ),
+          ];
+        }),
         theme: "striped",
         styles: { fontSize: 10, halign: "center" },
         headStyles: { fillColor: [100, 100, 255], textColor: 255 },
@@ -572,41 +690,35 @@ function downloadPDF(invoiceId) {
         },
       });
 
-      const taxDetails = response.tax_details.map((tax) => [
-        `${tax.tax_rate}%`,
+      const taxDetails = taxSummary.rows.map((tax) => [
+        `${tax.rate}%`,
         formatCurrency(
-          tax.tax_base,
+          tax.base,
           response.company_symbol,
           response.company_position,
         ),
         formatCurrency(
-          tax.tax_value,
+          tax.iva,
+          response.company_symbol,
+          response.company_position,
+        ),
+        formatCurrency(
+          tax.retention,
+          response.company_symbol,
+          response.company_position,
+        ),
+        formatCurrency(
+          tax.net,
           response.company_symbol,
           response.company_position,
         ),
       ]);
 
-      if (response.tax_details[0]?.retention_rate) {
-        taxDetails.push([
-          `Retenção (${response.tax_details[0].retention_rate}%)`,
-          formatCurrency(
-            response.tax_details[0].total_sum,
-            response.company_symbol,
-            response.company_position,
-          ),
-          formatCurrency(
-            response.tax_details[0].retention_value,
-            response.company_symbol,
-            response.company_position,
-          ),
-        ]);
-      }
-
       doc.autoTable({
         startY: doc.lastAutoTable.finalY + 10,
         margin: { left: 10 },
         pageBreak: "auto",
-        head: [["Taxa/Imposto", "Base", "Valor"]],
+        head: [["Taxa", "Base", "Valor (IVA)", "Retenção", "Líquido"]],
         body: taxDetails,
         theme: "grid",
         styles: { fontSize: 10, halign: "center" },
@@ -617,7 +729,7 @@ function downloadPDF(invoiceId) {
         [
           "Total líquido",
           formatCurrency(
-            response.total_sum,
+            taxSummary.totalSum,
             response.company_symbol,
             response.company_position,
           ),
@@ -625,7 +737,7 @@ function downloadPDF(invoiceId) {
         [
           "Desconto",
           formatCurrency(
-            response.total_discount,
+            taxSummary.totalDiscount,
             response.company_symbol,
             response.company_position,
           ),
@@ -633,7 +745,7 @@ function downloadPDF(invoiceId) {
         [
           "Sem Impostos/IVA c/ Desc.",
           formatCurrency(
-            response.total_sum - response.total_discount,
+            taxSummary.subtotal,
             response.company_symbol,
             response.company_position,
           ),
@@ -641,7 +753,7 @@ function downloadPDF(invoiceId) {
         [
           "Imposto/IVA:",
           formatCurrency(
-            response.total_tax,
+            taxSummary.totalTax,
             response.company_symbol,
             response.company_position,
           ),
@@ -651,7 +763,7 @@ function downloadPDF(invoiceId) {
       resumoBody.push([
         "Retenção",
         formatCurrency(
-          response.retention_value,
+          taxSummary.retention,
           response.company_symbol,
           response.company_position,
         ),
@@ -660,7 +772,7 @@ function downloadPDF(invoiceId) {
       resumoBody.push([
         "Total Geral:",
         formatCurrency(
-          response.final_total,
+          taxSummary.finalTotal,
           response.company_symbol,
           response.company_position,
         ),
@@ -738,10 +850,10 @@ function downloadPDF(invoiceId) {
 // ==================================================
 // ELIMINAR PROFORMA
 // ==================================================
-let proformaToDelete = null;
-let proformaCompanyId = null;
+var proformaToDelete = null;
+var proformaCompanyId = null;
 
-const deleteProforma = (id, companyId) => {
+var deleteProforma = (id, companyId) => {
   proformaToDelete = id;
   proformaCompanyId = companyId;
 
@@ -772,7 +884,7 @@ $("#confirmDelete")
             showConfirmButton: false,
           });
 
-          // recarrega os dados sem DataTables
+          // Recarrega os dados mantendo o fluxo atual da listagem.
           $(document).trigger("reload-proformas");
         } else {
           Swal.fire({
@@ -836,21 +948,15 @@ function renderInvoiceHTML(data) {
 }
 
 // ==================================================
-// EXPORTAÇÃO (Excel/PDF/CSV) COM PROGRESSO
+// EXPORTAÇÃO (Excel/PDF/CSV)
 // ==================================================
 //
 // Mapa: cada tipo de documento do menu "Exportar" -> endpoint
-// PHP responsável por gerar o ficheiro, e (quando aplicável)
-// o endpoint que reporta o progresso da geração.
+// PHP responsável por gerar Excel/CSV; PDF é gerado no navegador.
 //
-// "direct: true" = o próprio endpoint já faz o download completo
-// numa única chamada (ex.: relatório de vendas), pelo que não
-// faz sentido mostrar a barra de progresso a "fingir" 0% a 100%.
-//
-const EXPORT_CONFIG = {
+var EXPORT_CONFIG = {
   invoices: {
     url: "proform/ajax/proformas_export.php",
-    progressUrl: "proform/ajax/proformas_export.php?status=1",
     buildParams: (format) => ({ formato: format || "excel" }),
   },
 
@@ -863,9 +969,9 @@ const EXPORT_CONFIG = {
 
 /**
  * @param {string} docType - chave em EXPORT_CONFIG (ex.: "invoices", "credit_notes", "sales_report"...)
- * @param {string} [format] - "excel" | "pdf" | "csv" (só é usado pelos tipos que suportam formato)
+ * @param {string} [format] - "excel" | "pdf" | "csv"
  */
-function exportFile(docType, format) {
+async function exportFile(docType, format, options = {}) {
   const config = EXPORT_CONFIG[docType];
 
   if (!config) {
@@ -880,42 +986,175 @@ function exportFile(docType, format) {
     return;
   }
 
-  const query = new URLSearchParams(config.buildParams(format)).toString();
-  const finalUrl = query ? `${config.url}?${query}` : config.url;
+  if (docType === "invoices" && format === "pdf") {
+    const rows = options.rows || window.proformasForExport || [];
+    if (!rows.length) {
+      Swal?.fire?.({
+        icon: "info",
+        title: "Sem proformas",
+        text: "Não há proformas para exportar.",
+      });
+      return;
+    }
+    if (!window.jspdf?.jsPDF) {
+      Swal?.fire?.({
+        icon: "error",
+        title: "Exportação indisponível",
+        text: "Não foi possível carregar o gerador de PDF. Atualize a página e tente novamente.",
+      });
+      return;
+    }
 
-  // Download direto, sem barra de progresso (ex.: relatório de vendas,
-  // ou tipos cujo endpoint ainda não tem geração assíncrona)
-  if (config.direct || !config.progressUrl) {
-    window.location.href = finalUrl;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape" });
+    const money = (value, symbol, position) => {
+      const amount = Number(value || 0).toLocaleString("pt-PT", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return position === "right" ? `${amount} ${symbol || ""}` : `${symbol || ""} ${amount}`;
+    };
+    const date = (value) =>
+      value ? new Intl.DateTimeFormat("pt-PT").format(new Date(value)) : "-";
+
+    doc.setFontSize(16);
+    doc.text(options.title || "Lista de Proformas", 14, 16);
+    doc.autoTable({
+      startY: 23,
+      head: [["Número", "Emissão", "Vencimento", "Cliente", "Estado", "Moeda", "Total"]],
+      body: rows.map((row) => [
+        row.codigo || row.reference || row.id,
+        date(row.issue_date),
+        date(row.due_date),
+        row.cliente || "-",
+        row.status_invoice || "-",
+        row.currency || "-",
+        money(row.final_total, row.symbol, row.position),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [15, 23, 42] },
+    });
+    doc.save(options.filename || "proformas.pdf");
     return;
   }
 
+  const query = new URLSearchParams(config.buildParams(format)).toString();
+  const finalUrl = query ? `${config.url}?${query}` : config.url;
   const preloader = document.getElementById("preloader");
   const progressBar = document.getElementById("progressBar");
+  if (preloader) preloader.style.display = "block";
+  if (progressBar) progressBar.style.width = "35%";
 
-  preloader.style.display = "block";
-  progressBar.style.width = "0%";
+  try {
+    const response = await fetch(finalUrl, { credentials: "same-origin" });
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok || contentType.includes("application/json")) {
+      let message = `Falha ao exportar proformas (HTTP ${response.status}).`;
+      try {
+        const payload = await response.json();
+        message = payload.error || payload.message || message;
+      } catch (_) {
+        // Mantém o erro HTTP se a resposta não for JSON válido.
+      }
+      throw new Error(message);
+    }
 
-  let checkProgress = setInterval(() => {
-    fetch(config.progressUrl)
-      .then((res) => res.json())
-      .then((data) => {
-        progressBar.style.width = data.progress + "%";
-
-        if (data.progress >= 100) {
-          clearInterval(checkProgress);
-          setTimeout(() => {
-            preloader.style.display = "none";
-          }, 500);
-        }
-      })
-      .catch(() => {
-        clearInterval(checkProgress);
-        preloader.style.display = "none";
-      });
-  }, 1000);
-
-  setTimeout(() => {
-    window.location.href = finalUrl;
-  }, 2000);
+    const blob = await response.blob();
+    const disposition = response.headers.get("content-disposition") || "";
+    const filename =
+      disposition.match(/filename="?([^";]+)"?/i)?.[1] ||
+      `proformas.${format === "csv" ? "csv" : "xlsx"}`;
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+    if (progressBar) progressBar.style.width = "100%";
+  } catch (error) {
+    console.error("Erro ao exportar proformas:", error);
+    Swal?.fire?.({
+      icon: "error",
+      title: "Erro na exportação",
+      text: error.message || "Não foi possível exportar as proformas.",
+    });
+  } finally {
+    if (preloader) preloader.style.display = "none";
+    if (progressBar) progressBar.style.width = "0%";
+  }
 }
+
+function closeProformaExportMenu() {
+  const menu = document.getElementById("exportMenuList");
+  const button = document.getElementById("exportMenuBtn");
+  menu?.classList.remove("is-open");
+  button?.setAttribute("aria-expanded", "false");
+}
+
+function exportSelectedProformasCsv() {
+  const rows = selectedProformas();
+  if (!rows.length) return;
+
+  const cell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const columns = [
+    ["Número", (row) => row.codigo || row.id],
+    ["Data de emissão", (row) => row.issue_date],
+    ["Data de vencimento", (row) => row.due_date],
+    ["Cliente", (row) => row.cliente],
+    ["Estado", (row) => row.status_invoice],
+    ["Moeda", (row) => row.currency],
+    ["Total", (row) => row.final_total],
+  ];
+  const content = [
+    columns.map(([label]) => cell(label)).join(";"),
+    ...rows.map((row) => columns.map(([, value]) => cell(value(row))).join(";")),
+  ].join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "proformas_selecionadas.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function runProformaExportAction(action) {
+  if (action === "selected-pdf") {
+    return exportFile("invoices", "pdf", {
+      rows: selectedProformas(),
+      title: "Proformas selecionadas",
+      filename: "proformas_selecionadas.pdf",
+    });
+  }
+  if (action === "selected-csv") return exportSelectedProformasCsv();
+  if (action === "list-pdf") return exportFile("invoices", "pdf");
+  if (action === "list-excel") return exportFile("invoices", "excel");
+  if (action === "list-csv") return exportFile("invoices", "csv");
+}
+
+$(document)
+  .off(".proformaExport")
+  .on("click.proformaExport.spaPage", "#exportMenuBtn", function (event) {
+    event.stopPropagation();
+    const menu = document.getElementById("exportMenuList");
+    const isOpen = menu?.classList.toggle("is-open") ?? false;
+    this.setAttribute("aria-expanded", String(isOpen));
+    if (!isOpen) closeProformaExportMenu();
+  })
+  .on("click.proformaExport.spaPage", "#exportMenu [data-export-action], #proformaSelectionBar [data-export-action]", function (event) {
+    event.stopPropagation();
+    runProformaExportAction(this.dataset.exportAction);
+    closeProformaExportMenu();
+  })
+  .on("change.proformaExport.spaPage", "#selectAll, #invoicesTable .invoice-check", refreshSelectedExportGroup)
+  .on("click.proformaExport.spaPage", function (event) {
+    if (!event.target.closest("#exportMenu")) closeProformaExportMenu();
+  })
+  .on("keydown.proformaExport.spaPage", function (event) {
+    if (event.key === "Escape") closeProformaExportMenu();
+  });

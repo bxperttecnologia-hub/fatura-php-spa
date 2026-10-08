@@ -1,5 +1,5 @@
 /* =====================================================================
-   EMISSÃO DE PROFORMA — create_proform/create_invoices.css (mesmo ecrã da fatura)
+   EMISSÃO DE DOCUMENTO — create_invoices.css
    Tudo vive sob .inv-page e usa o prefixo .inv- para não colidir com o
    Bootstrap nem com o resto da aplicação.
    Cores e raios estão nos tokens abaixo: muda-os aqui e o ecrã inteiro segue.
@@ -7,13 +7,13 @@
    ===================================================================== */
 
 .inv-page {
-    --inv-bg: #fff;
-    --inv-card: #fff;
-    --inv-card-border: #3030301e;
-    --inv-head: #0d8bdc;
-    --inv-field: #fff;
-    --inv-field-border: #3030301e;
-    --inv-text: #000;
+    --inv-bg: #060c1d;
+    --inv-card: #0d1528;
+    --inv-card-border: #1b2740;
+    --inv-head: #111b32;
+    --inv-field: #16213a;
+    --inv-field-border: #1f2d4a;
+    --inv-text: #f1f5fb;
     --inv-muted: #8593ad;
     --inv-primary: #0d8bdc;
     --inv-primary-hover: #26a0ee;
@@ -22,7 +22,7 @@
     --inv-radius: 12px;
 
     color-scheme: dark;
-    background: var(--inv-bg);
+    background: none !important;
     color: var(--inv-text);
     padding: 3rem 0 4rem;
     min-height: 100vh;
@@ -35,7 +35,7 @@
     --inv-head: #eef2f9;
     --inv-field: #f0f3f9;
     --inv-field-border: #dfe6f1;
-    --inv-text: #000;
+    --inv-text: #16203a;
     --inv-muted: #66738e;
     --inv-primary: #0a7fc9;
     --inv-primary-hover: #0b6fb0;
@@ -64,39 +64,13 @@
     margin-bottom: 2rem;
 }
 
-.inv-breadcrumb {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 1.4rem;
-    color: var(--inv-muted);
-    font-size: 0.95rem;
-}
-
-.inv-breadcrumb a,
 .inv-back {
     color: var(--inv-muted);
     text-decoration: none;
 }
 
-#cancelInvoiceBtn {
-    background: #ef5b6b;
-    color: #fff;
-}
-
-.inv-breadcrumb a:hover,
 .inv-back:hover {
     color: var(--inv-text);
-}
-
-.inv-breadcrumb [aria-current="page"] {
-    color: var(--inv-text);
-    font-weight: 600;
-}
-
-.inv-breadcrumb .bi-chevron-right {
-    font-size: 0.7rem;
 }
 
 .inv-back {
@@ -194,7 +168,7 @@
     color: var(--inv-text);
 }
 
-.inv-card>.inv-card-title {
+.inv-card > .inv-card-title {
     margin-bottom: 1.5rem;
 }
 
@@ -253,26 +227,6 @@
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.inv-select-btn {
-    width: 100%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* flex: 0 0 44px; */
-    height: 44px;
-    background: var(--inv-field);
-    border: 1px solid var(--inv-field-border);
-    border-radius: var(--inv-radius);
-    color: var(--inv-primary-hover);
-    text-decoration: none;
-}
-
-.inv-select-btn:hover {
-    border-color: var(--inv-primary);
-    color: var(--inv-bg);
-    background: #0a7fc9;
-}
-
 .inv-input:focus,
 .inv-select:focus {
     border-color: var(--inv-primary);
@@ -304,7 +258,7 @@
     gap: 0.5rem;
 }
 
-.inv-with-action>select {
+.inv-with-action > select {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -458,12 +412,12 @@
     padding: 0.9rem 1rem;
     background: var(--inv-head);
     border-radius: var(--inv-radius);
-    color: #fff;
+    color: var(--inv-muted);
     font-size: 0.85rem;
     font-weight: 700;
 }
 
-.inv-lines-head>div:not(:first-child) {
+.inv-lines-head > div:not(:first-child) {
     text-align: center;
 }
 
@@ -670,7 +624,7 @@
 }
 
 .inv-tax th {
-    color: #fff;
+    color: var(--inv-muted);
     font-weight: 600;
 }
 
@@ -680,7 +634,7 @@
 }
 
 .inv-tax td {
-    color: #fff;
+    color: var(--inv-text);
 }
 
 .inv-tax td.inv-tax-empty {
@@ -862,7 +816,6 @@
 }
 
 @media (max-width: 575.98px) {
-
     .inv-grid-4,
     .inv-client-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -881,4 +834,32 @@
 .inv-with-action .select2-container {
     flex: 1 1 auto;
     min-width: 0;
+}
+
+/* ---------- Picker de itens: filtro (tipo) + select2 ---------- */
+.inv-picker-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.inv-picker-row .inv-picker-filter {
+    flex: 0 0 150px;
+    width: 150px;
+}
+
+.inv-picker-row .select2-container {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .inv-picker-row {
+        flex-direction: column;
+    }
+
+    .inv-picker-row .inv-picker-filter {
+        flex: 1 1 auto;
+        width: 100%;
+    }
 }

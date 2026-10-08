@@ -16,13 +16,20 @@ function spa_json(int $status, array $data): void {
 
 $__pages = require ROOT . '/app/config/pages.php';
 $__route = '/' . trim((string)($_GET['__route'] ?? '/'), '/');
+$__isLoginPage = in_array($__route, ['/login', '/login.php'], true);
 unset($_GET['__route'], $_REQUEST['__route']);   // as páginas não precisam de o ver
 
-if (!Auth::user())              spa_json(401, ['message' => 'Sessão expirada ou inexistente', 'session_expired' => true]);
-if (!isset($__pages[$__route])) spa_json(404, ['message' => 'Página não encontrada']);
+if (!Auth::user() && !$__isLoginPage) spa_json(401, ['message' => 'Sessão expirada ou inexistente', 'session_expired' => true]);
+if (!$__isLoginPage && !isset($__pages[$__route])) spa_json(404, ['message' => 'Página não encontrada']);
 
-[$__file, $__title] = $__pages[$__route];
-$__path = ROOT . '/app/pages/' . $__file;
+if ($__isLoginPage) {
+    $__file = 'login.php';
+    $__title = 'Entrar';
+    $__path = ROOT . '/public/login.php';
+} else {
+    [$__file, $__title] = $__pages[$__route];
+    $__path = ROOT . '/app/pages/' . $__file;
+}
 if (!is_file($__path)) spa_json(404, ['message' => "Ficheiro em falta: app/pages/$__file"]);
 
 // Dependências legadas que não vêm no zip (db.php, helpers/*): dá erro claro em vez de fatal 500.

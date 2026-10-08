@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 header('Content-Type: application/json');
 
 // Captura o ID da fatura
@@ -43,7 +44,6 @@ try {
                 i.retention,
                 i.manual_exchange_rate,
                 i.total_tax,
-                i.retention_value,
                 i.reference,
                 i.converted_total,
                 ivs.name as status_invoice, 
@@ -65,10 +65,14 @@ try {
             WHERE i.id = ?";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':invoiceId', $invoiceId, PDO::PARAM_INT);
-    $stmt->execute();
+    $stmt->execute([$invoiceId]);
 
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$invoice) {
+        echo json_encode(['error' => 'Fatura não encontrada.']);
+        exit;
+    }
 
     // Padrão fixo para "Bens e serviços" quando não estiver preenchido na empresa
     if (array_key_exists('goods_services', $invoice)) {
@@ -76,11 +80,6 @@ try {
         if ($gs === '') {
             $invoice['goods_services'] = "Os bens e serviços foram colocados à disposição do adquirente na data\ndo documento.";
         }
-    }
-
-    if (!$invoice) {
-        echo json_encode(['error' => 'Fatura não encontrada.']);
-        exit;
     }
 
     // Busca itens da fatura
@@ -106,48 +105,43 @@ try {
     // Adiciona os itens no resultado da fatura
     $invoice['items'] = $items;
 
-    // Busca detalhes das taxas
-    $sqlTaxes = "SELECT 
-                    ii.tax AS tax_rate,
-                   ROUND(SUM(ii.unit_price * ii.quantity) * (1 - (discount / 100)), 2) AS tax_base,
-                    SUM(ii.unit_price * ii.quantity * (ii.tax / 100)) AS tax_value,
-                    i.retention AS retention_rate,
-                    i.retention_value AS retention_value,
-                    i.total_sum,
-                    cr.symbol, 
-                    cr.position 
-                FROM proformas i
-                JOIN companies comp ON comp.id = i.company_id 
-                JOIN invoice_items ii ON i.id = ii.invoice_id
-                JOIN currencies cr ON cr.iso_code = comp.currency
-                WHERE i.id = :invoiceId
-                GROUP BY ii.tax, i.retention, i.retention_value";
+    $taxSummary = bx_document_tax_summary(
+        $items,
+        (string)($invoice['vat_regime'] ?? '')
+    );
+    $retentionValue = max(
+        0.0,
+        ($taxSummary['subtotal'] + $taxSummary['total_tax'])
+            * (float)($invoice['retention'] ?? 0) / 100
+    );
+    $taxSummary = bx_document_tax_summary(
+        $items,
+        (string)($invoice['vat_regime'] ?? ''),
+        $retentionValue
+    );
+    $invoice['retention_value'] = $taxSummary['retention'];
+    $invoice['total_sum'] = $taxSummary['total_sum'];
+    $invoice['total_discount'] = $taxSummary['total_discount'];
+    $invoice['subtotal_without_tax'] = $taxSummary['subtotal'];
+    $invoice['total_tax'] = $taxSummary['total_tax'];
+    $invoice['final_total'] = $taxSummary['final_total'];
+    $invoice['tax_details'] = array_map(
+        static fn(array $row): array => [
+            'tax_rate' => $row['rate'],
+            'tax_base' => $row['base'],
+            'tax_value' => $row['iva'],
+            'retention_rate' => (float)($invoice['retention'] ?? 0),
+            'retention_value' => $row['retention'],
+            'total_sum' => $taxSummary['total_sum'],
+            'symbol' => $invoice['company_symbol'] ?? '',
+            'position' => $invoice['company_position'] ?? 'right',
+        ],
+        $taxSummary['rows']
+    );
 
-    $stmtTaxes = $pdo->prepare($sqlTaxes);
-    $stmtTaxes->bindParam(':invoiceId', $invoiceId, PDO::PARAM_INT);
-    $stmtTaxes->execute();
-
-    $taxDetails = $stmtTaxes->fetchAll(PDO::FETCH_ASSOC);
-
-    // Adiciona os detalhes das taxas no resultado da fatura
-    $invoice['tax_details'] = $taxDetails;
-
-    /* ---------- total já pago ---------- */
-    $sqlPaid = "SELECT COALESCE(SUM(amount_paid),0) AS paid_total
-            FROM receipts
-            WHERE invoice_id = :invoiceId";
-    $stmPaid = $pdo->prepare($sqlPaid);
-    $stmPaid->execute(['invoiceId' => $invoiceId]);
-    $paid    = $stmPaid->fetch(PDO::FETCH_ASSOC)['paid_total'] ?? 0;
-
-    /* anexa ao array da fatura */
-    $invoice['paid_total'] = $paid;
-
-    /* opcional: calcula saldo e um rótulo prático */
-    $invoice['saldo']      = $invoice['final_total'] - $paid;
-    $invoice['pay_status'] = ($paid == 0)
-        ? 'pendente'
-        : (($invoice['saldo'] <= 0.009) ? 'pago' : 'parcial');
+    $invoice['paid_total'] = 0;
+    $invoice['saldo'] = $invoice['final_total'];
+    $invoice['pay_status'] = 'proforma';
 
 
     echo json_encode($invoice);

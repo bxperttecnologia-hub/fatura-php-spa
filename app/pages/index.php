@@ -1201,7 +1201,7 @@ require_once '../app/views/footer.php';
                         clientName;
 
                     html += `
-                    <a href="invoice.php?id=${inv.id}">
+                    <a href="/invoices/view?id=${encodeURIComponent(inv.id)}" data-spa>
                         <div class="item">
                             <div class="card p-2 hover-row">
                                 <div class="d-flex justify-content-between">

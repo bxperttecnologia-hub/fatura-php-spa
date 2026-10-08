@@ -54,6 +54,7 @@ try {
                 <div class="d-flex justify-content-end mb-2">
                     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCycle"><i class="bi bi-plus-lg"></i> Novo Ciclo</button>
                 </div>
+                <div id="cyclesTableControls"></div>
                 <div class="table-responsive">
                     <table id="cyclesTable" class="table align-middle bx-list-table" style="width:100%">
                         <thead>
@@ -72,6 +73,7 @@ try {
 
             <!-- ===================== MINHAS AVALIAÇÕES ===================== -->
             <div class="tab-pane fade" id="tabMinhas">
+                <div id="myEvaluationsTableControls"></div>
                 <div class="table-responsive">
                     <table id="myEvaluationsTable" class="table align-middle bx-list-table" style="width:100%">
                         <thead>
@@ -331,29 +333,28 @@ try {
 
         /* ===================== CICLOS ===================== */
 
-        const cyclesTable = $('#cyclesTable').DataTable({
-            ajax: 'rh/ajax/list_evaluation_cycles.php',
-            language: {
-                url: '/assets/translations/datatables-pt.json'
-            },
-            columns: [{
-                    data: 'name'
-                },
-                {
-                    data: null,
-                    render: row => `${row.period_start} a ${row.period_end}`
-                },
+        const cyclesTable = BootstrapTable.create({
+            table: '#cyclesTable',
+            toolbar: '#cyclesTableControls',
+            ajax: { url: 'rh/ajax/list_evaluation_cycles.php', method: 'GET' },
+            initialSort: { index: 0, direction: 'desc' },
+            columns: [
+                { data: 'name' },
+                { data: null, sortValue: row => row.period_start, render: (_, row) => `${row.period_start} a ${row.period_end}` },
                 {
                     data: 'status',
-                    render: s => `<span class="badge ${s === 'aberto' ? 'bg-success' : 'bg-secondary'}">${s}</span>`
+                    render: status => `<span class="badge ${status === 'aberto' ? 'bg-success' : 'bg-secondary'}">${String(status ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])}</span>`
                 },
                 {
                     data: null,
-                    render: row => `${row.concluidas}/${row.total_evaluations} concluídas`
+                    sortValue: row => Number(row.concluidas || 0),
+                    render: (_, row) => `${row.concluidas}/${row.total_evaluations} concluídas`
                 },
                 {
                     data: null,
-                    render: row => `<button class="btn btn-sm btn-outline-primary btnGenerate" data-id="${row.id}">Gerar avaliações</button>`
+                    sortable: false,
+                    searchable: false,
+                    render: (_, row) => `<button type="button" class="btn btn-sm btn-outline-primary btnGenerate" data-id="${row.id}">Gerar avaliações</button>`
                 }
             ]
         });
@@ -364,7 +365,7 @@ try {
                 .done(function(resp) {
                     if (resp.success) {
                         $('#modalCycle').modal('hide');
-                        cyclesTable.ajax.reload();
+                        cyclesTable.reload();
                         Swal.fire('Sucesso', 'Ciclo criado.', 'success');
                     } else {
                         Swal.fire('Erro', resp.message, 'error');
@@ -392,8 +393,8 @@ try {
                 .done(function(resp) {
                     if (resp.success) {
                         $('#modalGenerate').modal('hide');
-                        cyclesTable.ajax.reload();
-                        myEvaluationsTable.ajax.reload();
+                        cyclesTable.reload();
+                        myEvaluationsTable.reload();
                         Swal.fire('Ok', `${resp.created} avaliação(ões) gerada(s). ${resp.skipped_no_manager} funcionário(s) sem chefia direta ficaram de fora.`, 'success');
                     } else {
                         Swal.fire('Erro', resp.message, 'error');
@@ -407,32 +408,23 @@ try {
 
         /* ===================== MINHAS AVALIAÇÕES ===================== */
 
-        const myEvaluationsTable = $('#myEvaluationsTable').DataTable({
-            ajax: 'rh/ajax/list_evaluations.php?minhas=1',
-            language: {
-                url: '/assets/translations/datatables-pt.json'
-            },
-            columns: [{
-                    data: 'employee_name'
-                },
-                {
-                    data: 'cycle_name'
-                },
-                {
-                    data: 'template_name'
-                },
-                {
-                    data: 'status'
-                },
-                {
-                    data: 'final_score',
-                    render: d => d !== null ? d : '—'
-                },
+        const myEvaluationsTable = BootstrapTable.create({
+            table: '#myEvaluationsTable',
+            toolbar: '#myEvaluationsTableControls',
+            ajax: { url: 'rh/ajax/list_evaluations.php?minhas=1', method: 'GET' },
+            columns: [
+                { data: 'employee_name' },
+                { data: 'cycle_name' },
+                { data: 'template_name' },
+                { data: 'status' },
+                { data: 'final_score', render: value => value !== null ? value : '—', sortValue: row => Number(row.final_score ?? -1) },
                 {
                     data: null,
-                    render: row => row.status === 'concluida' ?
-                        `<span class="text-muted">Concluída</span>` :
-                        `<button class="btn btn-sm btn-primary btnScore" data-id="${row.id}">Avaliar</button>`
+                    sortable: false,
+                    searchable: false,
+                    render: (_, row) => row.status === 'concluida'
+                        ? '<span class="text-muted">Concluída</span>'
+                        : `<button type="button" class="btn btn-sm btn-primary btnScore" data-id="${row.id}">Avaliar</button>`
                 }
             ]
         });
@@ -483,7 +475,7 @@ try {
                 .done(function(resp) {
                     if (resp.success) {
                         $('#modalScore').modal('hide');
-                        myEvaluationsTable.ajax.reload();
+                        myEvaluationsTable.reload();
                         Swal.fire('Sucesso', finalizar == 1 ? `Avaliação concluída — nota final: ${resp.final_score}` : 'Rascunho gravado.', 'success');
                     } else {
                         Swal.fire('Erro', resp.message, 'error');

@@ -1,4 +1,20 @@
 $(document).ready(function () {
+  let userCurrency = window.userCurrency || "AOA";
+  let currencySymbol = window.currencySymbol || "Kz";
+  let currencyPosition = window.currencyPosition || "left";
+
+  function formatCurrency(
+    value,
+    symbol = currencySymbol,
+    position = currencyPosition,
+  ) {
+    const amount = (Number(value) || 0).toLocaleString("pt-AO", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return position === "right" ? `${amount} ${symbol}` : `${symbol} ${amount}`;
+  }
+
   // =====================================================================
   // HELPERS DE IVA / REGIME
   // O regime é lido SEMPRE no momento do cálculo (nunca uma só vez no
@@ -32,9 +48,10 @@ $(document).ready(function () {
       console.warn(
         "vat_regime ausente no sessionStorage; a assumir regime geral.",
       );
-      return true; // mude para false se preferir IVA 0 quando o regime não existe
     }
-    return regime.includes("geral");
+    return window.BXDocumentTax
+      ? window.BXDocumentTax.isGeneralRegime(regime)
+      : !regime || regime.includes("geral");
   }
 
   function toNum(value) {
@@ -63,12 +80,14 @@ $(document).ready(function () {
 
   // Convenção do sistema: taxa 7 = Isento = 0%
   function effectiveRate(rate) {
-    return rate === 7 ? 0 : rate;
+    return window.BXDocumentTax?.effectiveRate(rate, getVatRegime()) ??
+      (isRegimeGeral() && rate !== 7 ? rate : 0);
   }
 
   // Catálogo em memória (id -> item completo). Evita serializar o item
   // em data-item='...', que quebrava com apóstrofos na descrição.
   const catalogItems = {};
+  let itemsFirstLoad = true; // 1.ª carga não conta como "item novo"
 
   const company_id = document.querySelector("input[id=company_id]").value;
 
@@ -92,7 +111,53 @@ $(document).ready(function () {
     bootDraft = JSON.parse(localStorage.getItem("invoiceDraft") || "null");
   } catch (e) {}
 
+  // Helper de debounce (pode ficar num utilitário comum)
+  function debounce(fn, wait = 300) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  // Com o nome antigo, para as chamadas existentes continuarem iguais
+  const loadSelect2Items = debounce(loadSelect2ItemsNow, 300);
+
   loadSelect2Items();
+
+  // Filtro de tipo ao lado do select2
+  $("#item_type_filter").on("change", renderItemOptions);
+
+  // Recarregar a lista quando um item é criado, sem refresh da página.
+  // 1) fecho do modal #itemModal (Bootstrap)
+  if (window.__invItemModalHandler) {
+    document.removeEventListener("hidden.bs.modal", window.__invItemModalHandler);
+  }
+  window.__invItemModalHandler = function (e) {
+    if (e.target && e.target.id === "itemModal") loadSelect2Items();
+  };
+  document.addEventListener("hidden.bs.modal", window.__invItemModalHandler);
+
+  // 2) qualquer evento "items:changed" (para o código que grava o item chamar:
+  //    window.dispatchEvent(new Event("items:changed")))
+  $(window)
+    .off("items:changed.invItems")
+    .on("items:changed.invItems", function () {
+      loadSelect2Items();
+    });
+
+  // 3) qualquer POST AJAX (jQuery) a um endpoint de itens que responda com sucesso
+  $(document)
+    .off("ajaxSuccess.invItems")
+    .on("ajaxSuccess.invItems", function (e, xhr, settings) {
+      const url = String(settings?.url || "");
+      const method = String(settings?.type || settings?.method || "GET").toUpperCase();
+      if (method === "GET" || !/item/i.test(url) || /get_items/i.test(url)) return;
+      try {
+        const r = xhr.responseJSON || JSON.parse(xhr.responseText);
+        if (r && (r.success === true || r.status === true)) loadSelect2Items();
+      } catch (_) {}
+    });
   fetchCurrencySymbol();
   fetchExchangeRate(userCurrency, $("#manual_exchange_rate").val());
 
@@ -487,7 +552,9 @@ $(document).ready(function () {
     const retention = parseFloat($("#retention").val()) || 0;
     const supportedRate = Number.isFinite(RETENTION_RATE) ? RETENTION_RATE : 0;
     $("#apply_retention").val(
-      retention === supportedRate && supportedRate > 0 ? String(supportedRate) : "0",
+      retention === supportedRate && supportedRate > 0
+        ? String(supportedRate)
+        : "0",
     );
   }
 
@@ -545,7 +612,11 @@ $(document).ready(function () {
 
     const leave = () => {
       if (typeof clearDraft === "function") clearDraft();
-      window.location.href = backUrl;
+      if (typeof window.navigateSPA === "function") {
+        window.navigateSPA(backUrl);
+      } else {
+        window.location.assign(backUrl);
+      }
     };
 
     if (!hasWork) return leave();
@@ -678,30 +749,118 @@ $(document).ready(function () {
     };
   }
 
-  function loadSelect2Items() {
+  // =====================================================================
+  // CATÁLOGO DE ITENS
+  //  - filtro Todos / Produtos / Serviços ao lado do select2
+  //  - a lista actualiza-se sozinha quando um item novo é criado
+  // =====================================================================
+
+  // Serviço = item_type 'service' (ou código SERV…), igual à regra de addItemRow()
+  function isServiceItem(item) {
+    return (
+      (item?.item_type_raw || item?.item_type) === "service" ||
+      String(item?.code || "").toUpperCase().startsWith("SERV")
+    );
+  }
+
+  // Desenha as <option> a partir do catálogo em memória, aplicando o filtro
+  function renderItemOptions() {
+    const filter = $("#item_type_filter").val() || "all";
+    let options = '<option value="">Selecione um produto/serviço...</option>';
+
+    Object.values(catalogItems)
+      .sort((a, b) => Number(b.id) - Number(a.id)) // mais recentes primeiro
+      .forEach((item) => {
+        const service = isServiceItem(item);
+        if (filter === "product" && service) return;
+        if (filter === "service" && !service) return;
+
+        const label = !service
+          ? `<b><i class="bi bi-box"></i> ${escapeAttr(item.code)}</b> -`
+          : "<b><i class='bi bi-gear'></i></b>";
+
+        options += `<option value="${escapeAttr(item.id)}">
+            ${label} ${escapeAttr(item.description || item.name)}
+            </option>`;
+      });
+
+    const $select = $("#item_select");
+    $select.html(options).val("");
+    if ($select.hasClass("select2-hidden-accessible")) {
+      $select.trigger("change.select2"); // só refresca o select2, não adiciona linha
+    }
+  }
+
+  function loadSelect2ItemsNow() {
+    // Página já não está no ecrã (navegação SPA): nada a fazer
+    if (!document.getElementById("item_select")) return;
+
     $.ajax({
       url: "create_invoices/ajax/get_items.php",
       dataType: "json",
+      cache: false,
       success: function (data) {
-        let options =
-          '<option value="">Selecione um produto/serviço...</option>';
+        const knownIds = new Set(Object.keys(catalogItems));
+        const fresh = data?.data || [];
 
-        $.each(data?.data || [], function (index, item) {
-          // guarda o item completo em memória (id -> item)
+        // Recria o catálogo (assim itens arquivados/removidos também saem da lista)
+        Object.keys(catalogItems).forEach((k) => delete catalogItems[k]);
+        fresh.forEach((item) => {
           catalogItems[item.id] = item;
-
-          const label =
-            item.item_type !== "service"
-              ? `<b><i class="bi bi-box"></i> ${escapeAttr(item.code)}</b> -`
-              : "<b><i class='bi bi-gear'></i></b>";
-
-          options += `<option value="${escapeAttr(item.id)}">
-            ${label} ${escapeAttr(item.description || item.name)}
-            </option>`;
         });
 
-        $("#item_select").html(options);
+        // Itens que não existiam na carga anterior = acabados de criar
+        const newItems = [];
+        if (!itemsFirstLoad) {
+          const seen = new Set();
+          fresh.forEach((item) => {
+            const id = String(item.id);
+            if (!knownIds.has(id) && !seen.has(id)) {
+              seen.add(id);
+              newItems.push(item);
+            }
+          });
+        }
+        itemsFirstLoad = false;
+
+        // Se o filtro activo esconderia o item novo, volta a "Todos"
+        if (newItems.length) {
+          const f = $("#item_type_filter").val();
+          const hidden = newItems.some(
+            (i) =>
+              (f === "product" && isServiceItem(i)) ||
+              (f === "service" && !isServiceItem(i)),
+          );
+          if (hidden) $("#item_type_filter").val("all");
+        }
+
+        renderItemOptions();
+
+        window.catalogItems = catalogItems;
+        window.dispatchEvent(
+          new CustomEvent("items:catalog-ready", {
+            detail: { items: Object.values(catalogItems) },
+          }),
+        );
         $(".select2").select2({ width: "100%", dropdownParent: $("#invPage") });
+
+        if (newItems.length && typeof Swal !== "undefined") {
+          Swal.fire({
+            toast: true,
+            position: "top-end",
+            icon: "success",
+            title:
+              newItems.length === 1
+                ? "Item adicionado à lista"
+                : `${newItems.length} itens adicionados à lista`,
+            text:
+              newItems.length === 1
+                ? newItems[0].name || newItems[0].description || ""
+                : "",
+            showConfirmButton: false,
+            timer: 2500,
+          });
+        }
       },
     });
   }
@@ -1694,15 +1853,19 @@ $(document).ready(function () {
         }).then((result) => {
           if (result.isConfirmed) {
             if (!response.invoice_id) {
-              Swal.fire("Erro", "A factura foi gravada, mas o servidor não devolveu o identificador para a visualizar.", "error");
+              Swal.fire(
+                "Erro",
+                "A factura foi gravada, mas o servidor não devolveu o identificador para a visualizar.",
+                "error",
+              );
               return;
             }
 
-            const invoiceUrl = `/invoice.php?id=${encodeURIComponent(response.invoice_id)}`;
+            const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.invoice_id)}`;
             if (typeof window.navigateSPA === "function") {
               window.navigateSPA(invoiceUrl);
             } else {
-              window.location.href = invoiceUrl;
+              window.location.assign(invoiceUrl);
             }
           }
         });
@@ -1727,113 +1890,81 @@ $(document).ready(function () {
   });
 
   function loadInvoiceForEdit(id) {
-    const draft = getStoredDraft();
-
-    if (draft && draft.form && Object.keys(draft.form).length > 0) {
-      $("#edit_invoice_id").val(id);
-
-      const form = draft.form;
-      const contactSelect = document.getElementById("contact-select");
-
-      if (draft.meta?.contact_select) {
-        $(contactSelect).val(draft.meta.contact_select).trigger("change");
-      }
-
-      $("#issue_date").val(form.issue_date || "");
-      $("#reference").val(form.reference || "");
-      $("#observation").val(form.observation || "");
-      $("#retention").val(form.retention || 0);
-      $("#currency")
-        .val(form.currency || "AOA")
-        .trigger("change");
-      $("#manual_exchange_rate").val(form.manual_exchange_rate || 1);
-
-      $("#items_list .item-list").remove();
-
-      if (Array.isArray(draft.items) && draft.items.length > 0) {
-        draft.items.forEach((item) => {
-          addItemRow({
-            id: item.id || item.item_id,
-            code: item.code || "",
-            description: item.description || item.name || "",
-            unit_price: item.unit_price || 0,
-            line_quantity: item.quantity || 1,
-            tax: item.tax || 0,
-            discount: item.discount || 0,
-          });
-        });
-      }
-
-      syncDueUI();
-      syncRetentionUI();
-      updateInvoiceSummary();
-      setEditMode();
-      invoiceId = id;
-      return;
-    }
-
-    $.getJSON("invoices/ajax/get_invoice.php", { id: id }, function (response) {
-      if (response.error) {
-        Swal.fire("Erro", response.error, "error");
-        return;
-      }
-
-      const data = response?.data;
-
-      $("#edit_invoice_id").val(id);
-
-      $("#contact-select")
-        .val(toSelectValue(data.contact_id))
-        .trigger("change");
-      $("#issue_date").val(data.issue_date);
-
-      setDueDays(data.due_date);
-
-      $("#reference").val(data.reference);
-      $("#observation").val(data.observation);
-      $("#document_type").val(data.document_type || "FT");
-
-      if ($("#series option[value='" + data.series + "']").length === 0) {
-        $("#series").append(new Option(data.series, data.series));
-      }
-      $("#series").val(data.series);
-
-      $("#retention").val(data.retention);
-
-      $("#currency")
-        .val(
-          data.currency ||
-            data.currency_items ||
-            data.currency_company ||
-            "AOA",
-        )
-        .trigger("change");
-      if (data.manual_exchange_rate) {
-        $("#manual_exchange_rate").val(data.manual_exchange_rate);
-      }
-
-      $("#items_list .item-list").remove();
-
-      if (data.items && data.items.length > 0) {
-        data.items.forEach((item) => {
-          addItemRow({
-            id: item.item_id || item.id,
-            code: item.code,
-            description: item.description || item.name,
-            unit_price: item.unit_price,
-            line_quantity: item.quantity,
-            tax: item.tax,
-            discount: item.discount,
-          });
-        });
-      }
-      syncRetentionUI();
-      updateInvoiceSummary();
-
-      setEditMode();
-    });
-
     invoiceId = id;
+    $("#edit_invoice_id").val(id);
+
+    $.getJSON("/invoices/ajax/get_invoice.php", { id })
+      .done(function (response) {
+        if (!response?.success || !response?.data) {
+          Swal.fire(
+            "Erro",
+            response?.error || "Não foi possível carregar os dados da fatura.",
+            "error",
+          );
+          return;
+        }
+
+        const data = response.data;
+
+        $("#contact-select")
+          .val(toSelectValue(data.contact_id))
+          .trigger("change");
+        $("#issue_date").val(data.issue_date || "");
+
+        setDueDays(data.due_date);
+
+        $("#reference").val(data.reference || "");
+        $("#observation").val(data.observation || "");
+        $("#document_type").val(data.document_type || "FT");
+
+        if ($("#series option[value='" + data.series + "']").length === 0) {
+          $("#series").append(new Option(data.series, data.series));
+        }
+        $("#series").val(data.series);
+
+        $("#retention").val(data.retention || 0);
+
+        $("#currency")
+          .val(
+            data.currency ||
+              data.currency_items ||
+              data.currency_company ||
+              "AOA",
+          )
+          .trigger("change");
+        if (data.manual_exchange_rate) {
+          $("#manual_exchange_rate").val(data.manual_exchange_rate);
+        }
+
+        $("#items_list .item-list").remove();
+
+        if (Array.isArray(data.items)) {
+          data.items.forEach((item) => {
+            addItemRow({
+              id: item.item_id || item.id,
+              code: item.code,
+              description: item.description || item.name,
+              unit_price: item.unit_price,
+              line_quantity: item.quantity,
+              tax: item.tax,
+              discount: item.discount,
+            });
+          });
+        }
+        syncRetentionUI();
+        updateInvoiceSummary();
+
+        setEditMode();
+      })
+      .fail(function (xhr) {
+        console.error("Erro ao carregar a fatura para edição:", xhr);
+        Swal.fire(
+          "Erro",
+          xhr.responseJSON?.error ||
+            "Não foi possível carregar os dados da fatura.",
+          "error",
+        );
+      });
   }
   // Expõe addItemRow ao script inline e repõe as linhas do rascunho
   window.addItemRow = addItemRow;

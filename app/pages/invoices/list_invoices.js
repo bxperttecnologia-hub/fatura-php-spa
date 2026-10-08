@@ -195,7 +195,7 @@ $(document).ready(function () {
   }
 
   const invoiceUrl = (row) =>
-    `invoice.php?id=${String(row.issue_date || "").replaceAll("-", "")}/${row.company_id}/${row.id}`;
+    `/invoices/view?id=${encodeURIComponent(row.id)}`;
 
   const docCell = (type, label, number) => `
     <div class="bx-doc">
@@ -209,7 +209,7 @@ $(document).ready(function () {
       <i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i><span class="bx-btn__label">PDF</span>
     </button>`;
   const viewLink = (href, title, label) => `
-    <a class="bx-icon-btn" href="${href}" data-bs-toggle="tooltip" data-bs-title="${esc(title)}"
+    <a class="bx-icon-btn" href="${href}" data-spa data-bs-toggle="tooltip" data-bs-title="${esc(title)}"
       aria-label="${esc(label)}">
       <i class="bi bi-eye" aria-hidden="true"></i><span class="bx-btn__label">Visualizar</span>
     </a>`;
@@ -916,7 +916,7 @@ $(document).ready(function () {
         <td class="bx-td-actions">
           <div class="bx-actions">
             ${viewLink(
-              `invoice.php?id=${String(row.issue_date || "").replaceAll("-", "")}/${row.company_id || ""}/${row.invoice_id}`,
+              `/invoices/view?id=${encodeURIComponent(row.invoice_id)}`,
               "Ver fatura",
               "Ver fatura do recibo",
             )}
@@ -952,7 +952,7 @@ $(document).ready(function () {
         <td class="bx-td-actions">
           <div class="bx-actions">
             ${pdfBtn(
-              `data-url="invoices/debit_note_pdf.php?id=${esc(row.id)}" data-filename="NotaDebito_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
+              `data-url="/api/documents/debit-notes/${encodeURIComponent(row.id)}/pdf" data-filename="NotaDebito_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
               `Baixar PDF da nota de débito ${number}`,
               "js-pdf-url",
             )}
@@ -974,7 +974,7 @@ $(document).ready(function () {
         <td class="bx-td-actions">
           <div class="bx-actions">
             ${pdfBtn(
-              `data-url="invoices/delivery_note_pdf.php?id=${esc(row.id)}" data-filename="NotaEntrega_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
+              `data-url="/api/documents/delivery-notes/${encodeURIComponent(row.id)}/pdf" data-filename="NotaEntrega_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
               `Baixar PDF da nota de entrega ${number}`,
               "js-pdf-url",
             )}
@@ -1226,7 +1226,11 @@ $(document).ready(function () {
 
     const id = $(this).data("id");
     const row = filteredInvoices.find((r) => String(r.id) === String(id));
-    if (row) window.location.href = invoiceUrl(row);
+    if (row) {
+      const url = invoiceUrl(row);
+      if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+      else window.location.href = url;
+    }
   });
 
   // ==================================================
@@ -1264,19 +1268,23 @@ $(document).ready(function () {
     if (!this.disabled) runInvoicePdf(this.dataset.id, this);
   });
 
-  // notas de débito / entrega: o PDF vem do servidor (PHP); descarrega por fetch/blob
+  // Notas de débito / entrega: a API gera o PDF e aplica o escopo da empresa do token.
   $("#invoicesTable tbody").on("click", ".js-pdf-url", async function (e) {
     e.stopPropagation();
     const btn = this;
     if (btn.disabled) return;
     setBusy(btn, true);
-    await downloadFromUrl(btn.dataset.url, {
-      fallbackName: btn.dataset.filename || "documento.pdf",
-      pendingMsg: "Gerando PDF...",
-      okMsg: "PDF baixado com sucesso",
-      expectPdf: true,
-    });
-    setBusy(btn, false);
+    const toast = bxToast("Gerando PDF...", "loading");
+    try {
+      await window.BXDocumentApi.download(btn.dataset.url, btn.dataset.filename || "documento.pdf");
+      toast.close();
+      bxToast("PDF baixado com sucesso", "success");
+    } catch (error) {
+      toast.close();
+      bxToast(error.message || "Não foi possível gerar o PDF.", "error");
+    } finally {
+      setBusy(btn, false);
+    }
   });
 
   // ==================================================
@@ -1407,10 +1415,10 @@ $(document).ready(function () {
       <button type="button" class="bx-menu__item" role="menuitem" disabled><i class="bi bi-envelope" aria-hidden="true"></i> Enviar por email <span class="bx-menu__hint">na fatura</span></button>
       <div class="bx-menu__divider" role="separator"></div>
       <button type="button" class="bx-menu__item" role="menuitem" disabled><i class="bi bi-copy" aria-hidden="true"></i> Duplicar <span class="bx-menu__hint">em breve</span></button>
+      <a class="bx-menu__item" role="menuitem" href="/invoices/create?edit_id=${encodeURIComponent(row.id)}" data-spa><i class="bi bi-pencil" aria-hidden="true"></i> Editar</a>
       ${
         isDraft
-          ? `<a class="bx-menu__item" role="menuitem" href="create_invoices.php?edit_id=${esc(row.id)}"><i class="bi bi-pencil" aria-hidden="true"></i> Editar</a>
-             <button type="button" class="bx-menu__item bx-menu__item--danger" role="menuitem" data-row-action="delete" data-id="${esc(row.id)}" data-company="${esc(row.company_id)}"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button>`
+          ? `<button type="button" class="bx-menu__item bx-menu__item--danger" role="menuitem" data-row-action="delete" data-id="${esc(row.id)}" data-company="${esc(row.company_id)}"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button>`
           : ""
       }`;
   }
@@ -2090,7 +2098,7 @@ $("#confirmDelete")
             showConfirmButton: false,
           });
 
-          // recarrega os dados sem DataTables
+          // Recarrega os dados mantendo o fluxo atual da listagem.
           $(document).trigger("reload-invoices");
         } else {
           Swal.fire({

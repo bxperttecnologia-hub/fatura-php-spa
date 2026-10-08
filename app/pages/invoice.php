@@ -1,6 +1,7 @@
 <?php
 require_once '../app/views/layout_creation.php';
 ?>
+<link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 <style>
     :root {
         --invoice-surface: #ffffff;
@@ -62,7 +63,7 @@ require_once '../app/views/layout_creation.php';
         padding: 1.25rem;
         box-shadow: var(--invoice-shadow);
         color: var(--invoice-text);
-        margin-top: 90px;
+        margin-top: 0;
     }
 
     .invoice-header__eyebrow {
@@ -79,7 +80,7 @@ require_once '../app/views/layout_creation.php';
 
     .invoice-header__title {
         margin: 0;
-        font-size: clamp(1.35rem, 2vw, 1.7rem);
+        font-size: .95rem;
         line-height: 1.2;
         font-weight: 700;
         color: var(--invoice-text);
@@ -308,7 +309,7 @@ require_once '../app/views/layout_creation.php';
         background: #eef7fc;
     }
 
-    .pp-format:has(input:checked) .material-icons-outlined {
+    .pp-format:has(input:checked) .bi {
         color: #007abd;
     }
 
@@ -394,7 +395,7 @@ require_once '../app/views/layout_creation.php';
     }
 </style>
 
-<main class="invoice-shell">
+<main class="invoice-shell bx-document-view">
     <div class="invoice-layout no-print">
 
         <!-- Esquerda: layout da fatura -->
@@ -416,22 +417,22 @@ require_once '../app/views/layout_creation.php';
             <div class="invoice-header__meta">Original</div>
 
             <div class="invoice-toolbar" aria-label="Ações principais">
-                <button type="button" class="btn btn-success d-none" id="btnRecibo" aria-label="Pagamento e recibo">
-                    <span class="material-icons-outlined" aria-hidden="true">paid</span>
+                <button type="button" class="bx-btn-primary d-none" id="btnRecibo" aria-label="Pagamento e recibo">
+                    <i class="bi bi-cash-coin" aria-hidden="true"></i>
                     Pagamento / Recibo
                 </button>
 
                 <div class="d-none" id="generatePdf">
-                    <button class="btn-invoice btn-invoice--secondary" type="button" id="btnFormatoImpressao"
+                    <button class="bx-btn-secondary" type="button" id="btnFormatoImpressao"
                         data-bs-toggle="modal" data-bs-target="#modalPrintPreview" aria-label="Imprimir ou baixar a factura">
-                        <span class="material-icons-outlined" aria-hidden="true">print</span>
-                        Imprimir / PDF
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        Imprimir / Baixar
                     </button>
                 </div>
 
-                <button type="button" class="btn-invoice btn-invoice--secondary d-none" id="btnEnviar"
+                <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
                     data-bs-toggle="modal" data-bs-target="#modalEnviarEmail" aria-label="Enviar factura por e-mail">
-                    <span class="material-icons-outlined" aria-hidden="true">send</span>
+                    <i class="bi bi-send" aria-hidden="true"></i>
                     Enviar factura
                 </button>
             </div>
@@ -440,37 +441,37 @@ require_once '../app/views/layout_creation.php';
                 <span class="pp-label">Mais ações</span>
 
                 <button type="button" class="dropdown-item d-none" id="btnCloneToInvoice" aria-label="Clonar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">content_copy</span>
+                    <i class="bi bi-copy" aria-hidden="true"></i>
                     Clonar factura
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaCredito" aria-label="Emitir nota de crédito">
-                    <span class="material-icons-outlined" aria-hidden="true">assignment_return</span>
+                    <i class="bi bi-reply-all" aria-hidden="true"></i>
                     Nota de crédito
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaDebito" aria-label="Emitir nota de débito">
-                    <span class="material-icons-outlined" aria-hidden="true">request_quote</span>
+                    <i class="bi bi-receipt" aria-hidden="true"></i>
                     Nota de débito
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaEntrega" aria-label="Emitir nota de entrega">
-                    <span class="material-icons-outlined" aria-hidden="true">local_shipping</span>
+                    <i class="bi bi-truck" aria-hidden="true"></i>
                     Nota de entrega
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnEditar" aria-label="Editar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">edit</span>
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
                     Editar
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnFinalizar" aria-label="Finalizar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">check_circle</span>
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>
                     Finalizar
                 </button>
 
                 <button type="button" class="dropdown-item danger d-none" id="btnDeleteInvoice" aria-label="Apagar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">delete</span>
+                    <i class="bi bi-trash" aria-hidden="true"></i>
                     Apagar
                 </button>
             </div>
@@ -674,7 +675,7 @@ require_once '../app/views/layout_creation.php';
 
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <span class="material-icons-outlined me-1">mail</span>
+                        <i class="bi bi-envelope me-1" aria-hidden="true"></i>
                         Enviar fatura por e‑mail
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -731,7 +732,7 @@ require_once '../app/views/layout_creation.php';
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" id="chkAnexar" name="attach" checked>
                         <label class="form-check-label" for="chkAnexar">
-                            <span class="material-icons-outlined align-middle">picture_as_pdf</span>
+                            <i class="bi bi-file-earmark-pdf align-middle" aria-hidden="true"></i>
                             Anexar PDF da fatura
                         </label>
                     </div>
@@ -741,7 +742,7 @@ require_once '../app/views/layout_creation.php';
 
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary w-100">
-                        <span class="material-icons-outlined align-middle me-1">send</span>
+                        <i class="bi bi-send align-middle me-1" aria-hidden="true"></i>
                         Enviar e-mail
                     </button>
                 </div>
@@ -754,7 +755,7 @@ require_once '../app/views/layout_creation.php';
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="printPreviewTitle">
-                        <span class="material-icons-outlined align-middle me-1">print</span>
+                        <i class="bi bi-printer align-middle me-1" aria-hidden="true"></i>
                         Pré-visualizar e imprimir
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -768,7 +769,7 @@ require_once '../app/views/layout_creation.php';
 
                             <label class="pp-format">
                                 <input type="radio" name="pp_format" value="a4" checked>
-                                <span class="material-icons-outlined">description</span>
+                                <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
                                 <span>
                                     <strong>Fatura A4</strong>
                                     <small>PDF em folha A4, com Original e Duplicado</small>
@@ -777,7 +778,7 @@ require_once '../app/views/layout_creation.php';
 
                             <label class="pp-format">
                                 <input type="radio" name="pp_format" value="thermal">
-                                <span class="material-icons-outlined">receipt_long</span>
+                                <i class="bi bi-receipt" aria-hidden="true"></i>
                                 <span>
                                     <strong>Talão térmico</strong>
                                     <small>Rolo de 80mm (impressora POS)</small>
@@ -801,7 +802,7 @@ require_once '../app/views/layout_creation.php';
                                 <span>A preparar a pré-visualização...</span>
                             </div>
                             <div id="ppError" class="pp-overlay d-none">
-                                <span class="material-icons-outlined">error_outline</span>
+                                <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
                                 <span id="ppErrorText"></span>
                                 <button type="button" class="btn btn-light btn-sm" id="ppRetry">Tentar novamente</button>
                             </div>
@@ -813,11 +814,11 @@ require_once '../app/views/layout_creation.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fechar</button>
                     <button type="button" class="btn btn-outline-primary" id="ppDownload" disabled>
-                        <span class="material-icons-outlined align-middle" style="font-size:18px;">download</span>
+                        <i class="bi bi-download align-middle" aria-hidden="true"></i>
                         Baixar PDF
                     </button>
                     <button type="button" class="btn btn-primary" id="ppPrint" disabled>
-                        <span class="material-icons-outlined align-middle" style="font-size:18px;">print</span>
+                        <i class="bi bi-printer align-middle" aria-hidden="true"></i>
                         Imprimir
                     </button>
                 </div>
@@ -827,6 +828,7 @@ require_once '../app/views/layout_creation.php';
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="invoices/invoice.js?v=4.9" data-spa-repeat></script>
+<script src="/assets/js/document-tax.js"></script>
+<script src="invoices/invoice.js?v=5.1" data-spa-repeat></script>
 
 <?php require_once '../app/views/footer.php'; ?>

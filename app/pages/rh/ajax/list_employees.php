@@ -1,8 +1,8 @@
 <?php
 
 /**
- * IMPORTANTE: se este endpoint devolver "Invalid JSON response" no
- * DataTables, a causa mais comum é a Fase 1/Fase 2 ainda não terem sido
+ * Se este endpoint devolver uma resposta JSON inválida, a causa mais comum
+ * é a Fase 1/Fase 2 ainda não terem sido
  * migradas na base de dados (faltam as colunas position_id, department_id,
  * manager_id, termination_type, termination_amount, termination_notes em
  * `employees`) — corre migrations/fase1_estrutura_dados.sql e

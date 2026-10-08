@@ -262,9 +262,6 @@ require_once '../app/partials/head.php';
                     }
                 })
                 .fail(function(xhr) {
-                    // DEBUG TEMPORÁRIO: mostra a resposta em bruto do servidor
-                    // para vermos exatamente o que o send_otp.php devolveu.
-                    alert('DEBUG (status ' + xhr.status + '):\n' + xhr.responseText);
                     erro(msgDe(xhr));
                 });
         }

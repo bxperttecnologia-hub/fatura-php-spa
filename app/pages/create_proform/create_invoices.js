@@ -1,5 +1,25 @@
 $(document).ready(function () {
+
+
+  let userCurrency = window.userCurrency || "AOA";
+  let currencySymbol = window.currencySymbol || "Kz";
+  let currencyPosition = window.currencyPosition || "left";
+
+  function formatCurrency(value, symbol = currencySymbol, position = currencyPosition) {
+    const amount = (Number(value) || 0).toLocaleString("pt-AO", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return position === "right" ? `${amount} ${symbol}` : `${symbol} ${amount}`;
+  }
+
   const vat_regime = JSON.parse(localStorage.getItem("vat_regime"));
+  const effectiveRate = (rate) =>
+    window.BXDocumentTax?.effectiveRate(rate, vat_regime) ??
+    (Number(rate) === 7 ||
+    (vat_regime && !String(vat_regime).toLowerCase().includes("geral"))
+      ? 0
+      : Number(rate) || 0);
   const company_id = document.querySelector("input[id=company_id]").value;
 
   let countryMap = {};
@@ -22,7 +42,54 @@ $(document).ready(function () {
     bootDraft = JSON.parse(localStorage.getItem("proformaDraft") || "null");
   } catch (e) {}
 
+  // Catálogo em memória (id -> item completo)
+  const catalogItems = {};
+  let itemsFirstLoad = true; // 1.ª carga não conta como "item novo"
+
+  function debounce(fn, wait = 300) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+  const loadSelect2Items = debounce(loadSelect2ItemsNow, 300);
+
   loadSelect2Items();
+
+  // Filtro de tipo ao lado do select2
+  $("#item_type_filter").on("change", renderItemOptions);
+
+  // Recarregar a lista quando um item é criado, sem refresh da página.
+  // 1) fecho do modal #itemModal (Bootstrap)
+  if (window.__invItemModalHandler) {
+    document.removeEventListener("hidden.bs.modal", window.__invItemModalHandler);
+  }
+  window.__invItemModalHandler = function (e) {
+    if (e.target && e.target.id === "itemModal") loadSelect2Items();
+  };
+  document.addEventListener("hidden.bs.modal", window.__invItemModalHandler);
+
+  // 2) qualquer evento "items:changed" (para o código que grava o item chamar:
+  //    window.dispatchEvent(new Event("items:changed")))
+  $(window)
+    .off("items:changed.invItems")
+    .on("items:changed.invItems", function () {
+      loadSelect2Items();
+    });
+
+  // 3) qualquer POST AJAX (jQuery) a um endpoint de itens que responda com sucesso
+  $(document)
+    .off("ajaxSuccess.invItems")
+    .on("ajaxSuccess.invItems", function (e, xhr, settings) {
+      const url = String(settings?.url || "");
+      const method = String(settings?.type || settings?.method || "GET").toUpperCase();
+      if (method === "GET" || !/item/i.test(url) || /get_items/i.test(url)) return;
+      try {
+        const r = xhr.responseJSON || JSON.parse(xhr.responseText);
+        if (r && (r.success === true || r.status === true)) loadSelect2Items();
+      } catch (_) {}
+    });
   fetchCurrencySymbol();
   fetchExchangeRate(userCurrency, $("#manual_exchange_rate").val());
 
@@ -464,7 +531,11 @@ $(document).ready(function () {
 
     const leave = () => {
       if (typeof clearDraft === "function") clearDraft();
-      window.location.href = backUrl;
+      if (typeof window.navigateSPA === "function") {
+        window.navigateSPA(backUrl);
+      } else {
+        window.location.assign(backUrl);
+      }
     };
 
     if (!hasWork) return leave();
@@ -597,22 +668,118 @@ $(document).ready(function () {
     };
   }
 
-  function loadSelect2Items() {
+  // =====================================================================
+  // CATÁLOGO DE ITENS
+  //  - filtro Todos / Produtos / Serviços ao lado do select2
+  //  - a lista actualiza-se sozinha quando um item novo é criado
+  // =====================================================================
+
+  // Serviço = item_type 'service' (ou código SERV…), igual à regra de addItemRow()
+  function isServiceItem(item) {
+    return (
+      (item?.item_type_raw || item?.item_type) === "service" ||
+      String(item?.code || "").toUpperCase().startsWith("SERV")
+    );
+  }
+
+  // Desenha as <option> a partir do catálogo em memória, aplicando o filtro
+  function renderItemOptions() {
+    const filter = $("#item_type_filter").val() || "all";
+    let options = '<option value="">Selecione um produto/serviço...</option>';
+
+    Object.values(catalogItems)
+      .sort((a, b) => Number(b.id) - Number(a.id)) // mais recentes primeiro
+      .forEach((item) => {
+        const service = isServiceItem(item);
+        if (filter === "product" && service) return;
+        if (filter === "service" && !service) return;
+
+        const label = !service
+          ? `<b><i class="bi bi-box"></i> ${escapeAttr(item.code)}</b> -`
+          : "<b><i class='bi bi-gear'></i></b>";
+
+        options += `<option value="${escapeAttr(item.id)}">
+            ${label} ${escapeAttr(item.description || item.name)}
+            </option>`;
+      });
+
+    const $select = $("#item_select");
+    $select.html(options).val("");
+    if ($select.hasClass("select2-hidden-accessible")) {
+      $select.trigger("change.select2"); // só refresca o select2, não adiciona linha
+    }
+  }
+
+  function loadSelect2ItemsNow() {
+    // Página já não está no ecrã (navegação SPA): nada a fazer
+    if (!document.getElementById("item_select")) return;
+
     $.ajax({
       url: "create_invoices/ajax/get_items.php",
       dataType: "json",
+      cache: false,
       success: function (data) {
-        let options =
-          '<option value="">Selecione um produto/serviço...</option>';
-        $.each(data?.data, function (index, item) {
-          options += `<option value="${item.id}" data-item='${JSON.stringify(
-            item,
-          )}'>
-            ${item.item_type !== "service" ? `<b><i class="bi bi-box"></i> ${item.code}</b> -` : "<b><i class='bi bi-gear'></i></b>"} ${item.description || item.name}
-            </option>`;
+        const knownIds = new Set(Object.keys(catalogItems));
+        const fresh = data?.data || [];
+
+        // Recria o catálogo (assim itens arquivados/removidos também saem da lista)
+        Object.keys(catalogItems).forEach((k) => delete catalogItems[k]);
+        fresh.forEach((item) => {
+          catalogItems[item.id] = item;
         });
-        $("#item_select").html(options);
+
+        // Itens que não existiam na carga anterior = acabados de criar
+        const newItems = [];
+        if (!itemsFirstLoad) {
+          const seen = new Set();
+          fresh.forEach((item) => {
+            const id = String(item.id);
+            if (!knownIds.has(id) && !seen.has(id)) {
+              seen.add(id);
+              newItems.push(item);
+            }
+          });
+        }
+        itemsFirstLoad = false;
+
+        // Se o filtro activo esconderia o item novo, volta a "Todos"
+        if (newItems.length) {
+          const f = $("#item_type_filter").val();
+          const hidden = newItems.some(
+            (i) =>
+              (f === "product" && isServiceItem(i)) ||
+              (f === "service" && !isServiceItem(i)),
+          );
+          if (hidden) $("#item_type_filter").val("all");
+        }
+
+        renderItemOptions();
+
+        window.catalogItems = catalogItems;
+        window.dispatchEvent(
+          new CustomEvent("items:catalog-ready", {
+            detail: { items: Object.values(catalogItems) },
+          }),
+        );
         $(".select2").select2({ width: "100%", dropdownParent: $("#invPage") });
+
+        if (newItems.length && typeof Swal !== "undefined") {
+          Swal.fire({
+            toast: true,
+            position: "top-end",
+            icon: "success",
+            title:
+              newItems.length === 1
+                ? "Item adicionado à lista"
+                : `${newItems.length} itens adicionados à lista`,
+            text:
+              newItems.length === 1
+                ? newItems[0].name || newItems[0].description || ""
+                : "",
+            showConfirmButton: false,
+            timer: 2500,
+          });
+        }
       },
     });
   }
@@ -715,43 +882,28 @@ $(document).ready(function () {
   }
 
   function calculateRowTotal(row) {
-    let price = parseFloat(row.find(".field_price").val()) || 0;
-    let qtd = parseFloat(row.find(".field_qtd").val()) || 0;
-    let discount = parseFloat(row.find(".field_desc").val()) || 0;
-    let tax = parseFloat(row.find(".field_tax").val()) || 0;
-
-    // =====================================
-    // SUBTOTAL
-    // =====================================
-
-    let subtotal = price * qtd;
-
-    // =====================================
-    // IVA
-    // =====================================
-
-    let taxValue = 0;
-
-    if (vat_regime === "geral") {
-      taxValue = (subtotal * tax) / 100;
-    } else {
-      taxValue = 0.0;
-    }
-
-    // total com IVA
-    let totalWithTax = subtotal + taxValue;
-
-    // =====================================
-    // DESCONTO (%)
-    // =====================================
-
-    let totalDiscount = (discount / 100) * totalWithTax;
-
-    // =====================================
-    // TOTAL FINAL
-    // =====================================
-
-    let totalFinal = totalWithTax - totalDiscount;
+    const calc = window.BXDocumentTax?.calculateItem(
+      {
+        unit_price: row.find(".field_price").val(),
+        quantity: row.find(".field_qtd").val(),
+        discount: row.find(".field_desc").val(),
+        tax: row.find(".field_tax").val(),
+      },
+      vat_regime,
+    );
+    const totalFinal =
+      calc?.total ??
+      (() => {
+        const base =
+          (parseFloat(row.find(".field_price").val()) || 0) *
+          (parseFloat(row.find(".field_qtd").val()) || 0);
+        const discount = Math.min(
+          base,
+          base * ((parseFloat(row.find(".field_desc").val()) || 0) / 100),
+        );
+        const taxableBase = base - discount;
+        return taxableBase + (taxableBase * effectiveRate(row.find(".field_tax").val())) / 100;
+      })();
 
     row
       .find(".row-total")
@@ -785,7 +937,7 @@ $(document).ready(function () {
 
   // Adicionar item ao selecionar
   $("#item_select").on("change", function () {
-    var selected = $(this).find(":selected").data("item");
+    const selected = catalogItems[$(this).val()];
     if (selected) {
       addItemRow(selected);
       $(this).val("").trigger("change"); // Opcional: limpar seleção
@@ -809,7 +961,7 @@ $(document).ready(function () {
 
     // IVA
     const itemTax = Number(item?.tax ?? 0);
-    const taxValue = String(vat_regime).toLowerCase() === "geral" ? itemTax : 0;
+    const taxValue = effectiveRate(itemTax);
 
     console.log({
       vat_regime,
@@ -1085,7 +1237,7 @@ $(document).ready(function () {
       const price = toNumber($row.find(".field_price").val());
       const qtd = toNumber($row.find(".field_qtd").val());
       const discountPercent = toNumber($row.find(".field_desc").val());
-      const taxNum = toNumber($row.find(".field_tax").val());
+      const taxNum = effectiveRate(toNumber($row.find(".field_tax").val()));
       const retentionRate = toNumber($row.find(".field_retention").val());
 
       const lineTotal = price * qtd;
@@ -1102,7 +1254,7 @@ $(document).ready(function () {
       // IVA
       // Regra: taxa 7 = Isento = IVA 0%
       // ==================================================
-      const effectiveTaxRate = taxNum === 7 ? 0 : taxNum;
+      const effectiveTaxRate = taxNum;
       const ivaValue = (lineSubtotal * effectiveTaxRate) / 100;
 
       // ==================================================
@@ -1132,7 +1284,7 @@ $(document).ready(function () {
       // AGRUPAMENTO
       // Mostra 0% quando a taxa original é 7
       // ==================================================
-      const groupTax = taxNum === 7 ? 0 : taxNum;
+      const groupTax = taxNum;
 
       if (!grouped[groupTax]) {
         grouped[groupTax] = {
@@ -1635,7 +1787,12 @@ $(document).ready(function () {
         }).then((result) => {
           if (result.isConfirmed) {
             //  usar ID dinâmico vindo do backend
-            window.location.href = `proform.php?id=${response.proform_id}`;
+            const proformUrl = `/proformas/view?id=${encodeURIComponent(response.proform_id)}`;
+            if (typeof window.navigateSPA === "function") {
+              window.navigateSPA(proformUrl);
+            } else {
+              window.location.assign(proformUrl);
+            }
           }
         });
       },

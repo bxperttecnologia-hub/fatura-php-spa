@@ -40,7 +40,7 @@ EQIDAQAB
       dataType: "json",
       success: function (response) {
         if (response.success) {
-          window.location.href = "index.php";
+          window.location.assign(window.APP?.next || "/");
         } else {
           Swal.fire({
             icon: "error",

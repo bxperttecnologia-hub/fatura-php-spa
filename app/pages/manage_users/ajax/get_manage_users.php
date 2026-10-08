@@ -38,7 +38,7 @@ $stmt = $pdo->prepare("SELECT u.id, u.name, u.username, u.email, u.is_active, u.
 $stmt->execute(['company_id' => $company_id]);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Sempre retorna users como array (evita quebrar DataTables)
+// A interface espera sempre users como array.
 echo json_encode([
     'success' => true,
     'users' => $users ?: []

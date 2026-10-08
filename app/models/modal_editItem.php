@@ -110,7 +110,7 @@
             <div class="modal-header modal-item">
                 <div>
                     <h5 class="modal-title"><?= t('Editar Item') ?></h5>
-                    <small class="opacity-75" style="margin-left: -50px !important;">
+                    <small class="opacity-75">
                         Preencha os dados do produto/serviço
                     </small>
                 </div>

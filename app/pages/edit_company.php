@@ -159,13 +159,13 @@ require_once '../app/views/layout_creation.php';
                                 <div class="row g-3">
 
                                     <div class="col-md-6">
-                                        <label for="name" class="form-label"><?= t('Nome da Empresa'); ?></label>
-                                        <input type="text" class="form-control" id="nameComp" name="name">
+                                        <label for="nameComp" class="form-label"><?= t('Nome da Empresa'); ?></label>
+                                        <input type="text" class="form-control" id="nameComp" name="name" required>
                                     </div>
 
                                     <div class="col-md-6">
                                         <label for="registration_number" class="form-label"><?= t('CNPJ'); ?></label>
-                                        <input type="text" class="form-control" id="registration_number" name="registration_number">
+                                        <input type="text" class="form-control" id="registration_number" name="registration_number" required>
                                     </div>
 
                                     <div class="col-md-6">
@@ -370,7 +370,7 @@ require_once '../app/views/layout_creation.php';
                             <button type="button" class="btn btn-outline-secondary" data-company-step-target="1">
                                 <?= t('Voltar'); ?>
                             </button>
-                            <button type="submit" class="btn btn-primary"><?= t('Salvar Alterações'); ?></button>
+                            <button type="submit" class="btn btn-primary"><?= t('Guardar alterações'); ?></button>
                         </div>
                         </div>
 
@@ -386,7 +386,7 @@ require_once '../app/views/layout_creation.php';
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-    <script src="edit_company/edit_company.js?v=1.0" data-spa-repeat></script>
+    <script src="edit_company/edit_company.js?v=1.1" data-spa-repeat></script>
 
     <script>
         function formatAngolaIban(rawValue) {

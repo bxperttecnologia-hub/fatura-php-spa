@@ -436,7 +436,7 @@
         <div class="submenu submenu-rh" id="rh">
             <a href="/departments" data-spa><i data-lucide="building-2"></i> Departamentos</a>
             <a href="/employees" data-spa><i data-lucide="users"></i> Funcionários</a>
-            <a href="/ponto" data-spa><i data-lucide="clock"></i> Registro de Pontos</a>
+            <a href="/ponto" data-spa><i data-lucide="clock"></i> Registro de Faltas</a>
             <a href="/vacations" data-spa><i data-lucide="calendar"></i> Férias / Licenças</a>
             <a href="/positions" data-spa><i data-lucide="briefcase"></i> Cargos / Salários</a>
             <a href="/payroll" data-spa><i data-lucide="file-text"></i> Folha de Pagamento</a>

@@ -151,7 +151,7 @@ require_once '../app/views/layout_creation.php';
                                 <i class="material-icons-round">attach_money</i>
                                 Registrar Pagamento
                             </button>
-                            <a href="rh/export/folha_export.php" class="btn btn-sm rounded-pill d-flex gap-1 align-items-center btn-outline-success">
+                            <a href="#" id="btnExportarFolhaXlsx" class="btn btn-sm rounded-pill d-flex gap-1 align-items-center btn-outline-success">
                                 <i class="material-icons-round">download</i> Exportar Folha
                             </a>
                             <div class="btn-group">
@@ -170,6 +170,7 @@ require_once '../app/views/layout_creation.php';
                     </div>
 
                     <div class="card-body">
+                        <div id="payrollTableControls"></div>
                         <div class="table-responsive">
                             <table id="payrollTable" class="table w-100 bx-list-table">
                                 <thead>
@@ -360,77 +361,56 @@ require_once '../app/views/layout_creation.php';
 
 <!-- AutoTable DEPOIS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
-
 <script>
     $(document).ready(function() {
-        const table = $('#payrollTable').DataTable({
+        const formatKz = value => `Kz ${Number(value || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`;
+        const table = BootstrapTable.create({
+            table: '#payrollTable',
+            toolbar: '#payrollTableControls',
             ajax: {
                 url: 'rh/ajax/list_payroll.php',
-                data: function(d) {
-                    d.mes = $('#inputMesReferencia').val();
-                }
+                method: 'GET',
+                data: () => ({ mes: $('#inputMesReferencia').val() })
             },
-            language: {
-                url: '/assets/translations/datatables-pt.json'
-            },
-            columns: [{
-                    data: 'employee_name'
-                },
-                {
-                    data: 'reference_month'
-                },
-                {
-                    data: 'base_salary',
-                    render: data => `Kz ${parseFloat(data).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`
-                },
-                {
-                    data: 'bonuses',
-                    render: data => `Kz ${parseFloat(data).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`
-                },
+            initialSort: { index: 0, direction: 'asc' },
+            columns: [
+                { data: 'employee_name' },
+                { data: 'reference_month' },
+                { data: 'base_salary', render: formatKz, sortValue: row => Number(row.base_salary || 0) },
+                { data: 'bonuses', render: formatKz, sortValue: row => Number(row.bonuses || 0) },
                 {
                     data: null,
-                    render: row => {
-                        const totalAdd = (
-                            parseFloat(row.food_allowance || 0) +
-                            parseFloat(row.transport_allowance || 0) +
-                            (parseFloat(row.base_salary || 0) * (parseInt(row.vacation_subsidy_pct || 0) / 100)) +
-                            (parseFloat(row.base_salary || 0) * (parseInt(row.thirteenth_subsidy_pct || 0) / 100)) +
-                            parseFloat(row.commissions || 0) +
-                            parseFloat(row.sales || 0)
-                        );
-                        return `Kz ${totalAdd.toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`;
-                    }
+                    sortValue: row => Number(row.food_allowance || 0) + Number(row.transport_allowance || 0)
+                        + (Number(row.base_salary || 0) * Number(row.vacation_subsidy_pct || 0) / 100)
+                        + (Number(row.base_salary || 0) * Number(row.thirteenth_subsidy_pct || 0) / 100)
+                        + Number(row.commissions || 0) + Number(row.sales || 0),
+                    render: (_, row) => formatKz(
+                        Number(row.food_allowance || 0) + Number(row.transport_allowance || 0)
+                        + (Number(row.base_salary || 0) * Number(row.vacation_subsidy_pct || 0) / 100)
+                        + (Number(row.base_salary || 0) * Number(row.thirteenth_subsidy_pct || 0) / 100)
+                        + Number(row.commissions || 0) + Number(row.sales || 0)
+                    )
                 },
-                {
-                    // Coluna da listagem mostra o TOTAL de descontos (manual + faltas + INSS + IRT).
-                    // O campo `discounts` isolado (só o valor manual) é usado no formulário de edição.
-                    data: 'total_discounts',
-                    render: data => `Kz ${parseFloat(data || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`
-                },
-                {
-                    data: 'net_salary',
-                    render: data => `Kz ${parseFloat(data).toLocaleString('pt-AO', { minimumFractionDigits: 2 })}`
-                },
-                {
-                    data: 'iban',
-                    // render: data => 'iban'
-                },
+                { data: 'total_discounts', render: formatKz, sortValue: row => Number(row.total_discounts || 0) },
+                { data: 'net_salary', render: formatKz, sortValue: row => Number(row.net_salary || 0) },
+                { data: 'iban' },
                 {
                     data: 'status',
-                    render: status => `<span class="badge bg-${status === 'Pago' ? 'success' : 'warning'}">${status}</span>`
+                    render: status => `<span class="badge bg-${status === 'Pago' ? 'success' : 'warning'}">${String(status ?? '—').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])}</span>`
                 },
                 {
                     data: null,
-                    render: row => `
-                        <button class='btn btn-sm btn-edit-employee text-warning' data-id='${row.id}'><i class="bi bi-pencil"></i></button>
-                        <button class='btn btn-sm text-danger openReceipt'
-                            data-id='${row.id}'><i class="bi bi-file-pdf"></i></button>`
+                    sortable: false,
+                    searchable: false,
+                    render: (_, row) => `
+                        <button type="button" class="btn btn-sm btn-edit-employee text-warning" data-id="${row.id}" aria-label="Editar" title="Editar"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn btn-sm text-danger openReceipt" data-id="${row.id}" aria-label="Ver recibo" title="Ver recibo"><i class="bi bi-file-pdf"></i></button>`
                 }
             ]
         });
 
         $('#inputMesReferencia').on('change', function() {
-            table.ajax.reload();
+            table.reload();
         });
 
         $('#employee_id_payroll').select2({
@@ -542,7 +522,7 @@ require_once '../app/views/layout_creation.php';
 
             $.post('rh/ajax/save_payroll.php', form.serialize(), function() {
                 $('#modalPayroll').modal('hide');
-                table.ajax.reload();
+                table.reload();
                 Swal.fire('Sucesso', 'Pagamento registrado com sucesso!', 'success');
                 resetPayrollForm();
             });
@@ -582,7 +562,8 @@ require_once '../app/views/layout_creation.php';
         // Recibo: abre o PDF server-side (com proventos e descontos detalhados)
         $('#payrollTable').on('click', '.openReceipt', function() {
             const id = $(this).data('id');
-            window.open(`rh/pdf/recibo.php?id=${id}`, '_blank');
+            window.BXDocumentApi.openPdf(`/api/documents/payroll/${encodeURIComponent(id)}/pdf`)
+                .catch(error => Swal.fire('Erro', error.message, 'error'));
         });
 
         /* (removido) Gerador client-side antigo via jsPDF, pois não refletia INSS/IRT corretamente */
@@ -600,7 +581,14 @@ require_once '../app/views/layout_creation.php';
             return Swal.fire('Atenção', 'Selecione o mês de referência!', 'warning');
         }
 
-        window.open(`rh/ajax/export_all_payroll_pdf.php?mes=${mes}`, '_blank');
+        window.BXDocumentApi.openPdf(`/api/documents/payroll/export.pdf?reference_month=${encodeURIComponent(mes)}`)
+            .catch(error => Swal.fire('Erro', error.message, 'error'));
+    });
+
+    $('#btnExportarFolhaXlsx').on('click', function(e) {
+        e.preventDefault();
+        window.BXDocumentApi.download('/api/documents/payroll/export.xlsx', 'Mapa_Salarial.xlsx')
+            .catch(error => Swal.fire('Erro', error.message, 'error'));
     });
 
     // Fase 2: Mapa de Remunerações INSS (PDF / Excel) do mês selecionado
@@ -633,7 +621,7 @@ require_once '../app/views/layout_creation.php';
             if (!result.isConfirmed) return;
             $.post('rh/ajax/generate_monthly_payroll.php', { reference_month: mes }, function(resp) {
                 if (resp.success) {
-                    table.ajax.reload();
+                    table.reload();
                     Swal.fire('Ok', resp.message, 'success');
                 } else {
                     Swal.fire('Erro', resp.message || 'Não foi possível gerar a folha.', 'error');

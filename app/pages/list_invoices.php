@@ -8,6 +8,7 @@ require_once '../app/views/layout_creation.php';
 <!-- JSZip: só usado para juntar vários PDFs num único .zip ("Baixar PDFs" da barra de seleção) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link rel="stylesheet" href="invoices/list_invoices.css?v=2.0">
+<link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 
 <body>
 
@@ -33,7 +34,7 @@ require_once '../app/views/layout_creation.php';
         </div>
     </div>
 
-    <main id="bxInvoicesPage">
+    <main id="bxInvoicesPage" class="bx-documents-page">
         <div class="container mt-5">
 
             <!-- ============ HEADER ============
@@ -45,15 +46,20 @@ require_once '../app/views/layout_creation.php';
             <div class="bx-page-header bx-list-header">
                 <h2 class="bx-page-title"><?= t('Minhas Faturas') ?></h2>
 
-                <div class="bx-export" id="exportMenu">
-                    <button type="button" class="bx-btn-primary" id="exportMenuBtn"
-                        aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuList">
-                        <i class="bi bi-download" aria-hidden="true"></i>
-                        <span>Exportar</span>
-                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                    </button>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <a class="bx-btn-secondary" href="/invoices/create" data-spa>
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        <span>Nova fatura</span>
+                    </a>
+                    <div class="bx-export" id="exportMenu">
+                        <button type="button" class="bx-btn-primary" id="exportMenuBtn"
+                            aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuList">
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span>Exportar</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
 
-                    <div class="bx-menu" id="exportMenuList" role="menu" aria-labelledby="exportMenuBtn">
+                        <div class="bx-menu" id="exportMenuList" role="menu" aria-labelledby="exportMenuBtn">
 
                         <!-- só aparece quando há documentos seleccionados -->
                         <div id="bxExportSelectedGroup" hidden>
@@ -93,6 +99,7 @@ require_once '../app/views/layout_creation.php';
                         <button type="button" class="bx-menu__item" role="menuitem" data-export-action="report" data-report="invoices_pending">
                             <i class="bi bi-hourglass-split" aria-hidden="true"></i> Faturas pendentes
                         </button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,3 +1,22 @@
+function selectedProformas() {
+  const ids = new Set(
+    $('#invoicesTable tbody .invoice-check:checked')
+      .map(function () {
+        return String(this.value);
+      })
+      .get(),
+  );
+  return (window.proformasForExport || []).filter((row) =>
+    ids.has(String(row.id)),
+  );
+}
+
+function refreshSelectedExportGroup() {
+  const selected = selectedProformas();
+  $("#bxExportSelectedGroup").prop("hidden", selected.length === 0);
+  $("#bxExportSelectedLabel").text(`Selecionados (${selected.length})`);
+}
+
 $(document).ready(function () {
   let proformas = []; // todos os dados vindos do servidor
   let filteredProformas = []; // após filtros/ordenação
@@ -5,6 +24,17 @@ $(document).ready(function () {
   let pageSize = 25;
   let sortKey = "codigo";
   let sortDir = "desc";
+
+  function formatCurrency(value, symbol = "", position = "left") {
+    const formatted = Number(value || 0).toLocaleString("pt-PT", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (!symbol) return formatted;
+    return position === "right"
+      ? `${formatted} ${symbol}`
+      : `${symbol} ${formatted}`;
+  }
 
   loadProformas();
 
@@ -28,6 +58,7 @@ $(document).ready(function () {
           proformas = [];
         }
 
+        window.proformasForExport = proformas;
         currentPage = 1;
         renderTable();
       },
@@ -133,9 +164,7 @@ $(document).ready(function () {
       const status = row.status_invoice || "?";
 
       const proformaUrl =
-        `proform.php?id=` +
-        `${String(row.issue_date || "").replaceAll("-", "")}` +
-        `/${row.company_id}/${row.id}`;
+        `/proformas/view?id=${encodeURIComponent(row.id)}`;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -147,7 +176,7 @@ $(document).ready(function () {
         <button
           class="btn btn-action text-primary"
           title="Ver"
-          onclick="event.stopPropagation();window.location.href='${proformaUrl}'"
+          onclick="event.stopPropagation(); if (typeof window.navigateSPA === 'function') window.navigateSPA('${proformaUrl}'); else window.location.href='${proformaUrl}'"
         >
           <i class="bi bi-card-list"></i>
         </button>
@@ -158,7 +187,7 @@ $(document).ready(function () {
           <button
             class="btn btn-sm text-warning ms-1"
             title="Editar"
-            onclick="event.stopPropagation(); window.location.href='create_proform.php?edit_id=${row.id}'"
+            onclick="event.stopPropagation(); if (typeof window.navigateSPA === 'function') window.navigateSPA('/proformas/create?edit_id=${encodeURIComponent(row.id)}'); else window.location.href='/proformas/create?edit_id=${encodeURIComponent(row.id)}'"
           >
             <i class="bi bi-pencil"></i>
           </button>
@@ -166,7 +195,7 @@ $(document).ready(function () {
           <button
             class="btn btn-sm text-danger ms-1"
             title="Eliminar"
-            onclick="event.stopPropagation(); deleteInvoice(${row.id}, ${row.company_id})"
+            onclick="event.stopPropagation(); deleteProforma(${row.id}, ${row.company_id})"
           >
             <i class="bi bi-trash"></i>
           </button>
@@ -235,6 +264,7 @@ $(document).ready(function () {
     });
 
     $tbody.html(rowsHtml);
+    refreshSelectedExportGroup();
 
     $("#tableInfo").text(`${start + 1}–${end} de ${totalItems}`);
     renderPagination(totalPages);
@@ -377,11 +407,10 @@ $(document).ready(function () {
     if (!row) return;
 
     const url =
-      `proform.php?id=` +
-      `${String(row.issue_date || "").replaceAll("-", "")}` +
-      `/${row.company_id}/${row.id}`;
+      `/proformas/view?id=${encodeURIComponent(row.id)}`;
 
-    window.location.href = url;
+    if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+    else window.location.href = url;
   });
 
   // ==================================================
@@ -404,6 +433,7 @@ $(document).ready(function () {
       "checked",
       totalCheckboxes > 0 && totalCheckboxes === checkedCheckboxes,
     );
+    refreshSelectedExportGroup();
   });
 });
 
@@ -727,12 +757,12 @@ function downloadPDF(invoiceId) {
 // ==================================================
 // ELIMINAR PROFORMA
 // ==================================================
-let invoiceToDelete = null;
-let invoice_companyId = null;
+let proformaToDelete = null;
+let proformaCompanyId = null;
 
-const deleteInvoice = (id, companyId) => {
-  invoiceToDelete = id;
-  invoice_companyId = companyId;
+const deleteProforma = (id, companyId) => {
+  proformaToDelete = id;
+  proformaCompanyId = companyId;
 
   const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
   modal.show();
@@ -741,12 +771,12 @@ const deleteInvoice = (id, companyId) => {
 $("#confirmDelete")
   .off("click")
   .on("click", function () {
-    if (!invoiceToDelete) return;
+    if (!proformaToDelete) return;
 
     $.ajax({
       url: "proform/ajax/delete_invoice.php",
       type: "POST",
-      data: { invoice_id: invoiceToDelete, company_id: invoice_companyId },
+      data: { invoice_id: proformaToDelete, company_id: proformaCompanyId },
 
       success: function (response) {
         const modalEl = document.getElementById("deleteModal");
@@ -761,7 +791,7 @@ $("#confirmDelete")
             showConfirmButton: false,
           });
 
-          // recarrega os dados sem DataTables
+          // Recarrega os dados mantendo o fluxo atual da listagem.
           $(document).trigger("reload-proformas");
         } else {
           Swal.fire({
@@ -825,21 +855,15 @@ function renderInvoiceHTML(data) {
 }
 
 // ==================================================
-// EXPORTAÇÃO (Excel/PDF/CSV) COM PROGRESSO
+// EXPORTAÇÃO (Excel/PDF/CSV)
 // ==================================================
 //
 // Mapa: cada tipo de documento do menu "Exportar" -> endpoint
-// PHP responsável por gerar o ficheiro, e (quando aplicável)
-// o endpoint que reporta o progresso da geração.
-//
-// "direct: true" = o próprio endpoint já faz o download completo
-// numa única chamada (ex.: relatório de vendas), pelo que não
-// faz sentido mostrar a barra de progresso a "fingir" 0% a 100%.
+// PHP responsável por gerar Excel/CSV; PDF é gerado no navegador.
 //
 const EXPORT_CONFIG = {
   invoices: {
     url: "proform/ajax/proformas_export.php",
-    progressUrl: "proform/ajax/proformas_export.php?status=1",
     buildParams: (format) => ({ formato: format || "excel" }),
   },
 
@@ -852,9 +876,9 @@ const EXPORT_CONFIG = {
 
 /**
  * @param {string} docType - chave em EXPORT_CONFIG (ex.: "invoices", "credit_notes", "sales_report"...)
- * @param {string} [format] - "excel" | "pdf" | "csv" (só é usado pelos tipos que suportam formato)
+ * @param {string} [format] - "excel" | "pdf" | "csv"
  */
-function exportFile(docType, format) {
+async function exportFile(docType, format, options = {}) {
   const config = EXPORT_CONFIG[docType];
 
   if (!config) {
@@ -869,42 +893,175 @@ function exportFile(docType, format) {
     return;
   }
 
-  const query = new URLSearchParams(config.buildParams(format)).toString();
-  const finalUrl = query ? `${config.url}?${query}` : config.url;
+  if (docType === "invoices" && format === "pdf") {
+    const rows = options.rows || window.proformasForExport || [];
+    if (!rows.length) {
+      Swal?.fire?.({
+        icon: "info",
+        title: "Sem proformas",
+        text: "Não há proformas para exportar.",
+      });
+      return;
+    }
+    if (!window.jspdf?.jsPDF) {
+      Swal?.fire?.({
+        icon: "error",
+        title: "Exportação indisponível",
+        text: "Não foi possível carregar o gerador de PDF. Atualize a página e tente novamente.",
+      });
+      return;
+    }
 
-  // Download direto, sem barra de progresso (ex.: relatório de vendas,
-  // ou tipos cujo endpoint ainda não tem geração assíncrona)
-  if (config.direct || !config.progressUrl) {
-    window.location.href = finalUrl;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape" });
+    const money = (value, symbol, position) => {
+      const amount = Number(value || 0).toLocaleString("pt-PT", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return position === "right" ? `${amount} ${symbol || ""}` : `${symbol || ""} ${amount}`;
+    };
+    const date = (value) =>
+      value ? new Intl.DateTimeFormat("pt-PT").format(new Date(value)) : "-";
+
+    doc.setFontSize(16);
+    doc.text(options.title || "Lista de Proformas", 14, 16);
+    doc.autoTable({
+      startY: 23,
+      head: [["Número", "Emissão", "Vencimento", "Cliente", "Estado", "Moeda", "Total"]],
+      body: rows.map((row) => [
+        row.codigo || row.reference || row.id,
+        date(row.issue_date),
+        date(row.due_date),
+        row.cliente || "-",
+        row.status_invoice || "-",
+        row.currency || "-",
+        money(row.final_total, row.symbol, row.position),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [15, 23, 42] },
+    });
+    doc.save(options.filename || "proformas.pdf");
     return;
   }
 
+  const query = new URLSearchParams(config.buildParams(format)).toString();
+  const finalUrl = query ? `${config.url}?${query}` : config.url;
   const preloader = document.getElementById("preloader");
   const progressBar = document.getElementById("progressBar");
+  if (preloader) preloader.style.display = "block";
+  if (progressBar) progressBar.style.width = "35%";
 
-  preloader.style.display = "block";
-  progressBar.style.width = "0%";
+  try {
+    const response = await fetch(finalUrl, { credentials: "same-origin" });
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok || contentType.includes("application/json")) {
+      let message = `Falha ao exportar proformas (HTTP ${response.status}).`;
+      try {
+        const payload = await response.json();
+        message = payload.error || payload.message || message;
+      } catch (_) {
+        // Mantém o erro HTTP se a resposta não for JSON válido.
+      }
+      throw new Error(message);
+    }
 
-  let checkProgress = setInterval(() => {
-    fetch(config.progressUrl)
-      .then((res) => res.json())
-      .then((data) => {
-        progressBar.style.width = data.progress + "%";
-
-        if (data.progress >= 100) {
-          clearInterval(checkProgress);
-          setTimeout(() => {
-            preloader.style.display = "none";
-          }, 500);
-        }
-      })
-      .catch(() => {
-        clearInterval(checkProgress);
-        preloader.style.display = "none";
-      });
-  }, 1000);
-
-  setTimeout(() => {
-    window.location.href = finalUrl;
-  }, 2000);
+    const blob = await response.blob();
+    const disposition = response.headers.get("content-disposition") || "";
+    const filename =
+      disposition.match(/filename="?([^";]+)"?/i)?.[1] ||
+      `proformas.${format === "csv" ? "csv" : "xlsx"}`;
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+    if (progressBar) progressBar.style.width = "100%";
+  } catch (error) {
+    console.error("Erro ao exportar proformas:", error);
+    Swal?.fire?.({
+      icon: "error",
+      title: "Erro na exportação",
+      text: error.message || "Não foi possível exportar as proformas.",
+    });
+  } finally {
+    if (preloader) preloader.style.display = "none";
+    if (progressBar) progressBar.style.width = "0%";
+  }
 }
+
+function closeProformaExportMenu() {
+  const menu = document.getElementById("exportMenuList");
+  const button = document.getElementById("exportMenuBtn");
+  menu?.classList.remove("is-open");
+  button?.setAttribute("aria-expanded", "false");
+}
+
+function exportSelectedProformasCsv() {
+  const rows = selectedProformas();
+  if (!rows.length) return;
+
+  const cell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const columns = [
+    ["Número", (row) => row.codigo || row.id],
+    ["Data de emissão", (row) => row.issue_date],
+    ["Data de vencimento", (row) => row.due_date],
+    ["Cliente", (row) => row.cliente],
+    ["Estado", (row) => row.status_invoice],
+    ["Moeda", (row) => row.currency],
+    ["Total", (row) => row.final_total],
+  ];
+  const content = [
+    columns.map(([label]) => cell(label)).join(";"),
+    ...rows.map((row) => columns.map(([, value]) => cell(value(row))).join(";")),
+  ].join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "proformas_selecionadas.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function runProformaExportAction(action) {
+  if (action === "selected-pdf") {
+    return exportFile("invoices", "pdf", {
+      rows: selectedProformas(),
+      title: "Proformas selecionadas",
+      filename: "proformas_selecionadas.pdf",
+    });
+  }
+  if (action === "selected-csv") return exportSelectedProformasCsv();
+  if (action === "list-pdf") return exportFile("invoices", "pdf");
+  if (action === "list-excel") return exportFile("invoices", "excel");
+  if (action === "list-csv") return exportFile("invoices", "csv");
+}
+
+$(document)
+  .off(".proformaExport")
+  .on("click.proformaExport.spaPage", "#exportMenuBtn", function (event) {
+    event.stopPropagation();
+    const menu = document.getElementById("exportMenuList");
+    const isOpen = menu?.classList.toggle("is-open") ?? false;
+    this.setAttribute("aria-expanded", String(isOpen));
+    if (!isOpen) closeProformaExportMenu();
+  })
+  .on("click.proformaExport.spaPage", "#exportMenu [data-export-action]", function (event) {
+    event.stopPropagation();
+    runProformaExportAction(this.dataset.exportAction);
+    closeProformaExportMenu();
+  })
+  .on("change.proformaExport.spaPage", "#selectAll, #invoicesTable .invoice-check", refreshSelectedExportGroup)
+  .on("click.proformaExport.spaPage", function (event) {
+    if (!event.target.closest("#exportMenu")) closeProformaExportMenu();
+  })
+  .on("keydown.proformaExport.spaPage", function (event) {
+    if (event.key === "Escape") closeProformaExportMenu();
+  });

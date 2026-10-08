@@ -144,6 +144,7 @@ require_once '../app/views/layout_creation.php';
                             </div>
                         </div>
 
+                        <div id="vacationsTableControls"></div>
                         <div class="table-responsive">
                             <table id="vacationsTable" class="table w-100 bx-list-table">
                                 <thead>
@@ -239,67 +240,45 @@ require_once '../app/views/layout_creation.php';
             Swal.fire('Erro', errorMessage, 'error');
         }
 
-        const table = $('#vacationsTable').DataTable({
+        const table = BootstrapTable.create({
+            table: '#vacationsTable',
+            toolbar: '#vacationsTableControls',
             ajax: {
                 url: 'rh/ajax/list_vacations.php',
                 type: 'GET',
-                data: function(d) {
-                    d.mes = $('#filter_mes').val() || null;
-                    d.funcionario = $('#filter_funcionario').val() || null;
-                },
-                dataSrc: 'data',
-                error: function(xhr) {
-                    handleAjaxError(xhr);
-                }
+                data: () => ({
+                    mes: $('#filter_mes').val() || null,
+                    funcionario: $('#filter_funcionario').val() || null
+                })
             },
-
-            language: {
-                url: '/assets/translations/datatables-pt.json',
-                errorLoading: '' // evita warning visual caso falhe o i18n
-            },
-
-            columns: [{
-                    data: 'employee_name'
-                },
-                {
-                    data: 'type'
-                },
-
+            onError: handleAjaxError,
+            initialSort: { index: 2, direction: 'desc' },
+            columns: [
+                { data: 'employee_name' },
+                { data: 'type' },
                 {
                     data: 'start_date',
-                    render: function(data) {
-                        if (!data) return '-';
-                        return new Date(data + 'T00:00:00').toLocaleDateString('pt-PT');
-                    }
+                    render: data => data ? new Date(data + 'T00:00:00').toLocaleDateString('pt-PT') : '-'
                 },
-
                 {
                     data: 'end_date',
-                    render: function(data) {
-                        if (!data) return '-';
-                        return new Date(data + 'T00:00:00').toLocaleDateString('pt-PT');
-                    }
+                    render: data => data ? new Date(data + 'T00:00:00').toLocaleDateString('pt-PT') : '-'
                 },
-
                 {
                     data: 'status',
-                    render: function(data) {
-                        let cor = 'secondary';
-
-                        if (data === 'Aprovado') cor = 'success';
-                        else if (data === 'Rejeitado') cor = 'danger';
-                        else if (data === 'Pendente') cor = 'warning';
-
-                        return `<span class="badge bg-${cor}">${data ?? '-'}</span>`;
-                    }
+                    render: data => {
+                        const color = data === 'Aprovado' ? 'success'
+                            : data === 'Rejeitado' ? 'danger'
+                            : data === 'Pendente' ? 'warning' : 'secondary';
+                            const safeStatus = String(data ?? '-').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+                            return `<span class="badge bg-${color}">${safeStatus}</span>`;
+                        }
                 },
-
                 {
                     data: null,
-                    orderable: false,
+                    sortable: false,
                     searchable: false,
-                    render: function(data, type, row) {
-                        return `
+                    render: (_, row) => `
                     <button class="btn btn-sm btn-warning editVacation" data-id="${row.id}" title="Editar">
                         <i class="material-icons-round">edit</i>
                     </button>
@@ -312,7 +291,6 @@ require_once '../app/views/layout_creation.php';
                         <i class="material-icons-round">key</i>
                     </button>
                 `;
-                    }
                 }
             ]
         });
@@ -353,13 +331,13 @@ require_once '../app/views/layout_creation.php';
 
         // Ações dos filtros
         $('#btnFiltrarVac').on('click', function() {
-            table.ajax.reload();
+            table.reload();
         });
 
         $('#btnLimparVac').on('click', function() {
             $('#filter_mes').val('<?= date('Y-m') ?>');
             $('#filter_funcionario').val(null).trigger('change');
-            table.ajax.reload();
+            table.reload();
         });
 
         $('#btnExportVacPdf').on('click', function() {
@@ -426,7 +404,7 @@ require_once '../app/views/layout_creation.php';
                 success: function(response) {
                     if (response.success) {
                         $('#modalVacation').modal('hide');
-                        table.ajax.reload();
+                        table.reload();
                         Swal.fire('Sucesso', response.message, 'success');
                     } else {
                         Swal.fire('Erro', response.message, 'error');
@@ -458,7 +436,7 @@ require_once '../app/views/layout_creation.php';
                         },
                         success: function(response) {
                             if (response.success) {
-                                table.ajax.reload();
+                                table.reload();
                                 Swal.fire('Excluído!', response.message, 'success');
                             } else {
                                 Swal.fire('Erro', response.message, 'error');
@@ -495,7 +473,7 @@ require_once '../app/views/layout_creation.php';
                         },
                         success: function(response) {
                             if (response.success) {
-                                table.ajax.reload();
+                                table.reload();
                                 Swal.fire('Atualizado', response.message, 'success');
                             } else {
                                 Swal.fire('Erro', response.message, 'error');

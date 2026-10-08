@@ -136,6 +136,41 @@ main {
   background: #f7f7f7 !important;
 }
 
+.app-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+  color: #94a3b8;
+  font-size: 1rem;
+}
+
+.app-breadcrumb[hidden] {
+  display: none;
+}
+
+.app-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #8190a5;
+  text-decoration: none;
+}
+
+.app-breadcrumb a:hover {
+  color: var(--primary-color);
+}
+
+.app-breadcrumb [aria-current="page"] {
+  color: #111827;
+  font-weight: 700;
+}
+
+.app-breadcrumb .bi-chevron-right {
+  font-size: 0.75rem;
+}
+
 header {
   background-color: #fff;
   border-bottom: solid 0px none;
@@ -397,8 +432,27 @@ a {
 }
 
 .modal-header {
-  background: linear-gradient(135deg, #005a87, #007abd);
+  background: #007abd !important;
   color: #fff;
+}
+
+body .modal .modal-header,
+body .modal .contact-modal-header {
+  color: #fff !important;
+}
+
+body .modal .modal-header *,
+body .modal .contact-modal-header * {
+  color: #fff !important;
+}
+
+body .modal .modal-header .btn-close {
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
+body .modal .contact-modal-header .contact-modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .modal-header button.btn-close {
@@ -408,17 +462,38 @@ a {
 /* FimSelect2 */
 
 .modal-item {
-  background-color: var(--primary-color);
+  position: relative;
+  justify-content: center;
+  padding-inline: 3.5rem;
+  background-color: #007abd !important;
   color: #fff;
   font-weight: 900 !important;
   text-align: center;
 }
 
+.modal-item > div {
+  flex: 1;
+  text-align: center;
+}
+
+.modal-item > .btn-close {
+  position: absolute;
+  inset-inline-end: 1rem;
+  margin: 0;
+}
+
 .modal-item h5 {
-  background-color: var(--primary-color);
-  color: #fff;
+  background-color: #007abd !important;
+  color: #fff !important;
   font-weight: 900 !important;
   text-align: center;
+}
+
+.modal-item h5 small {
+  color: #fff !important;
+  font-weight: 900 !important;
+  text-align: center;
+
 }
 
 .modal-item .btn-close {
@@ -707,18 +782,6 @@ td button {
 .tooltip-inner {
   font-weight: bold;
   cursor: default;
-}
-
-/* Garantir que o cabeçalho não quebre */
-.dataTables-BXpert thead th,
-.dataTables-BXpert tfoot th {
-  white-space: nowrap;
-  /* Evita quebra de texto no cabeçalho e rodapé */
-}
-
-/* Linhas de células sem quebra */
-.dataTables-BXpert tbody td {
-  white-space: nowrap;
 }
 
 /* Botões de exportação estilizados */
@@ -1041,6 +1104,53 @@ button#exportExcel {
   box-shadow: 0 0 0 0.18rem rgba(13, 110, 253, 0.12) !important;
 }
 
+.bx-toast-fallback-container {
+  position: fixed;
+  z-index: 20000;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  width: min(380px, calc(100vw - 32px));
+  gap: 10px;
+}
+
+.bx-toast-fallback {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dce2e9;
+  border-left: 4px solid #0d6efd;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  color: #212529;
+  font-size: 0.9rem;
+}
+
+.bx-toast-fallback--success {
+  border-left-color: #198754;
+}
+
+.bx-toast-fallback--warning {
+  border-left-color: #ffc107;
+}
+
+.bx-toast-fallback--error {
+  border-left-color: #dc3545;
+}
+
+.bx-toast-fallback__close {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
   #contactTable thead {
@@ -1078,25 +1188,6 @@ button#exportExcel {
     gap: 1rem;
     margin-top: 10px;
   }
-}
-
-/* Rodapé da tabela */
-.dataTables-BXpert tfoot {
-  background-color: #f8f9fa;
-  font-weight: bold;
-}
-
-/* Paginação personalizada */
-.dataTables_paginate .paginate_button {
-  background-color: #0069d9 !important;
-  color: #ffffff !important;
-  border-radius: 4px;
-  padding: 6px 12px;
-  transition: background-color 0.3s;
-}
-
-.dataTables_paginate .paginate_button:hover {
-  background-color: #0056b3 !important;
 }
 
 .percentageRetention {
@@ -1264,11 +1355,39 @@ body.sidebar-open {
 }
 
 #app.login-page {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
   padding: 0 !important;
 }
 
-.login-layout {
+.layout:has(> #app.login-page) {
+  display: block;
+  width: 100%;
   min-height: 100vh;
+}
+
+.login-layout {
+  width: 100%;
+  margin: 0;
+  min-height: 100vh;
+}
+
+.login-layout > section {
+  min-height: 100vh;
+}
+
+@media (min-width: 768px) {
+  .login-layout > section {
+    flex: 0 0 30%;
+    max-width: 30%;
+  }
+
+  .login-layout > .login-visual {
+    flex: 0 0 70%;
+    max-width: 70%;
+  }
 }
 
 .login-visual {
@@ -1362,14 +1481,6 @@ iframe {
     display: table;
     width: 100%;
     min-width: 560px;
-  }
-
-  /* DataTables já cria seu próprio wrapper via JS;
-     garantimos que ele possa rolar horizontalmente */
-  .dataTables_wrapper {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   .modal-dialog {

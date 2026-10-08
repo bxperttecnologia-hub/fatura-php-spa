@@ -1,7 +1,204 @@
 <?php
 require_once '../app/views/layout_creation.php';
 ?>
+<link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 <style>
+    :root {
+        --invoice-surface: #ffffff;
+        --invoice-bg: #f4f7fb;
+        --invoice-border: #e5e7eb;
+        --invoice-muted: #667085;
+        --invoice-text: #111827;
+        --invoice-subtle: #475467;
+        --invoice-primary: #0f172a;
+        --invoice-primary-strong: #0b1220;
+        --invoice-secondary: #f8fafc;
+        --invoice-secondary-border: #d9e0ea;
+        --invoice-focus-soft: rgba(37, 99, 235, 0.18);
+        --invoice-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    body {
+        background: var(--invoice-bg);
+    }
+
+    .invoice-shell {
+        max-width: 1240px;
+        margin: 2.5rem auto 0;
+        padding: 0 1rem 2rem;
+    }
+
+    .invoice-layout {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 1.25rem;
+    }
+
+    .invoice-preview-panel {
+        flex: 0 1 210mm;
+        min-width: 0;
+    }
+
+    .invoice-side-card {
+        flex: 0 0 300px;
+        width: 300px;
+        margin-top: 0;
+        padding: 1.25rem;
+        color: var(--invoice-text);
+        background: var(--invoice-surface);
+        border: 1px solid var(--invoice-border);
+        border-radius: 16px;
+        box-shadow: var(--invoice-shadow);
+    }
+
+    .invoice-header__eyebrow {
+        display: inline-flex;
+        margin-bottom: .35rem;
+        color: var(--invoice-muted);
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .invoice-header__title {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .6rem;
+        margin: 0;
+        color: var(--invoice-text);
+        font-size: .95rem;
+        line-height: 1.2;
+    }
+
+    .invoice-header__title strong {
+        font-weight: 700;
+    }
+
+    .invoice-header__subtitle {
+        display: block;
+        margin-top: .35rem;
+        color: var(--invoice-subtle);
+        font-size: .82rem;
+        font-weight: 500;
+    }
+
+    .invoice-header__meta {
+        margin: .4rem 0 0;
+        color: var(--invoice-muted);
+        font-size: .8rem;
+        font-weight: 600;
+    }
+
+    #status-invoice,
+    .proform-document-type {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 90px;
+        padding: .4rem .75rem;
+        color: #3730a3;
+        background: #eef2ff;
+        border: 1px solid rgba(55, 48, 163, .18);
+        border-radius: 999px;
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        line-height: 1;
+        text-transform: uppercase;
+    }
+
+    #status-invoice.is-draft {
+        color: #374151;
+        background: #f3f4f6;
+        border-color: rgba(55, 65, 81, .14);
+    }
+
+    .invoice-toolbar,
+    .invoice-actions {
+        display: flex;
+        flex-direction: column;
+        gap: .6rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--invoice-border);
+    }
+
+    .invoice-actions {
+        gap: .15rem;
+    }
+
+    .invoice-toolbar .btn-invoice {
+        width: 100%;
+    }
+
+    .btn-invoice {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        width: 100%;
+        min-height: 44px;
+        padding: .7rem 1rem;
+        color: var(--invoice-text);
+        background: var(--invoice-surface);
+        border: 1px solid var(--invoice-secondary-border);
+        border-radius: 12px;
+        font-size: .92rem;
+        font-weight: 600;
+        line-height: 1.1;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .btn-invoice:hover {
+        color: var(--invoice-text);
+        background: var(--invoice-secondary);
+        border-color: #c8d0db;
+    }
+
+    .btn-invoice--primary {
+        color: #fff;
+        background: var(--invoice-primary);
+        border-color: var(--invoice-primary);
+    }
+
+    .btn-invoice--primary:hover {
+        color: #fff;
+        background: var(--invoice-primary-strong);
+        border-color: var(--invoice-primary-strong);
+    }
+
+    .invoice-actions .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        width: 100%;
+        min-height: 40px;
+        padding: .55rem .8rem;
+        color: var(--invoice-text);
+        background: transparent;
+        border: 0;
+        border-radius: 10px;
+        font-size: .92rem;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    .invoice-actions .dropdown-item:hover,
+    .invoice-actions .dropdown-item:focus-visible {
+        background: var(--invoice-secondary);
+    }
+
+    .invoice-header__title:focus-visible,
+    .btn-invoice:focus-visible,
+    .invoice-actions .dropdown-item:focus-visible {
+        outline: 3px solid var(--invoice-focus-soft);
+        outline-offset: 2px;
+    }
+
     .invoice-header {
         background: #f6f6f6;
         border: 1px solid #e1e1e1;
@@ -53,47 +250,44 @@ require_once '../app/views/layout_creation.php';
     }
 
     /* ② –– painel lateral */
-    .action-panel {
-        position: sticky;
-        top: 60px;
-        /* ou 16px, ajusta pra não grudar total no topo */
-        align-self: flex-start;
-        /* mantém os outros estilos */
-        width: 240px;
-        background: #fff;
-        /* border: 1px solid #dee2e6; */
-        border-radius: .5rem;
-        /* box-shadow: 0 0 .75rem rgba(0, 0, 0, .08); */
-        padding: 1rem;
-        font-size: .925rem;
-        z-index: 10;
-        /* pra ficar acima de conteúdo se preciso */
+    @media (min-width: 992px) {
+        .invoice-layout {
+            padding-right: calc(300px + 1.25rem);
+        }
+
+        .invoice-side-card {
+            position: fixed;
+            top: 1rem;
+            right: max(1rem, calc((100% - 1240px) / 2 + 1rem));
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
     }
 
-    .action-panel .btn {
-        display: flex;
-        align-items: center;
-        /* ícone + texto centralizados */
-        gap: .35rem;
+    @media (max-width: 991.98px) {
+        .invoice-layout {
+            flex-direction: column-reverse;
+            align-items: stretch;
+        }
+
+        .invoice-side-card,
+        .invoice-preview-panel {
+            width: 100%;
+            flex-basis: auto;
+        }
     }
 
-    .action-panel .section-title {
-        font-weight: 600;
-        font-size: .75rem;
-        letter-spacing: .02em;
-        text-transform: uppercase;
-        margin: .75rem 0 .25rem;
-        border-bottom: 1px solid #ced4da;
-        padding-bottom: 2px;
-        color: #6c757d;
+    @media (max-width: 767.98px) {
+        .invoice-shell {
+            margin-top: 1.25rem;
+            padding-inline: .75rem;
+        }
     }
 </style>
 
-<main>
-    <!-- ===== CONTAINER LADO‑A‑LADO ===== -->
-    <div class="d-flex gap-4 mt-5 no-print justify-content-center align-items-center">
-        <!-- ==== FATURA (cresce até encher) ==== -->
-        <div class=" flex-column d-flex justify-content-center">
+<main class="invoice-shell bx-document-view">
+    <div class="invoice-layout no-print">
+        <div class="invoice-preview-panel">
 
             <div class="invoice-header pagea4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -102,7 +296,7 @@ require_once '../app/views/layout_creation.php';
                         <span class="subtitle" id="subtitle-client"></span>
                     </div>
                     <div>
-                        <span id="status-invoice" class="d-none"></span>
+                        <span class="proform-document-type">PROFORMA</span>
                     </div>
                 </div>
             </div>
@@ -113,32 +307,34 @@ require_once '../app/views/layout_creation.php';
             </div>
         </div>
 
-        <!-- ③ –– Painel -->
-        <aside class="action-panel shadow-sm">
+        <aside class="invoice-side-card" aria-label="Ações da proforma">
+            <div class="invoice-header__eyebrow">Proforma</div>
+            <h1 class="invoice-header__title">
+                <strong id="action-proform-number">-</strong>
+                <span id="status-invoice" class="invoice-status-badge d-none"></span>
+            </h1>
+            <span class="invoice-header__subtitle" id="action-proform-client">-</span>
+            <div class="invoice-header__meta">Original</div>
 
-            <button class="btn text-center align-items-center align-content-center btn-primary w-100 mb-2" id="btnEditar">
-                <span class="material-icons-outlined">edit</span>
-                Editar 
-            </button>
-
-            <button class="btn btn-warning w-100 mb-2" id="btnChangeToInvoice">
-                <span class="material-icons-outlined">check_circle</span>
-                Emitir Fatura
-            </button>
-
-            <!-- grupo Documento -->
-
-            <button class="btn text-center d-none align-items-center align-content-center btn-danger w-100 mb-2" id="generatePdf">
-                <span class="material-icons-outlined">picture_as_pdf</span>
-                Baixar PDF
-            </button>
-
-            <button class="btn text-center d-none align-items-center align-content-center btn-primary text-white w-100 mb-2" id="btnEnviar"
+            <div class="invoice-toolbar" aria-label="Ações principais">
+                <button type="button" class="bx-btn-primary" id="btnEditar">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                    Editar
+                </button>
+                <button type="button" class="bx-btn-secondary" id="btnChangeToInvoice">
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>
+                    Emitir Fatura
+                </button>
+                <button type="button" class="bx-btn-secondary d-none" id="generatePdf" aria-label="Imprimir ou baixar a proforma">
+                    <i class="bi bi-printer" aria-hidden="true"></i>
+                    Imprimir / Baixar
+                </button>
+                <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
                 data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
-                <span class="material-icons-outlined">send</span>
-                Enviar Proforma
-            </button>
-
+                    <i class="bi bi-send" aria-hidden="true"></i>
+                    Enviar Proforma
+                </button>
+            </div>
         </aside>
     </div>
 
@@ -339,7 +535,7 @@ require_once '../app/views/layout_creation.php';
 
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <span class="material-icons-outlined me-1">mail</span>
+                        <i class="bi bi-envelope me-1" aria-hidden="true"></i>
                         Enviar proforma por e‑mail
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -396,7 +592,7 @@ require_once '../app/views/layout_creation.php';
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" id="chkAnexar" name="attach" checked>
                         <label class="form-check-label" for="chkAnexar">
-                            <span class="material-icons-outlined align-middle">picture_as_pdf</span>
+                            <i class="bi bi-file-earmark-pdf align-middle" aria-hidden="true"></i>
                             Anexar PDF da proforma
                         </label>
                     </div>
@@ -406,7 +602,7 @@ require_once '../app/views/layout_creation.php';
 
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-primary w-100">
-                        <span class="material-icons-outlined align-middle me-1">send</span>
+                        <i class="bi bi-send align-middle me-1" aria-hidden="true"></i>
                         Enviar e-mail
                     </button>
                 </div>
@@ -416,6 +612,7 @@ require_once '../app/views/layout_creation.php';
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="proform/invoice.js?v=0.4"></script>
+<script src="/assets/js/document-tax.js"></script>
+<script src="proform/invoice.js?v=0.6"></script>
 
 <?php require_once '../app/views/footer.php'; ?>

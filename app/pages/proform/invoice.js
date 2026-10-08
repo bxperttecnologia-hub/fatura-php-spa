@@ -23,10 +23,24 @@ $(function () {
         currentInvoice = inv?.data;
 
         $("#fatura-id").text(`${inv.data?.reference}`);
-        $("#status-invoice").text("PROFORMA");
+        $("#action-proform-number").text(inv.data?.reference || "-");
+        const statusText = inv.data?.status_invoice || "Proforma";
+        $("#status-invoice")
+          .text(statusText)
+          .toggleClass("d-none", !statusText || statusText === "-")
+          .toggleClass("is-draft", statusText === "Rascunho");
         $("#subtitle-client").text(inv.data?.client_name);
+        $("#action-proform-client").text(inv.data?.client_name || "-");
 
         setupButtons(inv?.data);
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("send") === "1") {
+          bootstrap.Modal.getOrCreateInstance(
+            document.getElementById("modalEnviarEmail"),
+          ).show();
+        } else if (params.get("convert") === "1") {
+          $("#btnChangeToInvoice").trigger("click");
+        }
       })
       .fail(() => {
         alert("Erro ao carregar factura proforma");
@@ -235,7 +249,9 @@ $(function () {
               // CORRIGIDO: só redireciona se o utilizador
               // clicar mesmo em "Abrir Factura".
               if (r.isConfirmed) {
-                window.location.href = `invoice.php?id=${response.new_invoice_id}`;
+                const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.new_invoice_id)}`;
+                if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
+                else window.location.href = invoiceUrl;
               }
             });
 
@@ -251,7 +267,9 @@ $(function () {
           }).then((r) => {
             // CORRIGIDO: mesma verificação aqui.
             if (r.isConfirmed) {
-              window.location.href = `invoice.php?id=${response.new_invoice_id}`;
+              const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.new_invoice_id)}`;
+              if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
+              else window.location.href = invoiceUrl;
             }
           });
         },
@@ -354,7 +372,7 @@ $(function () {
     // passa o HTML do Quill para <textarea hidden>
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("invoices/ajax/send_invoice.php", $(this).serialize())
+    $.post("proform/ajax/send_invoice.php", $(this).serialize())
       .done(() => {
         bootstrap.Modal.getInstance(
           document.getElementById("modalEnviarEmail"),

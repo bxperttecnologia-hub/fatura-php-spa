@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../helpers/document_tax.php';
 
 header('Content-Type: application/json');
 
@@ -36,12 +37,14 @@ try {
 
             p.currency,
             p.manual_exchange_rate,
+            p.retention,
 
             p.total_sum,
             p.total_discount,
             p.subtotal_without_tax,
             p.total_tax,
             p.final_total,
+            'PF' AS document_type,
 
             ps.name AS status_invoice,
             ps.color,
@@ -155,57 +158,37 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    $sqlTaxes = "
-        SELECT
-            pi.tax AS tax_rate,
-
-            ROUND(
-                SUM(
-                    (pi.unit_price * pi.quantity)
-                    * (1 - (pi.discount / 100))
-                ),
-                2
-            ) AS tax_base,
-
-            ROUND(
-                SUM(
-                    (
-                        (pi.unit_price * pi.quantity)
-                        * (1 - (pi.discount / 100))
-                    )
-                    * (pi.tax / 100)
-                ),
-                2
-            ) AS tax_value,
-
-            cur.symbol,
-            cur.position
-
-        FROM proforma_items pi
-
-        INNER JOIN proformas p
-            ON p.id = pi.proforma_id
-
-        INNER JOIN companies comp
-            ON comp.id = p.company_id
-
-        LEFT JOIN currencies cur
-            ON cur.iso_code = comp.currency
-
-        WHERE pi.proforma_id = ?
-
-        GROUP BY
-            pi.tax,
-            cur.symbol,
-            cur.position
-
-        ORDER BY pi.tax
-    ";
-
-    $stmtTaxes = $pdo->prepare($sqlTaxes);
-    $stmtTaxes->execute([$proformaId]);
-
-    $proforma['tax_details'] = $stmtTaxes->fetchAll(PDO::FETCH_ASSOC);
+    $taxSummary = bx_document_tax_summary($items, (string)($proforma['vat_regime'] ?? ''));
+    $retentionValue = max(
+        0.0,
+        ($taxSummary['subtotal'] + $taxSummary['total_tax'])
+            * (float)($proforma['retention'] ?? 0) / 100
+    );
+    $taxSummary = bx_document_tax_summary(
+        $items,
+        (string)($proforma['vat_regime'] ?? ''),
+        $retentionValue
+    );
+    $proforma['total_sum'] = $taxSummary['total_sum'];
+    $proforma['total_discount'] = $taxSummary['total_discount'];
+    $proforma['subtotal_without_tax'] = $taxSummary['subtotal'];
+    $proforma['total_tax'] = $taxSummary['total_tax'];
+    $proforma['retention_value'] = $taxSummary['retention'];
+    $proforma['retention'] = (float)($proforma['retention'] ?? 0);
+    $proforma['final_total'] = $taxSummary['final_total'];
+    $proforma['tax_details'] = array_map(
+        static fn(array $row): array => [
+            'tax_rate' => $row['rate'],
+            'tax_base' => $row['base'],
+            'tax_value' => $row['iva'],
+            'retention_rate' => (float)($proforma['retention'] ?? 0),
+            'retention_value' => $row['retention'],
+            'total_sum' => $taxSummary['total_sum'],
+            'symbol' => $proforma['company_symbol'] ?? '',
+            'position' => $proforma['company_position'] ?? 'right',
+        ],
+        $taxSummary['rows']
+    );
 
     /*
     |--------------------------------------------------------------------------

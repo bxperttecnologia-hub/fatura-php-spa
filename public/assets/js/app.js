@@ -3,8 +3,8 @@ import { api } from './api.js';
 
 window.navigateSPA = navigate;
 
-route('/login',    () => import('./pages/login.js'),     { auth: false, title: 'Entrar' });
-route('/login.php', () => import('./pages/login.js'),    { auth: false, title: 'Entrar' });   // location.href = 'login.php' do código legado
+route('/login',    () => import('./pages/legacy.js').then(m => m.forRoute('/login')), { auth: false, title: 'Entrar' });
+route('/login.php', () => import('./pages/legacy.js').then(m => m.forRoute('/login')), { auth: false, title: 'Entrar' });
 route('/clientes', () => import('./pages/clientes.js'),  { title: 'Clientes (demo)' });
 
 // Páginas do pages.zip: rotas definidas em app/config/pages.php (enviadas em window.APP.pages)
@@ -16,7 +16,7 @@ for (const [path, { file, title }] of Object.entries(window.APP.pages ?? {})) {
   route('/' + file, () => import('./pages/legacy.js').then(m => m.forRoute(path)), { title });
 }
 
-// Links relativos para .php dentro do conteúdo injectado (também os criados em JS, ex.: DataTables)
+// Links relativos para .php dentro do conteúdo injectado e elementos criados por JavaScript.
 document.addEventListener('click', e => {
   const a = e.target.closest('#app a[href]');
   if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey ||

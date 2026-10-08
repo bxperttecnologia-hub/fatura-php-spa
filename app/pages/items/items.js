@@ -20,6 +20,7 @@ $(document).ready(function () {
 
   renderTable();
   loadItems();
+  $(document).off("items:reload.spaPage").on("items:reload.spaPage", loadItems);
 
   function loadItems() {
     if (itemsRequest) itemsRequest.abort();
@@ -175,7 +176,7 @@ $(document).ready(function () {
   }
 
   // ==================================================
-  // FILTRO + ORDENAÇÃO (substitui o "manipular" do DataTables)
+  // FILTRO + ORDENAÇÃO
   // ==================================================
   function applyFilterAndSort() {
     const term = ($("#searchInput").val() || "").toLowerCase().trim();
