@@ -339,7 +339,10 @@ if ($paid_total >= $inv['final_total']) {  // quitada
 }
 
 
-// ---------- HTML ----------
+require __DIR__ . '/../../invoices/document_layout.php';
+exit;
+
+// ---------- HTML legado ----------
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

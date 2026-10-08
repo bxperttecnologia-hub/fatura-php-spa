@@ -186,6 +186,8 @@ $iban = $ibanRaw !== ''
 $isDraft  = (int)$inv['status'] === 1;
 $docTitle = ($isDraft ? 'Factura Rascunho' : 'Factura') . ' n.º ' . ($isDraft ? '' : (string)$inv['reference']);
 
+require __DIR__ . '/../document_layout.php';
+exit;
 $pages = paginateItems($items);
 $pageCount = count($pages);
 ?>
