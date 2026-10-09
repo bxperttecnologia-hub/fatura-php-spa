@@ -668,42 +668,189 @@ require_once '../app/views/layout_creation.php';
     </div>
 
 
+    <style>
+        #modalEnviarEmail .modal-content {
+            border: 0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 24px 64px rgba(15, 39, 78, .18);
+        }
+
+        #modalEnviarEmail .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #e7edf5;
+            background: #f8fbff;
+        }
+
+        #modalEnviarEmail .modal-body {
+            padding: 1.5rem;
+        }
+
+        #modalEnviarEmail .email-field-label {
+            color: #263b59;
+            font-size: .9rem;
+            font-weight: 650;
+        }
+
+        #modalEnviarEmail .email-chipbox {
+            display: flex;
+            min-height: 46px;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .6rem;
+            border: 1px solid #cbd6e5;
+            border-radius: .6rem;
+            background: #fff;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        #modalEnviarEmail .email-chipbox:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .18);
+        }
+
+        #modalEnviarEmail .email-chipbox.is-invalid {
+            border-color: #dc3545;
+        }
+
+        #modalEnviarEmail .email-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            max-width: 100%;
+            padding: .25rem .45rem .25rem .65rem;
+            border: 1px solid #d4e5ff;
+            border-radius: 999px;
+            background: #edf5ff;
+            color: #174b91;
+            font-size: .85rem;
+            overflow-wrap: anywhere;
+        }
+
+        #modalEnviarEmail .email-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+        }
+
+        #modalEnviarEmail .email-chip button {
+            display: inline-grid;
+            width: 1.3rem;
+            height: 1.3rem;
+            place-items: center;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        #modalEnviarEmail .email-chip button:hover,
+        #modalEnviarEmail .email-chip button:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 1px;
+        }
+
+        #modalEnviarEmail .email-chip-input {
+            flex: 1 1 190px;
+            min-width: 150px;
+            padding: .2rem .15rem;
+            border: 0;
+            outline: 0;
+            color: #172b4d;
+        }
+
+        #modalEnviarEmail .email-chip-input:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        #modalEnviarEmail .email-cc-toggle {
+            padding: .2rem 0;
+            border: 0;
+            background: transparent;
+            color: #1769c2;
+            font-size: .88rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        #modalEnviarEmail .email-cc-toggle:hover {
+            color: #0b4d96;
+            text-decoration: underline;
+        }
+
+        #modalEnviarEmail .modal-footer {
+            padding: 1rem 1.5rem 1.25rem;
+            border-top: 1px solid #e7edf5;
+        }
+
+        @media (max-width: 575.98px) {
+            #modalEnviarEmail .modal-body,
+            #modalEnviarEmail .modal-header,
+            #modalEnviarEmail .modal-footer {
+                padding-right: 1rem;
+                padding-left: 1rem;
+            }
+        }
+    </style>
+
     <!-- Modal :: Enviar fatura por e‑mail -->
-    <div class="modal fade" id="modalEnviarEmail" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade" id="modalEnviarEmail" tabindex="-1" aria-labelledby="emailModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <form id="formEnviarEmail" class="modal-content needs-validation" novalidate>
 
                 <div class="modal-header">
                     <h5 class="modal-title">
                         <i class="bi bi-envelope me-1" aria-hidden="true"></i>
-                        Enviar fatura por e‑mail
+                        <span id="emailModalTitle">Enviar fatura por e‑mail</span>
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
 
                 <div class="modal-body">
-                    <!-- --- Destinatários --- -->
-                    <div class="row g-2">
-                        <div class="col-md-8">
-                            <label class="form-label">Para</label>
-                            <input type="email" class="form-control" name="to" required>
-                            <div class="invalid-feedback">E‑mail inválido.</div>
+                    <div class="mb-3">
+                        <label class="form-label email-field-label" for="emailToInput">Para</label>
+                        <div class="email-chipbox" id="emailToChipbox" role="group" aria-describedby="emailToHelp emailToError">
+                            <div class="email-chips" id="emailToChips"></div>
+                            <input type="text" class="email-chip-input" id="emailToInput" autocomplete="email"
+                                aria-label="Adicionar destinatário" aria-controls="emailToChips"
+                                placeholder="nome@exemplo.com; prima Enter">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Cc (opcional)</label>
-                            <input type="email" class="form-control" name="cc">
+                        <input type="hidden" name="to" id="emailToValue">
+                        <div class="form-text" id="emailToHelp">Pode adicionar vários endereços. Prima Enter ou use vírgula/ponto e vírgula.</div>
+                        <div class="invalid-feedback d-block" id="emailToError" role="alert" hidden></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button type="button" class="email-cc-toggle" id="emailCcToggle"
+                            aria-expanded="false" aria-controls="emailCcField">
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Adicionar Cc
+                        </button>
+                        <div class="mt-2 d-none" id="emailCcField">
+                            <label class="form-label email-field-label" for="emailCcInput">Cc</label>
+                            <div class="email-chipbox" id="emailCcChipbox" role="group" aria-describedby="emailCcHelp emailCcError">
+                                <div class="email-chips" id="emailCcChips"></div>
+                                <input type="text" class="email-chip-input" id="emailCcInput" autocomplete="email"
+                                    aria-label="Adicionar endereço em Cc" aria-controls="emailCcChips"
+                                    placeholder="nome@exemplo.com; prima Enter">
+                            </div>
+                            <input type="hidden" name="cc" id="emailCcValue">
+                            <div class="form-text" id="emailCcHelp">Os endereços em Cc recebem uma cópia deste envio.</div>
+                            <div class="invalid-feedback d-block" id="emailCcError" role="alert" hidden></div>
                         </div>
                     </div>
 
-                    <!-- --- Assunto --- -->
-                    <div class="mt-3">
-                        <label class="form-label">Assunto</label>
-                        <input type="text" class="form-control" name="subject" required>
+                    <div class="mb-3">
+                        <label class="form-label email-field-label" for="emailSubject">Assunto</label>
+                        <input type="text" class="form-control" name="subject" id="emailSubject" required>
+                        <div class="invalid-feedback">Indique o assunto do e-mail.</div>
                     </div>
 
-                    <!-- --- Editor Quill --- -->
                     <div class="mt-3">
-                        <label class="form-label">Mensagem</label>
+                        <label class="form-label email-field-label" for="editor-container">Mensagem</label>
 
                         <!-- toolbar -->
                         <div id="editor-toolbar">
@@ -722,14 +869,14 @@ require_once '../app/views/layout_creation.php';
                         </div>
 
                         <!-- área de edição -->
-                        <div id="editor-container" style="height:280px"></div>
+                        <div id="editor-container" role="textbox" aria-label="Mensagem do e-mail"
+                            aria-multiline="true" style="height:240px"></div>
 
                         <!-- texto plano/HTML que realmente será enviado -->
                         <textarea name="body" id="body-hidden" class="d-none"></textarea>
                     </div>
 
-                    <!-- Anexar PDF -->
-                    <div class="form-check mt-3">
+                    <div class="form-check mt-3 p-3 rounded-3" style="background:#f5f9ff;border:1px solid #e0ebfa">
                         <input class="form-check-input" type="checkbox" id="chkAnexar" name="attach" checked>
                         <label class="form-check-label" for="chkAnexar">
                             <i class="bi bi-file-earmark-pdf align-middle" aria-hidden="true"></i>
@@ -741,9 +888,9 @@ require_once '../app/views/layout_creation.php';
                 </div>
 
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn btn-primary w-100" id="emailSendButton">
                         <i class="bi bi-send align-middle me-1" aria-hidden="true"></i>
-                        Enviar e-mail
+                        <span>Enviar e-mail</span>
                     </button>
                 </div>
             </form>
@@ -829,6 +976,6 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="invoices/invoice.js?v=5.6" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=5.7" data-spa-repeat></script>
 
 <?php require_once '../app/views/footer.php'; ?>

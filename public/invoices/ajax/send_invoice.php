@@ -11,18 +11,27 @@ use PHPMailer\PHPMailer\PHPMailer;
 // 1) CAPTURA INPUT
 header('Content-Type: application/json; charset=utf-8');
 
-$to          = trim($_POST['to']          ?? '');
-$cc          = trim($_POST['cc']          ?? '');
+$toRaw       = trim($_POST['to']          ?? '');
+$ccRaw       = trim($_POST['cc']          ?? '');
 $subject     = trim($_POST['subject']     ?? '');
 $bodyHtml    = trim($_POST['body']        ?? '');
 $invoiceId   = intval($_POST['invoice_id'] ?? 0);
 $attachPdf   = !empty($_POST['attach']);          // checkbox
 $companyId   = (int)($_SESSION['user']['company_id'] ?? 0);
 
-// validações mínimas
-if(!$invoiceId || !filter_var($to, FILTER_VALIDATE_EMAIL)){
+// Keep accepting legacy single-address requests while supporting comma/semicolon lists.
+$parseRecipients = static function (string $raw): array {
+  if ($raw === '') {
+    return [];
+  }
+  return array_values(array_filter(array_map('trim', preg_split('/[;,\r\n]+/', $raw))));
+};
+$to = $parseRecipients($toRaw);
+$cc = $parseRecipients($ccRaw);
+
+if (!$invoiceId || !$to) {
   http_response_code(422);
-  echo json_encode(['error'=>'Destinatário ou fatura inválidos.']);
+  echo json_encode(['error' => 'Adicione pelo menos um destinatário válido.']);
   exit;
 }
 if ($companyId <= 0) {
@@ -30,10 +39,20 @@ if ($companyId <= 0) {
   echo json_encode(['error' => 'Empresa inválida para envio da fatura.']);
   exit;
 }
-if($cc && !filter_var($cc, FILTER_VALIDATE_EMAIL)){
-  http_response_code(422);
-  echo json_encode(['error'=>'Endereço CC inválido.']);
-  exit;
+$seenRecipients = [];
+foreach (array_merge($to, $cc) as $address) {
+  $normalizedAddress = strtolower($address);
+  if (!filter_var($address, FILTER_VALIDATE_EMAIL)) {
+    http_response_code(422);
+    echo json_encode(['error' => "Endereço de e-mail inválido: {$address}."]);
+    exit;
+  }
+  if (isset($seenRecipients[$normalizedAddress])) {
+    http_response_code(422);
+    echo json_encode(['error' => "O endereço {$address} está repetido em Para/Cc."]);
+    exit;
+  }
+  $seenRecipients[$normalizedAddress] = true;
 }
 
 //---------------------------------------------------------------
@@ -95,8 +114,12 @@ try{
   $mail->Port       = 465;
 
   $mail->setFrom($smtpUsername, $smtpFromName);
-  $mail->addAddress($to);
-  if($cc) $mail->addCC($cc);
+  foreach ($to as $address) {
+    $mail->addAddress($address);
+  }
+  foreach ($cc as $address) {
+    $mail->addCC($address);
+  }
 
   // 4.3 ‑ anexo PDF ------------------------------------------------------------
   if($pdfPath){

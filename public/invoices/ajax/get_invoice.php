@@ -75,6 +75,7 @@ try {
             comp.bank_details,
 
             c.name AS client_name,
+            c.email AS client_email,
             c.address AS client_address,
             c.contributor AS client_contributor,
             c.country AS client_country,

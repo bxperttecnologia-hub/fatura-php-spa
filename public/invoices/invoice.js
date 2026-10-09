@@ -2190,11 +2190,135 @@ $(function () {
     },
   });
 
+  const emailRecipients = { to: [], cc: [] };
+  const emailFields = {
+    to: {
+      input: document.getElementById("emailToInput"),
+      chips: document.getElementById("emailToChips"),
+      hidden: document.getElementById("emailToValue"),
+      box: document.getElementById("emailToChipbox"),
+      error: document.getElementById("emailToError"),
+    },
+    cc: {
+      input: document.getElementById("emailCcInput"),
+      chips: document.getElementById("emailCcChips"),
+      hidden: document.getElementById("emailCcValue"),
+      box: document.getElementById("emailCcChipbox"),
+      error: document.getElementById("emailCcError"),
+    },
+  };
+
+  function renderEmailRecipients(field) {
+    const controls = emailFields[field];
+    controls.chips.replaceChildren();
+    emailRecipients[field].forEach((address, index) => {
+      const chip = document.createElement("span");
+      chip.className = "email-chip";
+      const text = document.createElement("span");
+      text.textContent = address;
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.setAttribute("aria-label", `Editar ${address}`);
+      edit.innerHTML = '<i class="bi bi-pencil" aria-hidden="true"></i>';
+      edit.addEventListener("click", () => {
+        emailRecipients[field].splice(index, 1);
+        controls.input.value = address;
+        renderEmailRecipients(field);
+        controls.input.focus();
+        controls.input.select();
+      });
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Remover ${address}`);
+      remove.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+      remove.addEventListener("click", () => {
+        emailRecipients[field].splice(index, 1);
+        renderEmailRecipients(field);
+        controls.input.focus();
+      });
+      chip.append(text, edit, remove);
+      controls.chips.append(chip);
+    });
+    controls.hidden.value = emailRecipients[field].join(", ");
+  }
+
+  function addEmailRecipients(field, rawValue) {
+    const controls = emailFields[field];
+    const addresses = rawValue
+      .split(/[;,\r\n]+/)
+      .map((address) => address.trim())
+      .filter(Boolean);
+    let duplicateFound = false;
+    addresses.forEach((address) => {
+      if (emailRecipients[field].some((item) => item.toLowerCase() === address.toLowerCase())) {
+        duplicateFound = true;
+      }
+      emailRecipients[field].push(address);
+    });
+    controls.input.value = "";
+    renderEmailRecipients(field);
+    if (duplicateFound) {
+      controls.error.textContent = "Este endereço está repetido. Remova uma das etiquetas.";
+      controls.error.hidden = false;
+    }
+  }
+
+  Object.entries(emailFields).forEach(([field, controls]) => {
+    controls.input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === "," || event.key === ";") {
+        event.preventDefault();
+        addEmailRecipients(field, controls.input.value);
+      } else if (event.key === "Backspace" && !controls.input.value && emailRecipients[field].length) {
+        emailRecipients[field].pop();
+        renderEmailRecipients(field);
+      }
+    });
+    controls.input.addEventListener("input", () => {
+      if (/[;,\r\n]/.test(controls.input.value)) {
+        addEmailRecipients(field, controls.input.value);
+      }
+    });
+    controls.input.addEventListener("paste", (event) => {
+      const pasted = event.clipboardData?.getData("text") || "";
+      if (/[;,\r\n]/.test(pasted)) {
+        event.preventDefault();
+        addEmailRecipients(field, [controls.input.value, pasted].filter(Boolean).join(";"));
+      }
+    });
+  });
+
+  $("#emailCcToggle").on("click", function () {
+    const isExpanded = this.getAttribute("aria-expanded") === "true";
+    this.setAttribute("aria-expanded", String(!isExpanded));
+    $("#emailCcField").toggleClass("d-none", isExpanded);
+    this.innerHTML = isExpanded
+      ? '<i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Adicionar Cc'
+      : '<i class="bi bi-dash-lg me-1" aria-hidden="true"></i>Ocultar Cc';
+  });
+
   /* ---------- 2. abre a modal ---------- */
   $("#modalEnviarEmail").on("show.bs.modal", function () {
     if (!currentInvoice) {
       return alert("Fatura ainda não carregada!");
     }
+
+    emailRecipients.to = [];
+    emailRecipients.cc = [];
+    Object.values(emailFields).forEach((controls) => {
+      controls.input.value = "";
+      controls.error.textContent = "";
+      controls.error.hidden = true;
+      controls.box.classList.remove("is-invalid");
+    });
+    $("#emailCcField").addClass("d-none");
+    $("#emailCcToggle")
+      .attr("aria-expanded", "false")
+      .html('<i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Adicionar Cc');
+    if (currentInvoice.client_email) {
+      emailRecipients.to.push(currentInvoice.client_email.trim());
+    }
+    renderEmailRecipients("to");
+    renderEmailRecipients("cc");
 
     // Id oculto
     $("#email_invoice_id").val(currentInvoice.id);
@@ -2239,24 +2363,72 @@ $(function () {
   $("#formEnviarEmail").on("submit", function (e) {
     e.preventDefault();
 
-    // valida Bootstrap
-    if (this.checkValidity() === false) {
+    Object.entries(emailFields).forEach(([field, controls]) => {
+      controls.error.textContent = "";
+      controls.error.hidden = true;
+      controls.box.classList.remove("is-invalid");
+      if (controls.input.value.trim()) {
+        addEmailRecipients(field, controls.input.value);
+      }
+    });
+
+    const allAddresses = [...emailRecipients.to, ...emailRecipients.cc];
+    const duplicates = allAddresses.filter(
+      (address, index) =>
+        allAddresses.findIndex((item) => item.toLowerCase() === address.toLowerCase()) !== index,
+    );
+    let recipientsValid = emailRecipients.to.length > 0;
+    if (!emailRecipients.to.length) {
+      emailFields.to.error.textContent = "Adicione pelo menos um destinatário.";
+      emailFields.to.error.hidden = false;
+      emailFields.to.box.classList.add("is-invalid");
+    }
+    const emailValidator = document.createElement("input");
+    emailValidator.type = "email";
+    Object.entries(emailRecipients).forEach(([field, addresses]) => {
+      const invalid = addresses.filter((address) => {
+        emailValidator.value = address;
+        return !emailValidator.validity.valid;
+      });
+      const hasDuplicate = addresses.some((address) =>
+        duplicates.some((duplicate) => duplicate.toLowerCase() === address.toLowerCase()),
+      );
+      if (invalid.length || hasDuplicate) {
+        recipientsValid = false;
+        emailFields[field].box.classList.add("is-invalid");
+        emailFields[field].error.textContent = invalid.length
+          ? `Verifique os endereços inválidos: ${invalid.join(", ")}.`
+          : "Existem endereços repetidos entre Para e Cc.";
+        emailFields[field].error.hidden = false;
+      }
+    });
+
+    if (!this.checkValidity() || !recipientsValid) {
       this.classList.add("was-validated");
       return;
     }
 
-    // passa o HTML do Quill para <textarea hidden>
+    const $button = $("#emailSendButton");
+    if ($button.prop("disabled")) return;
+    $button.prop("disabled", true).find("span").text("A enviar...");
+    $button.find("i").removeClass("bi-send").addClass("bi-hourglass-split");
+
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("invoices/ajax/send_invoice.php", $(this).serialize())
+    $.post("invoices/ajax/send_invoice.php", $(this).serialize(), null, "json")
       .done(() => {
-        bootstrap.Modal.getInstance(
+        bootstrap.Modal.getOrCreateInstance(
           document.getElementById("modalEnviarEmail"),
         ).hide();
-        alert("E‑mail enviado com sucesso!");
+        Swal.fire("Sucesso", "E-mail enviado com sucesso!", "success");
       })
       .fail((xhr) => {
-        alert("Erro: " + xhr.responseText);
+        const message = xhr.responseJSON?.error || "Não foi possível enviar o e-mail.";
+        Swal.fire("Erro", message, "error");
+      })
+      .always(() => {
+        $button.prop("disabled", false).find("span").text("Enviar e-mail");
+        $button.find("i").removeClass("bi-hourglass-split").addClass("bi-send");
       });
   });
 
