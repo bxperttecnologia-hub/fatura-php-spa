@@ -28,6 +28,7 @@ echo json_encode([
     'limits' => [
         'invoice_limit_month' => $plan['invoice_limit_month'],
         'user_limit' => $plan['user_limit'],
+        'company_limit' => $plan['company_limit'],
         'rh_employee_limit' => $plan['rh_employee_limit'],
         'stock_item_limit' => $plan['stock_item_limit'],
     ],

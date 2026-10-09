@@ -1735,7 +1735,9 @@ function downloadPDF(invoiceId, opts = {}) {
 
       if (response.logo_url) {
         const img = new Image();
-        img.src = `assets/img/companies/${response.logo_url}`;
+        img.src = /^https?:\/\//i.test(response.logo_url)
+          ? response.logo_url
+          : `assets/img/companies/${response.logo_url}`;
         doc.addImage(img, "PNG", 10, 10, 50, 15);
       }
 

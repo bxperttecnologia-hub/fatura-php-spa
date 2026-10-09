@@ -22,7 +22,7 @@
     --inv-radius: 12px;
 
     color-scheme: dark;
-    background: var(--inv-bg);
+    background: transparent !important;
     color: var(--inv-text);
     padding: 3rem 0 4rem;
     min-height: 100vh;

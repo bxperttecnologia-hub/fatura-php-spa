@@ -1,3 +1,4 @@
+(function () {
 const currentYear = new Date().getFullYear();
 const pg_serie = document.getElementById("pg_serie");
 const get = new URLSearchParams(window.location.search).get("id");
@@ -91,12 +92,16 @@ $(function () {
       $("#subtitle-client").text(inv.client_name || "-");
 
       // Mostrar botões conforme status
+      const normalizedStatus = statusText.trim().toLowerCase();
       if (inv.status_invoice === "Rascunho") {
         $("#btnFinalizar").removeClass("d-none");
+        $("#btnEditar").removeClass("d-none");
         $("#generatePdf").removeClass("d-none");
         $("#btnEnviar").removeClass("d-none");
         $("#btnCloneToInvoice").removeClass("d-none");
         $("#btnDeleteInvoice").removeClass("d-none");
+      } else if (normalizedStatus.startsWith("cancel")) {
+        $("#generatePdf, #btnEnviar").removeClass("d-none");
       } else {
         $("#btnRecibo").removeClass("d-none");
         $("#btnCloneToInvoice").removeClass("d-none");
@@ -106,7 +111,6 @@ $(function () {
         $("#generatePdf").removeClass("d-none");
         $("#btnEnviar").removeClass("d-none");
       }
-      $("#btnEditar").removeClass("d-none");
     })
     .fail((xhr) => {
       console.error("Erro AJAX:", xhr);
@@ -262,11 +266,15 @@ $(function () {
 
   // ---------- 3) abrir recibo ou modal Pagamento ----------
   function showPaymentModal() {
-    new bootstrap.Modal(document.getElementById("modalPagamento")).show();
+    bootstrap.Modal.getOrCreateInstance(
+      document.getElementById("modalPagamento"),
+    ).show();
   }
 
   function showReceiptsModal() {
-    new bootstrap.Modal(document.getElementById("modalReceipts")).show();
+    bootstrap.Modal.getOrCreateInstance(
+      document.getElementById("modalReceipts"),
+    ).show();
   }
 
   /* ======================================================
@@ -748,11 +756,12 @@ $(function () {
 
     if (api.logo_url && options.logoBaseUrl) {
       try {
-        const logoFile = String(api.logo_url).split("/").pop();
-        const logoUrl = new URL(
-          encodeURIComponent(logoFile),
-          options.logoBaseUrl,
-        ).toString();
+        const logoUrl = /^https?:\/\//i.test(String(api.logo_url))
+          ? String(api.logo_url)
+          : new URL(
+              encodeURIComponent(String(api.logo_url).split("/").pop()),
+              options.logoBaseUrl,
+            ).toString();
 
         invoiceData.company.logoImage = await imageUrlToDataURL(logoUrl);
       } catch (e) {
@@ -1237,12 +1246,15 @@ $(function () {
   async function fetchInvoicePdfBlob(invoiceData, copies = 2) {
     const payload = {
       ...invoiceData,
+      logo_url: invoiceData.logo_url || invoiceData.company?.logo_url || invoiceData.company?.logo || "",
       copies: Number(copies) || 1,
       document_url: new URL(
         `invoices/ajax/invoice_public.php?id=${encodeURIComponent(invoiceData.id)}`,
         window.location.href,
       ).toString(),
     };
+
+    console.debug("fetchInvoicePdfBlob payload:", payload);
 
     const hostname = window.location.hostname;
     const apiBaseUrl =
@@ -1486,6 +1498,26 @@ $(function () {
     const symbol = inv.symbol || inv.company_symbol || "Kz";
     const position = inv.position || inv.company_position || "right";
     const items = Array.isArray(inv.items) ? inv.items : [];
+    const logoSource = String(
+      inv.logo_url || inv.company?.logo_url || inv.company?.logo || inv.logo || "",
+    ).trim();
+    const hostname = window.location.hostname;
+    const apiBaseUrl =
+      hostname === "api-crm.bxpert.co.ao" ||
+      hostname === "www.api-crm.bxpert.co.ao"
+        ? "https://api-crm.bxpert.co.ao"
+        : "http://localhost:3004";
+    const logoUrl = /^data:image\//i.test(logoSource)
+      ? logoSource
+      : /^https?:\/\//i.test(logoSource)
+        ? logoSource
+        : logoSource.startsWith("/api/")
+          ? `${apiBaseUrl}${logoSource}`
+          : logoSource.startsWith("/")
+            ? new URL(logoSource, window.location.origin).toString()
+            : logoSource
+              ? `${window.location.origin}/assets/img/companies/${encodeURIComponent(logoSource)}`
+              : "";
 
     const rowsHtml = items
       .map((it) => {
@@ -1530,6 +1562,7 @@ $(function () {
   }
   .t-center { text-align: center; }
   .t-bold { font-weight: bold; }
+  .t-logo { display: block; max-width: 105px; max-height: 55px; width: auto; height: auto; object-fit: contain; margin: 0 auto 5px; }
   .t-line { border-top: 1px dashed #000; margin: 5px 0; }
   .t-row { display: flex; justify-content: space-between; }
   .t-item-name { margin-top: 5px; }
@@ -1540,6 +1573,7 @@ $(function () {
 </style>
 </head>
 <body>
+  ${logoUrl ? `<img class="t-logo" src="${escapeHtml(logoUrl)}" alt="Logótipo">` : ""}
   <div class="t-center t-bold" style="font-size:13px;">${escapeHtml(inv.company_name || "")}</div>
   ${inv.company_address ? `<div class="t-center">${escapeHtml(inv.company_address)}</div>` : ""}
   ${inv.company_city ? `<div class="t-center">${escapeHtml(inv.company_city)}</div>` : ""}
@@ -1792,6 +1826,7 @@ $(function () {
 
       // Sucesso
       if (res?.success && res?.credit_note_id) {
+        window.location.reload();
         window.BXDocumentApi.download(
           `/api/documents/credit-notes/${encodeURIComponent(res.credit_note_id)}/pdf`,
           `NotaCredito_${res.credit_note_id}.pdf`,
@@ -2432,3 +2467,4 @@ $(document).ready(function () {
     return base64Image;
   }
 });
+})();

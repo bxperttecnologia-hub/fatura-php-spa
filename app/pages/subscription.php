@@ -121,7 +121,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 
   .usage-limits {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
   }
 
@@ -273,7 +273,9 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
         $inf = '∞';
         $limInv = $plan['invoice_limit_month'] === null ? $inf : (int)$plan['invoice_limit_month'];
         $limUsers = $plan['user_limit'] === null ? $inf : (int)$plan['user_limit'];
+        $limCompanies = $plan['company_limit'] === null ? $inf : (int)$plan['company_limit'];
         $limRh = $plan['rh_employee_limit'] === null ? $inf : (int)$plan['rh_employee_limit'];
+        $companyCount = subscription_owned_company_count($pdo, (int)($_SESSION['user']['id'] ?? 0));
         // $limStock = $plan['stock_item_limit'] === null ? $inf : (int)$plan['stock_item_limit'];
         ?>
 
@@ -328,6 +330,10 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
               $rhPct = ($limRh === '∞' || empty($limRh))
                 ? 0
                 : min(100, (($usage['employee_count'] ?? 0) / $limRh) * 100);
+
+              $companyPct = ($limCompanies === '∞' || empty($limCompanies))
+                ? 0
+                : min(100, ($companyCount / $limCompanies) * 100);
               ?>
 
               <div class="usage-limits">
@@ -356,6 +362,15 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
                   </div>
                   <div class="progress mt-2">
                     <div class="progress-bar" style="width: <?= $rhPct ?>%"></div>
+                  </div>
+                </div>
+                <div class="usage-limit">
+                  <div class="d-flex justify-content-between gap-2">
+                    <span>Empresas</span>
+                    <strong><?= $companyCount ?> / <?= $limCompanies ?></strong>
+                  </div>
+                  <div class="progress mt-2">
+                    <div class="progress-bar" style="width: <?= $companyPct ?>%"></div>
                   </div>
                 </div>
               </div>
@@ -439,6 +454,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
                   <ul class="small text-muted flex-grow-1 ps-3 mb-3">
                     <li>Facturas/mês: <?= $p['invoice_limit_month'] ?? '∞' ?></li>
                     <li>Utilizadores: <?= $p['user_limit'] ?? '∞' ?></li>
+                    <li>Empresas: <?= $p['company_limit'] ?? '∞' ?></li>
                     <li>RH: <?= $p['rh_employee_limit'] ?? '∞' ?></li>
                     <!-- <li>Stock: <?= $p['stock_item_limit'] ?? '∞' ?></li> -->
                   </ul>

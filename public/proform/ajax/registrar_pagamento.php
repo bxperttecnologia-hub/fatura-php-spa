@@ -22,6 +22,7 @@ try{
 ---------------------------------------------------------------------------*/
   $sql = "
     SELECT final_total,
+           i.status,
            /* já pago */
            COALESCE((
              SELECT SUM(amount_paid)
@@ -38,6 +39,12 @@ try{
 
   if(!$inv){
     throw new Exception('Fatura não encontrada.', 404);
+  }
+
+  $statusStmt = $pdo->prepare('SELECT name FROM invoice_status WHERE id = ? LIMIT 1');
+  $statusStmt->execute([$inv['status']]);
+  if (str_starts_with(strtolower(trim((string)$statusStmt->fetchColumn())), 'cancel')) {
+    throw new Exception('Não é possível registar pagamentos numa fatura cancelada.', 422);
   }
 
   $saldo = $inv['final_total'] - $inv['paid_total'];

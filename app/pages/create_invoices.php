@@ -38,7 +38,7 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
         --inv-radius: 12px;
 
         color-scheme: dark;
-        background: var(--inv-bg);
+        background: transparent !important;
         color: var(--inv-text);
         padding: 3rem 0 4rem;
         min-height: 100vh;

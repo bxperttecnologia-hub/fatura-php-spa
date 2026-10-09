@@ -318,7 +318,10 @@ $(document).ready(function () {
       |--------------------------------------------------------------------------
       */
         if (data.logo_url) {
-          setLogoSrc(`/assets/img/companies/${data.logo_url}`);
+          const logoSrc = /^https?:\/\//i.test(data.logo_url)
+            ? data.logo_url
+            : `/assets/img/companies/${data.logo_url}`;
+          setLogoSrc(logoSrc);
         }
 
         /*
@@ -396,7 +399,11 @@ $(document).ready(function () {
       },
       error: function (xhr) {
         console.error("SERVER ERROR:", xhr.responseText);
-        Swal.fire("Erro", "Erro ao atualizar empresa", "error");
+        Swal.fire(
+          "Erro",
+          xhr.responseJSON?.message || "Erro ao atualizar empresa",
+          "error",
+        );
       },
       complete: function () {
         $submitBtn.prop("disabled", false);

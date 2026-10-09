@@ -450,7 +450,7 @@
                 </button>
             </div>
 
-            <div class="card p-2 mb-3 border-0 shadow-sm bx-list-filter-panel">
+            <div class="card p-2 mb-3 border-0 bx-list-filter-panel">
                 <div class="items-toolbar">
                     <label class="items-search" for="searchInput">
                         <i class="bi bi-search" aria-hidden="true"></i>

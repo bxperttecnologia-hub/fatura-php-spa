@@ -23,7 +23,7 @@ register_shutdown_function(function () {
     }
 });
 
-require_once '../../../app/config/db.php';
+require_once '../../../config/db.php';
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -135,8 +135,20 @@ function agt_respond(array $payload, int $httpCode = 200)
     exit;
 }
 
-// Só utilizadores autenticados
-if (empty($_SESSION['user'])) {
+// A consulta também é permitida durante o onboarding, após validação do telefone por OTP.
+$registrationUserId = (int) ($_SESSION['user_id'] ?? 0);
+$verifiedRegistration = false;
+if ($registrationUserId > 0) {
+    $verifiedStmt = $pdo->prepare(
+        'SELECT 1 FROM users u
+          WHERE u.id = ? AND u.phone_verified_at IS NOT NULL AND u.must_change_password = 1
+            AND NOT EXISTS (SELECT 1 FROM company_has_user chu WHERE chu.user_id = u.id)
+          LIMIT 1'
+    );
+    $verifiedStmt->execute([$registrationUserId]);
+    $verifiedRegistration = (bool) $verifiedStmt->fetchColumn();
+}
+if (empty($_SESSION['user']) && !$verifiedRegistration) {
     agt_respond(['status' => 'error', 'message' => 'Sessão expirada.'], 401);
 }
 

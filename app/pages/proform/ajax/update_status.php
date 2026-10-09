@@ -17,6 +17,27 @@ if (!$invoiceId) {
 }
 
 try {
+    $pdo->beginTransaction();
+
+    $invoiceStmt = $pdo->prepare("
+        SELECT i.status, s.name AS status_name
+        FROM invoices i
+        LEFT JOIN invoice_status s ON s.id = i.status
+        WHERE i.id = :id
+        FOR UPDATE
+    ");
+    $invoiceStmt->execute([':id' => $invoiceId]);
+    $invoice = $invoiceStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$invoice) {
+        throw new RuntimeException('Fatura não encontrada.', 404);
+    }
+    if (
+        str_starts_with(strtolower(trim((string)($invoice['status_name'] ?? ''))), 'cancel')
+        && !str_starts_with(strtolower(trim((string)$newStatusName)), 'cancel')
+    ) {
+        throw new RuntimeException('Uma fatura cancelada não pode voltar a outro estado.', 422);
+    }
+
     // Busca o ID do status pelo nome
     $stmt = $pdo->prepare("SELECT id FROM invoice_status WHERE name = :name LIMIT 1");
     $stmt->execute([':name' => $newStatusName]);
@@ -36,8 +57,15 @@ try {
     $update = $pdo->prepare("UPDATE invoices SET status = :status WHERE id = :id");
     $update->execute([':status' => $statusId, ':id' => $invoiceId]);
 
+    $pdo->commit();
     echo json_encode(['success' => true]);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    if (in_array($e->getCode(), [404, 422], true)) {
+        http_response_code($e->getCode());
+    }
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

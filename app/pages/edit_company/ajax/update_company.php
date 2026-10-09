@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../helpers/company_logo.php';
 header('Content-Type: application/json');
 
 session_start();
@@ -145,37 +146,8 @@ try {
     // =============================
     $logoPath = null;
 
-    if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-
-        $fileTmpPath = $_FILES['logo']['tmp_name'];
-        $originalName = $_FILES['logo']['name'] ?? '';
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-        $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
-
-        if (!in_array($ext, $allowed, true)) {
-            throw new Exception('Formato de logo inválido.');
-        }
-
-        if ($_FILES['logo']['size'] > 2 * 1024 * 1024) {
-            throw new Exception('Logo muito grande (máx 2MB).');
-        }
-
-        $fileName = uniqid('logo_', true) . '.' . $ext;
-
-        $uploadDir = __DIR__ . '/../../../../public/assets/img/companies';
-
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0775, true);
-        }
-
-        $destPath = $uploadDir . '/' . $fileName;
-
-        if (!move_uploaded_file($fileTmpPath, $destPath)) {
-            throw new Exception('Erro ao salvar logo.');
-        }
-
-        $logoPath = $fileName;
+    if (isset($_FILES['logo']) && (int) ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $logoPath = upload_company_logo_to_api($_FILES['logo'], $companyId);
     }
 
     // =============================
@@ -262,7 +234,8 @@ try {
 
 } catch (Exception $e) {
 
-    http_response_code(400);
+    $statusCode = $e->getCode();
+    http_response_code($statusCode >= 400 && $statusCode <= 599 ? $statusCode : 400);
 
     echo json_encode([
         'success' => false,

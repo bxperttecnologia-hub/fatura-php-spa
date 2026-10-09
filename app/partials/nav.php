@@ -462,6 +462,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
         const companyId = document.getElementById('company_id').value;
+        const publicPath = window.location.pathname.match(/^(.*\/public)(?:\/|$)/)?.[1] || '';
 
         window.lucide && lucide.createIcons();
 
@@ -600,7 +601,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
                 csrf_token: csrfToken,
             });
 
-            const data = await fetchJSON('/assets/ajax/change_company.php', {
+            const data = await fetchJSON(`${publicPath}/assets/ajax/change_company.php`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -616,7 +617,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
         }
 
         async function carregarEmpresas() {
-            const empresas = await fetchJSON('/assets/ajax/get_companies.php');
+            const empresas = await fetchJSON(`${publicPath}/assets/ajax/get_companies.php`);
             const dropdown = document.getElementById('empresaDropdownMenu');
             if (!dropdown) return;
 
@@ -1090,6 +1091,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('companies:updated', carregarEmpresas);
             carregarEmpresas();
             ajaxLoadNotifications();
             setInterval(ajaxLoadNotifications, 60000);

@@ -38,7 +38,7 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
         --inv-radius: 12px;
 
         color-scheme: dark;
-        background: var(--inv-bg);
+        background: transparent !important;
         color: var(--inv-text);
         padding: 3rem 0 4rem;
         min-height: 100vh;
@@ -1393,4 +1393,4 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_proform/create_proform.js?v=2.8" data-spa-repeat></script>
+<script src="create_proform/create_proform.js?v=2.9" data-spa-repeat></script>

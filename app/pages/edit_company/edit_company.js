@@ -309,7 +309,10 @@ $(document).ready(function () {
       |--------------------------------------------------------------------------
       */
         if (data.logo_url) {
-          setLogoSrc(`/assets/img/companies/${data.logo_url}`);
+          const logoSrc = /^https?:\/\//i.test(data.logo_url)
+            ? data.logo_url
+            : `/assets/img/companies/${data.logo_url}`;
+          setLogoSrc(logoSrc);
         }
 
         /*

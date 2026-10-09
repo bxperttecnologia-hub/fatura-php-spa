@@ -27,6 +27,7 @@ try {
         SELECT
             p.id,
             p.reference,
+            p.converted_invoice_id,
             CONCAT(YEAR(p.issue_date), '/', p.id) AS codigo,
 
             p.issue_date,

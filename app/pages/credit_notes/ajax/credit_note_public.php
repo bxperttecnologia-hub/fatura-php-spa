@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../helpers/company_logo.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -200,9 +201,7 @@ $currencyPos    = $cn['moneyPos'] ?? 'left';
 |--------------------------------------------------------------------------
 */
 
-$logo = !empty($cn['logo_url'])
-  ? $BASE_URL . '/assets/img/companies/' . rawurlencode($cn['logo_url'])
-  : '';
+$logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
 ?>
 

@@ -257,8 +257,8 @@ require_once '../app/views/layout_creation.php';
 
         .invoice-side-card {
             position: fixed;
-            top: 1rem;
-            right: max(1rem, calc((100% - 1240px) / 2 + 1rem));
+            top: 2.25rem;
+            right: max(1rem, calc((100% - 1380px) / 2 + 1rem));
             max-height: calc(100vh - 2rem);
             overflow-y: auto;
         }
@@ -324,6 +324,10 @@ require_once '../app/views/layout_creation.php';
                 <button type="button" class="bx-btn-secondary" id="btnChangeToInvoice">
                     <i class="bi bi-check-circle" aria-hidden="true"></i>
                     Emitir Fatura
+                </button>
+                <button type="button" class="bx-btn-secondary d-none" id="btnPagamentoRecibo">
+                    <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                    Pagamento / Recibo
                 </button>
                 <button type="button" class="bx-btn-secondary d-none" id="generatePdf" aria-label="Imprimir ou baixar a proforma">
                     <i class="bi bi-printer" aria-hidden="true"></i>

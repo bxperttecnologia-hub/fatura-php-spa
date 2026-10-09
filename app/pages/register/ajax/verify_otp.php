@@ -6,8 +6,8 @@
 // resposta (mesmo sintoma do "Ocorreu um erro ao processar a solicitação").
 ob_start();
 
-require_once '../../../app/config/db.php';
-require_once '../../../app/helpers/otp.php';
+require_once '../../../config/db.php';
+require_once '../../../helpers/otp.php';
 
 if (ob_get_length()) ob_clean();
 
@@ -80,8 +80,9 @@ try {
 
     // Login automático: o telefone acabou de ser verificado por OTP
     iniciarSessao($userId, $username, $v['name']);
+    $_SESSION['csrf'] = bin2hex(random_bytes(32));
 
-    responder(200, ['success' => true, 'redirect' => 'index.php']);
+    responder(200, ['success' => true, 'next_step' => 'company', 'csrf' => $_SESSION['csrf']]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('verify_otp: ' . $e->getMessage());

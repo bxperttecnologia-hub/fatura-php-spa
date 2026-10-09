@@ -26,6 +26,7 @@
 - Recibos, notas de crédito/débito, notas de entrega e folhas salariais são gerados pelo servidor genérico do `bxintelligence-api-rest`.
 - O browser obtém um token de documentos de cinco minutos através da sessão PHP autenticada e envia-o à API; o token restringe a consulta à empresa associada à sessão.
 - Configure `DOCUMENT_API_TOKEN_SECRET` com o mesmo segredo aleatório (mínimo 32 bytes) no ambiente do PHP e da API; configure `DOCUMENT_API_BASE_URL` com a URL pública da API.
+- Os uploads de logótipos são assinados no servidor. A chave usa `COMPANY_LOGO_UPLOAD_TOKEN`, `DOCUMENT_API_TOKEN_SECRET` ou, como fallback, a palavra-passe de base de dados já partilhada entre PHP e API; não é necessária configuração adicional quando usam as mesmas credenciais da BD.
 - No ambiente da API, `DB_PASS` ou `DB_PASSWORD` deve apontar para a mesma base de dados MySQL da aplicação. `DOCUMENT_ASSETS_DIR` é opcional e aponta para a pasta local dos logótipos.
 - Não exponha o segredo no frontend, em respostas JSON ou em repositórios. Consulte o README do `bxintelligence-api-rest` para as rotas disponíveis.
 

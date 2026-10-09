@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../app/helpers/company_logo.php';
+
 $escape = static fn($value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
 $currencySymbol = strtoupper((string)($inv['currency'] ?? '')) === 'AOA'
   ? 'KZ'
@@ -38,11 +40,7 @@ $documentType = strtoupper((string)($inv['document_type'] ?? 'FT'));
 $isProforma = $documentType === 'PF';
 $title = ($isProforma ? 'Proforma' : 'Factura') . ' n.º ' . (string)($inv['reference'] ?? '');
 $certificate = defined('AGT_CERTIFICATE') ? AGT_CERTIFICATE : 'FE/344/AGT/2026';
-$logoFile = basename((string)($inv['logo_url'] ?? ''));
-$logoDirectory = __DIR__ . '/../assets/img/companies';
-if ($logoFile !== '' && !is_file($logoDirectory . DIRECTORY_SEPARATOR . $logoFile)) {
-  $logoFile = 'default.png';
-}
+$logoSrc = company_logo_src($inv['logo_url'] ?? '', $publicBasePath);
 $itemPages = [];
 $currentPageItems = [];
 $currentPageHeight = 0.0;
@@ -134,8 +132,8 @@ $pageCount = count($itemPages);
 <body class="document-public">
   <?php foreach ($itemPages as $pageIndex => $pageItems): ?>
   <main class="document-page">
-    <?php if ($logoFile !== ''): ?>
-      <img class="logo" src="<?= $escape($publicBasePath . '/assets/img/companies/' . rawurlencode($logoFile)) ?>" alt="Logo">
+    <?php if ($logoSrc !== ''): ?>
+      <img class="logo" src="<?= $escape($logoSrc) ?>" alt="Logo">
     <?php endif; ?>
 
     <div class="company">

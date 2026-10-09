@@ -1893,7 +1893,7 @@ $(document).ready(function () {
     proformId = id;
     $("#edit_proform_id").val(id);
 
-    $.getJSON("/proformas/ajax/get_proform.php", { id })
+    $.getJSON("proform/ajax/get_proform.php", { id })
       .done(function (response) {
         if (!response?.success || !response?.data) {
           Swal.fire(

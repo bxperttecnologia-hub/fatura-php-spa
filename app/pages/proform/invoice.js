@@ -14,25 +14,106 @@ $(function () {
 
   let currentInvoice = null;
 
-  // =========================
-  // 2. CARREGAR DADOS JSON
-  // =========================
-  function loadInvoice() {
-    $.get("proform/ajax/get_proform.php", { id: invoiceId })
-      .done((inv) => {
-        currentInvoice = inv?.data;
+  const $preloader = $("#preloader");
+  const $container = $("#fatura-container");
+  const retryDelays = [400, 900, 1600];
+  const currentPath = window.location.pathname.replace(/\/+$/, "");
+  const spaRoute = currentPath.match(/^(.*)\/(?:proformas|invoices)\/view$/);
+  const endpointBase = spaRoute
+    ? spaRoute[1]
+    : currentPath.replace(/\/[^/]+\.php$/i, "");
+  const endpointUrl = (endpoint) =>
+    `${endpointBase}/${endpoint}`.replace(/^\/\//, "/");
 
-        $("#fatura-id").text(`${inv.data?.reference}`);
-        $("#action-proform-number").text(inv.data?.reference || "-");
-        const statusText = inv.data?.status_invoice || "Proforma";
+  function requestWithRetry(options, retries = retryDelays.length) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const request = () => {
+        attempts += 1;
+        $.ajax(options)
+          .done(resolve)
+          .fail((xhr, status, error) => {
+            if (attempts > retries) {
+              reject(new Error(error || xhr.statusText || "Falha no carregamento."));
+              return;
+            }
+            window.setTimeout(
+              request,
+              retryDelays[attempts - 1] || retryDelays[retryDelays.length - 1],
+            );
+          });
+      };
+      request();
+    });
+  }
+
+  function showLoadError(error) {
+    console.error("Erro ao carregar a proforma:", error);
+    $preloader.hide();
+    $container
+      .show()
+      .empty()
+      .append(
+        $("<div>", {
+          class: "alert alert-danger m-3",
+          role: "alert",
+          text: "Não foi possível carregar os dados da proforma. Verifique a ligação e tente novamente.",
+        }),
+        $("<button>", {
+          type: "button",
+          class: "btn btn-outline-primary mx-3 mb-3",
+          text: "Tentar novamente",
+        }).on("click", loadInvoice),
+      );
+  }
+
+  // Carrega o JSON e o HTML em conjunto para não mostrar uma página vazia
+  // enquanto um dos pedidos ainda está a ser repetido.
+  function loadInvoice() {
+    $preloader.text("Carregando...").show();
+    $container.hide().empty();
+    const query = `id=${encodeURIComponent(invoiceId)}`;
+    const requests = [
+      requestWithRetry({
+        url: `${endpointUrl("proform/ajax/get_proform.php")}?${query}`,
+        dataType: "json",
+        cache: false,
+      }).then((response) => {
+        if (!response?.success || !response.data) {
+          throw new Error(response?.error || "Resposta inválida dos dados da proforma.");
+        }
+        return response.data;
+      }),
+      requestWithRetry({
+        url: `${endpointUrl("proform/ajax/proform_public.php")}?${query}`,
+        dataType: "html",
+        cache: false,
+      }).then((html) => {
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        if (!parsed.querySelector(".invoice-page")) {
+          throw new Error("O servidor não devolveu o documento da proforma.");
+        }
+        return html;
+      }),
+    ];
+
+    Promise.all(requests)
+      .then(([invoice, html]) => {
+        currentInvoice = invoice;
+        $container.html(html).show();
+        $preloader.hide();
+
+        $("#fatura-id").text(invoice.reference || "-");
+        $("#action-proform-number").text(invoice.reference || "-");
+        const statusText = invoice.status_invoice || "Proforma";
         $("#status-invoice")
           .text(statusText)
           .toggleClass("d-none", !statusText || statusText === "-")
           .toggleClass("is-draft", statusText === "Rascunho");
-        $("#subtitle-client").text(inv.data?.client_name);
-        $("#action-proform-client").text(inv.data?.client_name || "-");
+        $("#subtitle-client").text(invoice.client_name || "-");
+        $("#action-proform-client").text(invoice.client_name || "-");
 
-        setupButtons(inv?.data);
+        setupButtons(invoice);
         const params = new URLSearchParams(window.location.search);
         if (params.get("send") === "1") {
           bootstrap.Modal.getOrCreateInstance(
@@ -42,17 +123,8 @@ $(function () {
           $("#btnChangeToInvoice").trigger("click");
         }
       })
-      .fail(() => {
-        alert("Erro ao carregar factura proforma");
-      });
+      .catch(showLoadError);
   }
-
-  // =========================
-  // 3. CARREGAR HTML VISUAL
-  // =========================
-  $("#fatura-container").load(
-    `proform/ajax/proform_public.php?id=${invoiceId}`,
-  );
 
   // =========================
   // 4. BOTÕES CONDICIONAIS
@@ -134,17 +206,21 @@ $(function () {
       ? "https://api-crm.bxpert.co.ao"
       : "http://localhost:3004";
 
+    const payload = {
+      ...currentInvoice,
+      logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
+      document_type: "PF",
+      document_url: new URL(
+        `proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
+        window.location.href,
+      ).toString(),
+    };
+    console.log("Payload enviado à API de PDF:", payload);
+
     fetch(`${apiBaseUrl}/api/invoices/pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/pdf" },
-      body: JSON.stringify({
-        ...currentInvoice,
-        document_type: "PF",
-        document_url: new URL(
-          `proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
-          window.location.href,
-        ).toString(),
-      }),
+      body: JSON.stringify(payload),
     })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -174,6 +250,24 @@ $(function () {
   }
 
   $("#btnPdf, #generatePdf").on("click", gerarPdfProforma);
+
+  $("#btnPagamentoRecibo").on("click", function () {
+    if (!currentInvoice?.converted_invoice_id) {
+      Swal.fire({
+        icon: "info",
+        title: "Proforma ainda não convertida",
+        text: "Converta primeiro a proforma em fatura para registar ou consultar pagamentos e recibos.",
+      });
+      return;
+    }
+
+    const invoiceUrl = `/invoices/view?id=${encodeURIComponent(currentInvoice.converted_invoice_id)}`;
+    if (typeof window.navigateSPA === "function") {
+      window.navigateSPA(invoiceUrl);
+    } else {
+      window.location.assign(invoiceUrl);
+    }
+  });
 
   // =========================
   // 6. FINALIZAR PROFORMA -> FACTURA

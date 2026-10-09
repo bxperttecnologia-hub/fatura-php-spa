@@ -147,7 +147,7 @@ require_once '../app/partials/head.php';
 
     </main>
   
-    <script src="invoices/invoice.js"></script>
+    <script src="invoices/invoice.js?v=5.6"></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

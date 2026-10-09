@@ -139,6 +139,7 @@ $(function () {
       headers: { "Content-Type": "application/json", Accept: "application/pdf" },
       body: JSON.stringify({
         ...currentInvoice,
+        logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
         document_type: "PF",
         document_url: new URL(
           `proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
