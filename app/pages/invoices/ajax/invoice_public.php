@@ -11,6 +11,7 @@ require_once '../../../vendor/autoload.php';
 use chillerlan\QRCode\{QRCode, QROptions};
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../../app/helpers/document_tax.php';
 
 // ---------- configuração (igual ao PDF) ----------
 const AGT_CERTIFICATE = 'FE/344/AGT/2026';
@@ -59,18 +60,18 @@ function itemHeight(array $it): float
 }
 
 // quebra os itens em páginas (máx. 15 por página e limite vertical)
-function paginateItems(array $items): array
+function paginateItems(array $items, float $firstRowY): array
 {
   $pages = [];
   $current = [];
-  $y = FIRST_ROW_Y;
+  $y = $firstRowY;
 
   foreach ($items as $it) {
     $h = itemHeight($it);
     if ($current && (count($current) >= ITEMS_PER_PAGE || $y + $h > ITEMS_BOTTOM)) {
       $pages[] = $current;
       $current = [];
-      $y = FIRST_ROW_Y;
+      $y = $firstRowY;
     }
     $current[] = $it;
     $y += $h;
@@ -114,8 +115,14 @@ if (!$inv) {
   die('<h3>Fatura não encontrada.</h3>');
 }
 
-$publicBasePath = rtrim(dirname(dirname(dirname($_SERVER['SCRIPT_NAME']))), '/');
+$scriptPath = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+$publicBasePath = str_replace('\\', '/', dirname(dirname(dirname($scriptPath))));
+$publicBasePath = ($publicBasePath === '/' || $publicBasePath === '.') ? '' : rtrim($publicBasePath, '/');
 $logoFile = basename((string)($inv['logo_url'] ?? ''));
+$logoDirectory = __DIR__ . '/../../../../public/assets/img/companies';
+if ($logoFile !== '' && !is_file($logoDirectory . DIRECTORY_SEPARATOR . $logoFile)) {
+  $logoFile = 'default.png';
+}
 
 // ---------- itens ----------
 $stmt = $pdo->prepare("
@@ -126,6 +133,16 @@ JOIN   items it ON it.id = ii.item_id
 WHERE  ii.invoice_id = :id");
 $stmt->execute(['id' => $id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$taxSummary = bx_document_tax_summary(
+  $items,
+  (string)($inv['vat_regime'] ?? ''),
+  (float)($inv['retention_value'] ?? 0)
+);
+$inv['total_sum'] = $taxSummary['total_sum'];
+$inv['total_discount'] = $taxSummary['total_discount'];
+$inv['total_tax'] = $taxSummary['total_tax'];
+$inv['final_total'] = $taxSummary['final_total'];
+$inv['retention_value'] = $taxSummary['retention'];
 
 // ---------- QR ----------
 $qrData = "https://bxpert.co.ao/sistema/invoice_public.php?id={$inv['id']}";
@@ -167,9 +184,23 @@ $iban = $ibanRaw !== ''
   : '-';
 
 $isDraft  = (int)$inv['status'] === 1;
-$docTitle = ($isDraft ? 'Factura Rascunho' : 'Factura') . ' n.º ' . ($isDraft ? '' : (string)$inv['reference']);
+$documentType = strtoupper((string)($inv['document_type'] ?? 'FT'));
+$documentLabel = $documentType === 'FR' ? 'Factura-Recibo' : 'Factura';
+$docTitle = ($isDraft ? $documentLabel . ' Rascunho' : $documentLabel) . ' n.º ' . ($isDraft ? '' : (string)$inv['reference']);
 
-$pages = paginateItems($items);
+$observationText = trim((string)($inv['observation'] ?? ''));
+$addressLines = 0;
+foreach (preg_split('/\R/u', $clientAddress) ?: [''] as $line) {
+  $addressLines += max(1, (int)ceil(mb_strlen($line, 'UTF-8') / 95));
+}
+$addressExtra = max(0, $addressLines - 1) * 11;
+$observationLines = 0;
+foreach (preg_split('/\R/u', $observationText) ?: [''] as $line) {
+  $observationLines += max(1, (int)ceil(mb_strlen($line, 'UTF-8') / 95));
+}
+$observationExtra = max(0, $observationLines - 1) * 11;
+$detailsExtra = $addressExtra + $observationExtra;
+$pages = paginateItems($items, FIRST_ROW_Y + $detailsExtra);
 $pageCount = count($pages);
 ?>
 <!DOCTYPE html>
@@ -177,7 +208,7 @@ $pageCount = count($pages);
 
 <head>
   <meta charset="utf-8">
-  <title>Fatura <?= e($inv['codigo']) ?></title>
+  <title><?= e($documentLabel) ?> <?= e($inv['codigo']) ?></title>
   <style>
     @page {
       size: A4;
@@ -339,11 +370,15 @@ $pageCount = count($pages);
     }
 
     .r2 {
-      top: 291pt;
+      top: 286pt;
     }
 
     .r3 {
-      top: 309pt;
+      top: 299pt;
+    }
+
+    .r4 {
+      top: <?= 312 + $addressExtra ?>pt;
     }
 
     .x1 {
@@ -367,11 +402,20 @@ $pageCount = count($pages);
       color: #444;
     }
 
+    .detail-value {
+      position: absolute;
+      left: 145pt;
+      top: 0;
+      width: 405pt;
+      line-height: 11pt;
+      overflow-wrap: anywhere;
+    }
+
     /* ---------- tabela + totais (fluxo) ---------- */
     .flow {
       position: absolute;
       left: 45pt;
-      top: 324pt;
+      top: <?= 324 + $detailsExtra ?>pt;
       width: 505pt;
     }
 
@@ -472,7 +516,7 @@ $pageCount = count($pages);
     /* ---------- totais ---------- */
     .totals {
       position: relative;
-      height: 136pt;
+      height: 170pt;
       border-top: 1.5pt solid #8C8C8C;
       font-size: 8.5pt;
       line-height: 10pt;
@@ -535,6 +579,36 @@ $pageCount = count($pages);
       width: 180pt;
       top: 134pt;
       border-top: 2pt solid #555;
+    }
+
+    .tax-summary {
+      position: absolute;
+      left: 0;
+      top: 112pt;
+      width: 295pt;
+      font-size: 5.5pt;
+      line-height: 7pt;
+    }
+
+    .tax-summary table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .tax-summary th,
+    .tax-summary td {
+      overflow: hidden;
+      padding: 1pt 2pt;
+      border-bottom: .4pt solid #d2d2d2;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .tax-summary th:first-child,
+    .tax-summary td:first-child {
+      width: 28pt;
+      text-align: left;
     }
 
     /* ---------- rodapé ---------- */
@@ -616,9 +690,11 @@ $pageCount = count($pages);
         </div>
         <div class="drow r3">
           <span class="x1">Endereço:</span>
-          <span class="x2" style="width:180pt"><?= e($clientAddress) ?></span>
-          <span class="x3">Observações:</span>
-          <span class="x4" style="width:95pt"><?= e($inv['observation'] ?: '-') ?></span>
+          <span class="detail-value"><?= e($clientAddress) ?></span>
+        </div>
+        <div class="drow r4">
+          <span class="x1">Observações:</span>
+          <span class="detail-value"><?= nl2br(e($observationText !== '' ? $observationText : '-')) ?></span>
         </div>
 
         <!-- TABELA + TOTAIS -->
@@ -638,13 +714,14 @@ $pageCount = count($pages);
             <?php foreach ($pageItems as $it):
               $base = (float)$it['unit_price'] * (float)$it['quantity'];
               $discount = $base * ((float)$it['discount'] / 100);
-              $total = $base - $discount + (($base - $discount) * ((float)$it['tax'] / 100)); ?>
+              $effectiveRate = bx_document_effective_tax_rate($it['tax'], (string)($inv['vat_regime'] ?? ''));
+              $total = $base - $discount + (($base - $discount) * ($effectiveRate / 100)); ?>
               <div class="irow">
                 <span class="c c-code"><?= e($it['code']) ?></span>
                 <div class="desc"><?= e(itemLabel($it)) ?></div>
                 <span class="c c-price"><?= e($money($it['unit_price'])) ?></span>
                 <span class="c c-qty"><?= e($it['quantity']) ?></span>
-                <span class="c c-tax"><?= e($it['tax']) ?>%</span>
+                <span class="c c-tax"><?= e(number_format($effectiveRate, 2, ',', '')) ?>%</span>
                 <span class="c c-disc"><?= e($it['discount']) ?>%</span>
                 <span class="c c-total"><?= e($money($total)) ?></span>
               </div>
@@ -671,6 +748,25 @@ $pageCount = count($pages);
 
             <div class="t" style="left:0;top:96pt">Dados bancários:</div>
             <div class="t lv" style="top:96pt"><?= e($iban) ?></div>
+
+            <div class="tax-summary" aria-label="Resumo por taxa de IVA">
+              <table>
+                <thead>
+                  <tr><th>Taxa</th><th>Base</th><th>Valor (IVA)</th><th>Retenção</th><th>Líquido</th></tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($taxSummary['rows'] as $taxRow): ?>
+                    <tr>
+                      <td><?= e(number_format($taxRow['rate'], 2, ',', '')) ?>%</td>
+                      <td><?= e($money($taxRow['base'])) ?></td>
+                      <td><?= e($money($taxRow['iva'])) ?></td>
+                      <td><?= e($money($taxRow['retention'])) ?></td>
+                      <td><?= e($money($taxRow['net'])) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
 
             <!-- direita -->
             <div class="t rl" style="top:32pt">Total líquido:</div>

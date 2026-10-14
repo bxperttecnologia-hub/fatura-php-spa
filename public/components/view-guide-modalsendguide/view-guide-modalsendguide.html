@@ -1,0 +1,60 @@
+<div class="modal fade" id="modalSendGuide" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <form id="formSendGuide" class="modal-content needs-validation" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <span class="material-icons-outlined me-1" data-i18n="mail">mail</span><span data-i18n="enviar-guia-por-e-mail"> Enviar guia por e-mail
+                    </span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-8">
+                            <label class="form-label" data-i18n="para">Para</label>
+                            <input type="email" class="form-control" name="to" required>
+                            <div class="invalid-feedback"><span data-i18n="e-mail-invalido">E-mail inválido.</span></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" data-i18n="cc-opcional">Cc (opcional)</label>
+                            <input type="email" class="form-control" name="cc">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" data-i18n="assunto">Assunto</label>
+                        <input type="text" class="form-control" name="subject" required>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label" data-i18n="mensagem">Mensagem</label>
+                        <div id="editor-toolbar">
+                            <span class="ql-formats">
+                                <button class="ql-bold"></button>
+                                <button class="ql-italic"></button>
+                                <button class="ql-underline"></button>
+                            </span>
+                            <span class="ql-formats">
+                                <button class="ql-list" value="ordered"></button>
+                                <button class="ql-list" value="bullet"></button>
+                            </span>
+                            <span class="ql-formats">
+                                <button class="ql-link"></button>
+                            </span>
+                        </div>
+                        <div id="editor-container" style="height:280px"></div>
+                        <textarea name="body" id="body-hidden" class="d-none"></textarea>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="chkAnexarGuide" name="attach" checked>
+                        <label class="form-check-label" for="chkAnexarGuide">
+                            <span class="material-icons-outlined align-middle" data-i18n="picture-as-pdf">picture_as_pdf</span><span data-i18n="anexar-pdf-da-guia"> Anexar PDF da guia
+                        </span></label>
+                    </div>
+                    <input type="hidden" name="guide_id" id="email_guide_id">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <span class="material-icons-outlined align-middle me-1" data-i18n="send">send</span><span data-i18n="enviar-e-mail"> Enviar e-mail
+                    </span></button>
+                </div>
+            </form>
+        </div>
+    </div>

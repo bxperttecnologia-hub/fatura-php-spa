@@ -9,6 +9,7 @@ function subscription_plans(): array
       'price' => 15900,
       'invoice_limit_month' => 15,
       'user_limit' => 2,
+      'company_limit' => 1,
       'rh_employee_limit' => 0,
       'stock_item_limit' => 0,
       'features' => [
@@ -24,6 +25,7 @@ function subscription_plans(): array
       'price' => 17900,
       'invoice_limit_month' => 30,
       'user_limit' => 3,
+      'company_limit' => 2,
       'rh_employee_limit' => 5,
       'stock_item_limit' => 0,
       'features' => [
@@ -37,6 +39,7 @@ function subscription_plans(): array
       'price' => 23600,
       'invoice_limit_month' => 70,
       'user_limit' => 4,
+      'company_limit' => 5,
       'rh_employee_limit' => 15,
       'stock_item_limit' => 50,
       'features' => [
@@ -50,6 +53,7 @@ function subscription_plans(): array
       'price' => 28000,
       'invoice_limit_month' => null, // ilimitado
       'user_limit' => 10,
+      'company_limit' => null, // ilimitado
       'rh_employee_limit' => 70,
       'stock_item_limit' => 300,
       'features' => [
@@ -59,6 +63,15 @@ function subscription_plans(): array
       ],
     ],
   ];
+}
+
+function subscription_owned_company_count(PDO $pdo, int $user_id): int
+{
+  if ($user_id <= 0) return 0;
+
+  $stmt = $pdo->prepare("SELECT COUNT(*) FROM company_has_user WHERE user_id = ? AND role IN ('3', 'owner')");
+  $stmt->execute([$user_id]);
+  return (int)$stmt->fetchColumn();
 }
 
 function subscription_get_company(PDO $pdo, int $company_id): array

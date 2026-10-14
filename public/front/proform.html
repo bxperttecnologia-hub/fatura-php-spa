@@ -1,0 +1,162 @@
+<script src="/assets/js/app-context.js"></script>
+
+<style>
+    .invoice-header {
+        background: #f6f6f6;
+        border: 1px solid #e1e1e1;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;
+        padding: 18px 20px 10px 20px;
+    }
+
+    .pagea4 {
+        width: 190mm;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    .invoice-header .d-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .invoice-header span {
+        font-size: 1.25rem;
+        font-weight: 500;
+        color: #232323;
+    }
+
+    .invoice-header #fatura-id {
+        font-weight: 600;
+    }
+
+    .invoice-header .subtitle {
+        display: block;
+        font-size: .75rem;
+        color: #666;
+        margin-top: -3px;
+        letter-spacing: .5px;
+    }
+
+    #status-invoice {
+        border: 1px solid #267fa8;
+        color: #267fa8;
+        border-radius: 4px;
+        padding: 2px 16px;
+        font-size: 1em;
+        font-weight: 500;
+        background: #fff;
+        min-width: 64px;
+        text-align: center;
+    }
+
+    /* ② –– painel lateral */
+    .action-panel {
+        position: sticky;
+        top: 60px;
+        /* ou 16px, ajusta pra não grudar total no topo */
+        align-self: flex-start;
+        /* mantém os outros estilos */
+        width: 240px;
+        background: #fff;
+        /* border: 1px solid #dee2e6; */
+        border-radius: .5rem;
+        /* box-shadow: 0 0 .75rem rgba(0, 0, 0, .08); */
+        padding: 1rem;
+        font-size: .925rem;
+        z-index: 10;
+        /* pra ficar acima de conteúdo se preciso */
+    }
+
+    .action-panel .btn {
+        display: flex;
+        align-items: center;
+        /* ícone + texto centralizados */
+        gap: .35rem;
+    }
+
+    .action-panel .section-title {
+        font-weight: 600;
+        font-size: .75rem;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        margin: .75rem 0 .25rem;
+        border-bottom: 1px solid #ced4da;
+        padding-bottom: 2px;
+        color: #6c757d;
+    }
+</style>
+
+<main>
+    <!-- ===== CONTAINER LADO‑A‑LADO ===== -->
+    <div class="d-flex gap-4 mt-5 no-print justify-content-center align-items-center">
+        <!-- ==== FATURA (cresce até encher) ==== -->
+        <div class=" flex-column d-flex justify-content-center">
+
+            <div class="invoice-header pagea4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <span class="mb-0">Proforma nº <span id="fatura-id"></span></span>
+                        <span class="subtitle" id="subtitle-client"></span>
+                    </div>
+                    <div>
+                        <span id="status-invoice" class="d-none"></span>
+                    </div>
+                </div>
+            </div>
+            <div id="preloader" style="display:none;">Carregando...</div>
+            <div id="fatura-container"
+                class="invoiceContainer shadow-sm bg-white ">
+                <!-- aqui dentro já está todo o HTML da fatura -->
+            </div>
+        </div>
+
+        <!-- ③ –– Painel -->
+        <aside class="action-panel shadow-sm">
+
+            <button class="btn text-center align-items-center align-content-center btn-primary w-100 mb-2" id="btnEditar">
+                <span class="material-icons-outlined">edit</span>
+                Editar 
+            </button>
+
+            <button class="btn btn-warning w-100 mb-2" id="btnChangeToInvoice">
+                <span class="material-icons-outlined">check_circle</span>
+                Emitir Fatura
+            </button>
+
+            <!-- grupo Documento -->
+
+            <button class="btn text-center d-none align-items-center align-content-center btn-danger w-100 mb-2" id="generatePdf">
+                <span class="material-icons-outlined">picture_as_pdf</span>
+                Baixar PDF
+            </button>
+
+            <button class="btn text-center d-none align-items-center align-content-center btn-primary text-white w-100 mb-2" id="btnEnviar"
+                data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
+                <span class="material-icons-outlined">send</span>
+                Enviar Proforma
+            </button>
+
+        </aside>
+    </div>
+
+    <!-- Modal -->
+    <div data-component-placeholder="proform-modalpagamento"></div>
+
+    <div data-component-placeholder="proform-modalreceipts"></div>
+
+    <div data-component-placeholder="proform-modalnotes"></div>
+
+
+    <!-- Modal :: Enviar fatura por e‑mail -->
+    <div data-component-placeholder="proform-modalenviaremail"></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="/assets/proform/invoice.css">
+<link rel="stylesheet" href="/assets/proform/invoice_footer.css">
+<script src="/assets/proform/invoice.js"></script>
+
+
+<script type="module" src="/components/loader.js" data-page="proform"></script>

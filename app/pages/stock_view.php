@@ -306,7 +306,7 @@ if (!$stockId) {
 
 
       <div class="table-responsive">
-        <table class="table" id="stockTable">
+        <table class="table bx-list-table" id="stockTable">
           <thead>
             <tr>
               <th><?= t('Código') ?></th>

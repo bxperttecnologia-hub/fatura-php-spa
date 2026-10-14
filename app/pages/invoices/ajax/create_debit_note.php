@@ -7,6 +7,10 @@ session_start();
 
 function fail(int $code, string $msg): void
 {
+    global $pdo;
+    if ($pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code($code);
     echo json_encode(['success' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
     exit;
@@ -77,7 +81,8 @@ $totalTax = round($totalTax, 2);
 $final    = round($subtotal + $totalTax, 2);
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = :id LIMIT 1");
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = :id LIMIT 1 FOR UPDATE");
     $stmt->execute([':id' => $invoiceId]);
     $inv = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -95,11 +100,9 @@ try {
     if ($statusName === 'Rascunho') {
         fail(422, 'Finalize a fatura antes de emitir a nota de débito.');
     }
-    if ($statusName === 'Cancelado') {
+    if (str_starts_with(strtolower(trim($statusName)), 'cancel')) {
         fail(422, 'Não é possível emitir nota de débito sobre uma fatura cancelada.');
     }
-
-    $pdo->beginTransaction();
 
     // Numeração sequencial por empresa e série (bloqueia para evitar duplicados)
     $serie = 'ND';

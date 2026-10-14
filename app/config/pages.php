@@ -5,7 +5,7 @@ return [
     '/'                     => ['index.php',                'Dashboard'],
     '/contacts'             => ['contacts.php',             'Clientes/Empresas'],
     '/contacts/create'      => ['contacts.php',             'Clientes/Empresas'],
-    '/items'                => ['items.php',                'Itens'],
+    '/items'                => ['items.php',                'Produtos/Serviços'],
     '/invoices'             => ['list_invoices.php',        'Faturas'],
     '/invoices/create'      => ['create_invoices.php',      'Nova fatura'],
     '/invoices/view'        => ['invoice.php',              'Fatura'],
@@ -39,4 +39,5 @@ return [
     '/ponto'                => ['ponto.php',                'Ponto'],
     '/vacations'            => ['vacations.php',            'Férias'],
     '/avaliacoes'           => ['avaliacoes.php',           'Avaliações'],
+    '/settings'             => ['list_companies.php',       'Definições'],
 ];

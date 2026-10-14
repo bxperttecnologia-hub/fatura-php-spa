@@ -1,0 +1,9 @@
+module.exports = {
+  async up(queryInterface) {
+    await queryInterface.sequelize.query("CREATE TABLE `employees` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  `company_id` int(11) NOT NULL,\n  `name` varchar(150) NOT NULL,\n  `bi` varchar(50) NOT NULL,\n  `position` varchar(100) DEFAULT NULL,\n  `email` varchar(150) DEFAULT NULL,\n  `phone_ddi` varchar(5) DEFAULT NULL,\n  `phone` varchar(30) DEFAULT NULL,\n  `salary_base` decimal(10,2) DEFAULT NULL,\n  `iban` varchar(255) NOT NULL,\n  `status` enum('ativo','inativo') DEFAULT 'ativo',\n  `created_at` timestamp NULL DEFAULT current_timestamp(),\n  `document_type` varchar(30) DEFAULT NULL,\n  `birth_date` date DEFAULT NULL,\n  `marital_status` varchar(30) DEFAULT NULL,\n  `academic_level` varchar(30) DEFAULT NULL,\n  `photo_url` varchar(255) DEFAULT NULL,\n  `doc1_url` varchar(255) DEFAULT NULL,\n  `doc2_url` varchar(255) DEFAULT NULL,\n  `contract_type` varchar(50) DEFAULT NULL,\n  `contract_end_date` date DEFAULT NULL,\n  `admission_date` date DEFAULT NULL,\n  `end_date` date DEFAULT NULL,\n  `termination_type` varchar(60) DEFAULT NULL,\n  `termination_amount` decimal(12,2) DEFAULT NULL,\n  `termination_notes` text DEFAULT NULL,\n  `position_id` int(11) DEFAULT NULL,\n  `department_id` int(11) DEFAULT NULL,\n  `manager_id` int(11) DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `position_id` (`position_id`),\n  KEY `department_id` (`department_id`),\n  KEY `manager_id` (`manager_id`),\n  CONSTRAINT `employees_ibfk_1` FOREIGN KEY (`position_id`) REFERENCES `positions` (`id`) ON DELETE SET NULL,\n  CONSTRAINT `employees_ibfk_2` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE SET NULL,\n  CONSTRAINT `employees_ibfk_3` FOREIGN KEY (`manager_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+  },
+
+  async down(queryInterface) {
+    await queryInterface.dropTable('employees');
+  },
+};

@@ -8,6 +8,7 @@ require_once '../app/views/layout_creation.php';
 <!-- JSZip: só usado para juntar vários PDFs num único .zip ("Baixar PDFs" da barra de seleção) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link rel="stylesheet" href="invoices/list_invoices.css?v=2.0">
+<link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 
 <body>
 
@@ -33,7 +34,7 @@ require_once '../app/views/layout_creation.php';
         </div>
     </div>
 
-    <main id="bxInvoicesPage">
+    <main id="bxInvoicesPage" class="bx-documents-page">
         <div class="container mt-5">
 
             <!-- ============ HEADER ============
@@ -42,18 +43,23 @@ require_once '../app/views/layout_creation.php';
                  do <hr>, e vazio de botão. O menu ancorava-se a esse wrapper (top:100%; left:0) e por isso
                  aparecia no canto esquerdo, por baixo da linha. Agora botão e menu partilham o mesmo
                  wrapper .bx-export (position:relative) e o menu usa right:0. -->
-            <div class="bx-page-header">
+            <div class="bx-page-header bx-list-header">
                 <h2 class="bx-page-title"><?= t('Minhas Faturas') ?></h2>
 
-                <div class="bx-export" id="exportMenu">
-                    <button type="button" class="bx-btn-primary" id="exportMenuBtn"
-                        aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuList">
-                        <i class="bi bi-download" aria-hidden="true"></i>
-                        <span>Exportar</span>
-                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                    </button>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <a class="bx-btn-secondary" href="/invoices/create" data-spa>
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        <span>Nova fatura</span>
+                    </a>
+                    <div class="bx-export" id="exportMenu">
+                        <button type="button" class="bx-btn-primary" id="exportMenuBtn"
+                            aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuList">
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span>Exportar</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
 
-                    <div class="bx-menu" id="exportMenuList" role="menu" aria-labelledby="exportMenuBtn">
+                        <div class="bx-menu" id="exportMenuList" role="menu" aria-labelledby="exportMenuBtn">
 
                         <!-- só aparece quando há documentos seleccionados -->
                         <div id="bxExportSelectedGroup" hidden>
@@ -93,6 +99,7 @@ require_once '../app/views/layout_creation.php';
                         <button type="button" class="bx-menu__item" role="menuitem" data-export-action="report" data-report="invoices_pending">
                             <i class="bi bi-hourglass-split" aria-hidden="true"></i> Faturas pendentes
                         </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -137,7 +144,7 @@ require_once '../app/views/layout_creation.php';
             </section>
 
             <!-- ============ FILTROS ============ -->
-            <section class="bx-filters" aria-labelledby="bxFiltersTitle">
+            <section class="bx-filters bx-list-filter-panel" aria-labelledby="bxFiltersTitle">
                 <div class="bx-section-title" id="bxFiltersTitle">Filtros</div>
                 <div class="bx-filters__grid">
 
@@ -222,21 +229,19 @@ require_once '../app/views/layout_creation.php';
 
             <!-- ============ DOCUMENTOS ============ -->
             <div class="bx-docs-header">
-                <h3 class="bx-section-title">Documentos</h3>
+                <h3 class="bx-section-title" id="bxDocumentTitle">Faturas</h3>
                 <span class="bx-muted" id="bxResultCount" aria-live="polite"></span>
             </div>
 
-            <div class="bx-table-wrap">
-                <div class="table-responsive">
-                    <table id="invoicesTable" class="table-bx-standard table nowrap w-100">
-                        <thead id="invoicesTableHead">
-                            <!-- Cabeçalho é gerado dinamicamente via JS conforme o Tipo de Documento selecionado -->
-                        </thead>
-                        <tbody>
-                            <!-- Dados gerados via JS -->
-                        </tbody>
-                    </table>
-                </div>
+            <div class="table-responsive">
+                <table id="invoicesTable" class="table-bx-standard table nowrap w-100 bx-list-table">
+                    <thead id="invoicesTableHead">
+                        <!-- Cabeçalho é gerado dinamicamente via JS conforme o Tipo de Documento selecionado -->
+                    </thead>
+                    <tbody>
+                        <!-- Dados gerados via JS -->
+                    </tbody>
+                </table>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">

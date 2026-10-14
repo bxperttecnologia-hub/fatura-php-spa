@@ -102,5 +102,5 @@ export async function render(el) {
   await load();
 }
 
-// Chamado pelo router ao sair da página (limpar DataTables, charts, etc.)
+// Chamado pelo router ao sair da página.
 export function destroy() { clearTimeout(t); }

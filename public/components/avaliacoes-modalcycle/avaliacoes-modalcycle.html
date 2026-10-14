@@ -1,0 +1,32 @@
+<div class="modal fade" id="modalCycle" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formCycle">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="novo-ciclo-de-avaliacao">Novo Ciclo de Avaliação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label data-i18n="nome-do-ciclo">Nome do ciclo</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ex: Avaliação Semestral 2026-2" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label data-i18n="inicio">Início</label>
+                            <input type="date" name="period_start" class="form-control" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label data-i18n="fim">Fim</label>
+                            <input type="date" name="period_end" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="criar-ciclo">Criar Ciclo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

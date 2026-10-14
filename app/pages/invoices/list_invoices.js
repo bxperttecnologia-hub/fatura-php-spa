@@ -195,7 +195,7 @@ $(document).ready(function () {
   }
 
   const invoiceUrl = (row) =>
-    `invoice.php?id=${String(row.issue_date || "").replaceAll("-", "")}/${row.company_id}/${row.id}`;
+    `/invoices/view?id=${encodeURIComponent(row.id)}`;
 
   const docCell = (type, label, number) => `
     <div class="bx-doc">
@@ -209,7 +209,7 @@ $(document).ready(function () {
       <i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i><span class="bx-btn__label">PDF</span>
     </button>`;
   const viewLink = (href, title, label) => `
-    <a class="bx-icon-btn" href="${href}" data-bs-toggle="tooltip" data-bs-title="${esc(title)}"
+    <a class="bx-icon-btn" href="${href}" data-spa data-bs-toggle="tooltip" data-bs-title="${esc(title)}"
       aria-label="${esc(label)}">
       <i class="bi bi-eye" aria-hidden="true"></i><span class="bx-btn__label">Visualizar</span>
     </a>`;
@@ -234,23 +234,29 @@ $(document).ready(function () {
       dateField: "issue_date",
       headerHtml: `
         <tr>
-          <th class="bx-th-check"><input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os documentos desta página"></th>
+          <th class="bx-th-check">
+            <div class="bx-status-check">
+              <input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os documentos desta página">
+              <span>Status</span>
+            </div>
+          </th>
           <th data-key="id">Documento ${SORT}</th>
           <th data-key="cliente">Cliente ${SORT}</th>
-          <th>Status</th>
           <th data-key="issue_date">Emissão ${SORT}</th>
           <th data-key="due_date">Vencimento ${SORT}</th>
+          <th>Moeda</th>
           <th data-key="final_total" class="bx-num">Total ${SORT}</th>
           <th class="text-end">Ações</th>
         </tr>
       `,
       renderRow: renderInvoiceRow,
       exportColumns: [
-        ["Documento", (r) => r.codigo],
+        ["Documento", (r) => `${r.document_type || "Fatura"} ${r.codigo || "-"}`],
         ["Cliente", (r) => r.cliente],
         ["Status", (r) => invoiceStatus(r).label],
         ["Emissão", (r) => fmtDate(r.issue_date)],
         ["Vencimento", (r) => fmtDate(r.due_date)],
+        ["Moeda", (r) => r.currency],
         [
           "Total",
           (r) => bxMoney(r.final_total, r.symbol, r.position),
@@ -757,6 +763,7 @@ $(document).ready(function () {
 
     // cabeçalho da tabela
     $("#invoicesTableHead").html(config.headerHtml);
+    $("#bxDocumentTitle").text(config.title);
 
     // label do campo "cliente/referência"
     $("#filterClientLabel").text(config.clientLabel);
@@ -845,7 +852,7 @@ $(document).ready(function () {
 
   // ==================================================
   // RENDER DE LINHA POR TIPO DE DOCUMENTO
-  // (cada <td> leva data-label: no mobile a tabela vira cartões só com CSS)
+  // (a tabela mantém as colunas e usa deslocamento horizontal em ecrãs pequenos)
   // ==================================================
   function renderInvoiceRow(row) {
     const st = invoiceStatus(row);
@@ -876,14 +883,20 @@ $(document).ready(function () {
     return `
       <tr class="invoice-row${checked ? " is-selected" : ""}" data-id="${esc(row.id)}">
         <td class="bx-td-check">
-          <input type="checkbox" class="invoice-check form-check-input" data-id="${esc(row.id)}"
-            value="${esc(row.id)}" aria-label="Selecionar factura ${esc(code)}" ${checked ? "checked" : ""}>
+          <div class="bx-status-check">
+            <input type="checkbox" class="invoice-check form-check-input" data-id="${esc(row.id)}"
+              value="${esc(row.id)}" aria-label="Selecionar factura ${esc(code)}" ${checked ? "checked" : ""}>
+            <span class="icon-statusFatura p-2 py-1"
+              style="background:${esc(row.color || "#000")}; color:${esc(row.text_color || "#fff")};"
+              data-bs-toggle="tooltip" data-bs-title="${esc(st.label)}"
+              aria-label="Estado: ${esc(st.label)}">${esc(st.label.charAt(0).toUpperCase())}</span>
+          </div>
         </td>
-        <td class="bx-td-doc">${docCell("invoices", "Fatura", code)}</td>
+        <td class="bx-td-doc">${docCell("invoices", row.document_type || "Fatura", code)}</td>
         <td class="bx-td-client">${esc(row.cliente || "-")}</td>
-        <td data-label="Status"><span class="bx-badge bx-badge--${st.key}">${esc(st.label)}</span></td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
         <td data-label="Vencimento">${dueHtml}</td>
+        <td data-label="Moeda">${esc(row.currency || "-")}</td>
         <td class="bx-num bx-money bx-td-total" data-label="Total">${bxMoney(row.final_total, row.symbol || "", row.position || "right")}</td>
         <td class="bx-td-actions">${actions}</td>
       </tr>
@@ -903,7 +916,7 @@ $(document).ready(function () {
         <td class="bx-td-actions">
           <div class="bx-actions">
             ${viewLink(
-              `invoice.php?id=${String(row.issue_date || "").replaceAll("-", "")}/${row.company_id || ""}/${row.invoice_id}`,
+              `/invoices/view?id=${encodeURIComponent(row.invoice_id)}`,
               "Ver fatura",
               "Ver fatura do recibo",
             )}
@@ -939,7 +952,7 @@ $(document).ready(function () {
         <td class="bx-td-actions">
           <div class="bx-actions">
             ${pdfBtn(
-              `data-url="invoices/debit_note_pdf.php?id=${esc(row.id)}" data-filename="NotaDebito_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
+              `data-url="/api/documents/debit-notes/${encodeURIComponent(row.id)}/pdf" data-filename="NotaDebito_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
               `Baixar PDF da nota de débito ${number}`,
               "js-pdf-url",
             )}
@@ -961,7 +974,7 @@ $(document).ready(function () {
         <td class="bx-td-actions">
           <div class="bx-actions">
             ${pdfBtn(
-              `data-url="invoices/delivery_note_pdf.php?id=${esc(row.id)}" data-filename="NotaEntrega_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
+              `data-url="/api/documents/delivery-notes/${encodeURIComponent(row.id)}/pdf" data-filename="NotaEntrega_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
               `Baixar PDF da nota de entrega ${number}`,
               "js-pdf-url",
             )}
@@ -1130,9 +1143,11 @@ $(document).ready(function () {
     renderTable();
   }
   $("#btnApplyFilters").on("click", applyFilters);
+  $("#filterClient").on("input", applyFilters);
   $("#filterClient").on("keydown", function (e) {
     if (e.key === "Enter") applyFilters();
   });
+  $("#filterStatus, #filterStartDate, #filterEndDate").on("change", applyFilters);
 
   $("#btnClearFilters").on("click", function () {
     $("#filterClient").val("");
@@ -1211,7 +1226,11 @@ $(document).ready(function () {
 
     const id = $(this).data("id");
     const row = filteredInvoices.find((r) => String(r.id) === String(id));
-    if (row) window.location.href = invoiceUrl(row);
+    if (row) {
+      const url = invoiceUrl(row);
+      if (typeof window.navigateSPA === "function") window.navigateSPA(url);
+      else window.location.href = url;
+    }
   });
 
   // ==================================================
@@ -1249,19 +1268,23 @@ $(document).ready(function () {
     if (!this.disabled) runInvoicePdf(this.dataset.id, this);
   });
 
-  // notas de débito / entrega: o PDF vem do servidor (PHP); descarrega por fetch/blob
+  // Notas de débito / entrega: a API gera o PDF e aplica o escopo da empresa do token.
   $("#invoicesTable tbody").on("click", ".js-pdf-url", async function (e) {
     e.stopPropagation();
     const btn = this;
     if (btn.disabled) return;
     setBusy(btn, true);
-    await downloadFromUrl(btn.dataset.url, {
-      fallbackName: btn.dataset.filename || "documento.pdf",
-      pendingMsg: "Gerando PDF...",
-      okMsg: "PDF baixado com sucesso",
-      expectPdf: true,
-    });
-    setBusy(btn, false);
+    const toast = bxToast("Gerando PDF...", "loading");
+    try {
+      await window.BXDocumentApi.download(btn.dataset.url, btn.dataset.filename || "documento.pdf");
+      toast.close();
+      bxToast("PDF baixado com sucesso", "success");
+    } catch (error) {
+      toast.close();
+      bxToast(error.message || "Não foi possível gerar o PDF.", "error");
+    } finally {
+      setBusy(btn, false);
+    }
   });
 
   // ==================================================
@@ -1392,10 +1415,10 @@ $(document).ready(function () {
       <button type="button" class="bx-menu__item" role="menuitem" disabled><i class="bi bi-envelope" aria-hidden="true"></i> Enviar por email <span class="bx-menu__hint">na fatura</span></button>
       <div class="bx-menu__divider" role="separator"></div>
       <button type="button" class="bx-menu__item" role="menuitem" disabled><i class="bi bi-copy" aria-hidden="true"></i> Duplicar <span class="bx-menu__hint">em breve</span></button>
+      <a class="bx-menu__item" role="menuitem" href="/invoices/create?edit_id=${encodeURIComponent(row.id)}" data-spa><i class="bi bi-pencil" aria-hidden="true"></i> Editar</a>
       ${
         isDraft
-          ? `<a class="bx-menu__item" role="menuitem" href="create_invoices.php?edit_id=${esc(row.id)}"><i class="bi bi-pencil" aria-hidden="true"></i> Editar</a>
-             <button type="button" class="bx-menu__item bx-menu__item--danger" role="menuitem" data-row-action="delete" data-id="${esc(row.id)}" data-company="${esc(row.company_id)}"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button>`
+          ? `<button type="button" class="bx-menu__item bx-menu__item--danger" role="menuitem" data-row-action="delete" data-id="${esc(row.id)}" data-company="${esc(row.company_id)}"><i class="bi bi-trash" aria-hidden="true"></i> Eliminar</button>`
           : ""
       }`;
   }
@@ -1727,7 +1750,9 @@ function downloadPDF(invoiceId, opts = {}) {
 
       if (response.logo_url) {
         const img = new Image();
-        img.src = `assets/img/companies/${response.logo_url}`;
+        img.src = /^https?:\/\//i.test(response.logo_url)
+          ? response.logo_url
+          : `assets/img/companies/${response.logo_url}`;
         doc.addImage(img, "PNG", 10, 10, 50, 15);
       }
 
@@ -2075,7 +2100,7 @@ $("#confirmDelete")
             showConfirmButton: false,
           });
 
-          // recarrega os dados sem DataTables
+          // Recarrega os dados mantendo o fluxo atual da listagem.
           $(document).trigger("reload-invoices");
         } else {
           Swal.fire({

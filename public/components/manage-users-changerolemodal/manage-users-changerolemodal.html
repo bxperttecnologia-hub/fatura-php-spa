@@ -1,0 +1,30 @@
+<div class="modal fade" id="changeRoleModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" data-i18n="mudar-role">Mudar role</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form id="changeRoleForm">
+                            <div class="modal-body">
+                                <input type="hidden" name="user_id" id="changeRoleUserId">
+                                <div class="mb-2"><b id="changeRoleUserName"></b></div>
+                                <div class="text-muted small mb-3" id="changeRoleUserEmail"></div>
+
+                                <label class="form-label" data-i18n="novo-role">Novo role</label>
+                                <select class="form-select" name="role" id="changeRoleSelect" required>
+                                    <option value="viewer" data-i18n="visualizador">Visualizador</option>
+                                    <option value="employee" data-i18n="funcionario">Funcionário</option>
+                                    <option value="admin" data-i18n="administrador">Administrador</option>
+                                    <option value="owner" data-i18n="proprietario">Proprietário</option>
+                                </select>
+                                <div class="form-text"><span data-i18n="observacao-admin-nao-pode-alterar-owner">Observação: admin não pode alterar owner.</span></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" data-i18n="salvar">Salvar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>

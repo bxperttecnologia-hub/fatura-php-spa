@@ -41,7 +41,8 @@ try {
             id,
             final_total,
             paid_total,
-            company_id
+            company_id,
+            status
         FROM invoices
         WHERE id = ?
         FOR UPDATE
@@ -52,7 +53,13 @@ try {
   $invoice = $st->fetch(PDO::FETCH_ASSOC);
 
   if (!$invoice) {
-    throw new Exception('Fatura não encontrada.');
+    throw new Exception('Fatura não encontrada.', 404);
+  }
+
+  $statusStmt = $pdo->prepare('SELECT name FROM invoice_status WHERE id = ? LIMIT 1');
+  $statusStmt->execute([$invoice['status']]);
+  if (str_starts_with(strtolower(trim((string)$statusStmt->fetchColumn())), 'cancel')) {
+    throw new Exception('Não é possível registar pagamentos numa fatura cancelada.', 422);
   }
 
   $finalTotal = round((float)$invoice['final_total'], 2);
@@ -192,7 +199,7 @@ try {
     $pdo->rollBack();
   }
 
-  http_response_code(500);
+  http_response_code(in_array($e->getCode(), [404, 422], true) ? $e->getCode() : 500);
 
   echo json_encode([
     'success' => false,

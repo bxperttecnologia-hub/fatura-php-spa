@@ -1,0 +1,24 @@
+<div class="modal fade" id="checkCollaboratorModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" data-i18n="adicionar-colaborador">Adicionar colaborador</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form id="checkCollaboratorForm">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="email-do-colaborador">Email do colaborador</label>
+                                    <input type="email" class="form-control" name="email" placeholder="email@exemplo.com" required autocomplete="off" inputmode="email">
+                                    <div class="form-text"><span data-i18n="digite-o-email-e-clique-em-continuar-para-verificar-se-ja-existe-conta-no-sistema">Digite o email e clique em Continuar para verificar se já existe conta no sistema.</span></div>
+                                </div>
+                                <!-- loading removido a pedido -->
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" id="checkContinueBtn" disabled data-i18n="continuar">Continuar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>

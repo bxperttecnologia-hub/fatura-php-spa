@@ -35,6 +35,7 @@ try {
         SELECT 
             i.id,
             i.company_id,
+            i.document_type,
 
             ivs.name AS status_invoice,
             ivs.color,

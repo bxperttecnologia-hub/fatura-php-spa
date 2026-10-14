@@ -1,0 +1,45 @@
+/* Rodapé e barras extras para fatura */
+.tax-notes{
+  margin-top:8px;
+  border-top:1px solid #000;
+  font-size:.72rem;
+}
+.tax-notes-row{
+  display:grid;
+  grid-template-columns:140px 1fr;
+  gap:10px;
+  padding:3px 0;
+  border-bottom:1px solid #000;
+}
+.tax-notes-row .lbl{font-weight:700;}
+.tax-notes-row .val{font-weight:400;}
+
+.inv-footer{
+  /* Na tela: não fixa no viewport (evita aparecer fora do container da fatura) */
+  position:relative;
+  margin-top:10px;
+  padding:0;
+  font-size:.70rem;
+  color:#111;
+}
+.inv-footer-line{
+  border-top:1px solid #000;
+  padding-top:4px;
+  text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Se algum dia você gerar via print CSS (não html2canvas), fixa no rodapé */
+@media print{
+  .inv-footer{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:10mm;
+    padding:0 12mm;
+  }
+}
+.inv-footer-name{font-weight:700;}
+.inv-footer-sep{padding:0 6px;}

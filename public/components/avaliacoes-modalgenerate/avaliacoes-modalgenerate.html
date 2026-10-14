@@ -1,0 +1,34 @@
+<div class="modal fade" id="modalGenerate" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formGenerate">
+                <input type="hidden" name="cycle_id">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="gerar-avaliacoes-para-o-ciclo">Gerar Avaliações para o Ciclo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label data-i18n="modelo-de-avaliacao">Modelo de avaliação</label>
+                        <select name="template_id" class="form-control" id="selectGenerateTemplate" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label data-i18n="departamento-opcional">Departamento (opcional)</label>
+                        <select name="department_id" class="form-control" id="selectGenerateDepartment">
+                            <option value="" data-i18n="todos-os-departamentos">— Todos os departamentos —</option>
+                        </select>
+                    </div>
+                    <p class="text-muted small" data-i18n="gera-uma-avaliacao-pendente-para-cada-funcionario-ativo-do-departamento-escolhido-ou-de-todos-atribuida-a-chefia-direta-organograma-como-avaliadora-quem-nao-tiver-chefia-direta-definida-fica-de-fora">
+                        Gera uma avaliação pendente para cada funcionário ativo do departamento
+                        escolhido (ou de todos), atribuída à chefia direta (organograma) como avaliadora.
+                        Quem não tiver chefia direta definida fica de fora.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="gerar">Gerar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

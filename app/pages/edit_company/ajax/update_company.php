@@ -1,6 +1,24 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../helpers/company_logo.php';
 header('Content-Type: application/json');
+
+session_start();
+
+$sessionCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);
+if ($sessionCompanyId <= 0) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Sessão inválida.']);
+    exit;
+}
+
+$expectedToken = (string)($_SESSION['csrf'] ?? '');
+$sentToken = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+if ($expectedToken === '' || !hash_equals($expectedToken, $sentToken)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Token CSRF inválido.']);
+    exit;
+}
 
 try {
 
@@ -12,6 +30,11 @@ try {
 
     if ($companyId <= 0) {
         throw new Exception('ID da empresa inválido.');
+    }
+    if ($companyId !== $sessionCompanyId) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Acesso negado.']);
+        exit;
     }
 
     // =============================
@@ -26,6 +49,7 @@ try {
     }
 
     $phone = trim($_POST['phone'] ?? '');
+    $phone_ddi = trim($_POST['phone_ddi'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $website = trim($_POST['website'] ?? '');
     $address = trim($_POST['address'] ?? '');
@@ -122,37 +146,8 @@ try {
     // =============================
     $logoPath = null;
 
-    if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-
-        $fileTmpPath = $_FILES['logo']['tmp_name'];
-        $originalName = $_FILES['logo']['name'] ?? '';
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-        $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
-
-        if (!in_array($ext, $allowed, true)) {
-            throw new Exception('Formato de logo inválido.');
-        }
-
-        if ($_FILES['logo']['size'] > 2 * 1024 * 1024) {
-            throw new Exception('Logo muito grande (máx 2MB).');
-        }
-
-        $fileName = uniqid('logo_', true) . '.' . $ext;
-
-        $uploadDir = __DIR__ . '/../../assets/img/companies';
-
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0775, true);
-        }
-
-        $destPath = $uploadDir . '/' . $fileName;
-
-        if (!move_uploaded_file($fileTmpPath, $destPath)) {
-            throw new Exception('Erro ao salvar logo.');
-        }
-
-        $logoPath = $fileName;
+    if (isset($_FILES['logo']) && (int) ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        $logoPath = upload_company_logo_to_api($_FILES['logo'], $companyId);
     }
 
     // =============================
@@ -161,6 +156,7 @@ try {
     $query = "UPDATE companies SET
         name = :name,
         registration_number = :registration_number,
+        phone_ddi = :phone_ddi,
         phone = :phone,
         email = :email,
         website = :website,
@@ -197,6 +193,7 @@ try {
     // =============================
     $stmt->bindValue(':name', $name);
     $stmt->bindValue(':registration_number', $registration_number);
+    $stmt->bindValue(':phone_ddi', $phone_ddi);
     $stmt->bindValue(':phone', $phone);
     $stmt->bindValue(':email', $email);
     $stmt->bindValue(':website', $website);
@@ -237,7 +234,8 @@ try {
 
 } catch (Exception $e) {
 
-    http_response_code(400);
+    $statusCode = $e->getCode();
+    http_response_code($statusCode >= 400 && $statusCode <= 599 ? $statusCode : 400);
 
     echo json_encode([
         'success' => false,

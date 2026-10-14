@@ -19,6 +19,84 @@ export function updateChrome() {
   if (el) el.textContent = u ? u.nome : '';
 }
 
+function updateBreadcrumb(path, title) {
+  const breadcrumb = document.getElementById('app-breadcrumb');
+  if (!breadcrumb) return;
+
+  const normalizedPath = normalize(path);
+  if (normalizedPath === '/login' || normalizedPath === '/login.php') {
+    breadcrumb.hidden = true;
+    breadcrumb.replaceChildren();
+    return;
+  }
+
+  breadcrumb.hidden = false;
+  const items = [];
+  const pages = window.APP.pages ?? {};
+  const sectionRoutes = {
+    '/employees': '/rh',
+    '/departments': '/rh',
+    '/positions': '/rh',
+    '/organograma': '/rh',
+    '/payroll': '/rh',
+    '/ponto': '/rh',
+    '/vacations': '/rh',
+    '/avaliacoes': '/rh',
+  };
+  const currentLabels = {
+    '/invoices/create': 'Emitir Nova Fatura',
+    '/proformas/create': 'Emitir Nova Proforma',
+    '/guides/list': 'Lista de Guias',
+    '/stock/view': 'Detalhes do Stock',
+  };
+
+  const firstSegment = normalizedPath.split('/').slice(0, 2).join('/');
+  const parentPath = sectionRoutes[normalizedPath]
+    ?? (normalizedPath !== firstSegment && pages[firstSegment] ? firstSegment : null);
+  const currentLabel = currentLabels[normalizedPath] || title || pages[normalizedPath]?.title || 'Página';
+
+  if (normalizedPath === '/') {
+    items.push({ label: 'Início', current: true });
+  } else {
+    items.push({ label: 'Início', href: '/' });
+    if (parentPath) {
+      items.push({
+        label: pages[parentPath]?.title || parentPath,
+        href: parentPath,
+      });
+    }
+    items.push({ label: currentLabel, current: true });
+  }
+
+  const fragment = document.createDocumentFragment();
+  items.forEach((item, index) => {
+    if (index > 0) {
+      const separator = document.createElement('i');
+      separator.className = 'bi bi-chevron-right';
+      separator.setAttribute('aria-hidden', 'true');
+      fragment.append(separator);
+    }
+
+    const node = item.href ? document.createElement('a') : document.createElement('span');
+    node.textContent = item.label;
+    if (item.href) {
+      node.href = item.href;
+      node.dataset.link = '';
+    } else {
+      node.setAttribute('aria-current', 'page');
+    }
+    if (index === 0 && item.href) {
+      const homeIcon = document.createElement('i');
+      homeIcon.className = 'bi bi-house';
+      homeIcon.setAttribute('aria-hidden', 'true');
+      node.prepend(homeIcon, document.createTextNode(' '));
+    }
+    fragment.append(node);
+  });
+
+  breadcrumb.replaceChildren(fragment);
+}
+
 export async function navigate(url, push = true) {
   const id = ++navId;
   // Preserva a query string (?id=5): as páginas legadas lêem-na via $_GET
@@ -40,12 +118,13 @@ export async function navigate(url, push = true) {
   }
 
   const r = routes[path] ?? routes['/404'];
-  const el = document.getElementById('app');
+  const el = document.getElementById('app-content');
 
-  try { current?.destroy?.(); } catch (e) { console.error(e); }  // limpa DataTables, charts, mapas...
+  try { current?.destroy?.(); } catch (e) { console.error(e); }  // limpa recursos da página atual.
   current = null;
 
   updateChrome();
+  updateBreadcrumb(path, r.title);
   el.innerHTML = '<div class="spinner-border"></div>';
 
   try {

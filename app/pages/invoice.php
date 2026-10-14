@@ -1,6 +1,7 @@
 <?php
 require_once '../app/views/layout_creation.php';
 ?>
+<link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 <style>
     :root {
         --invoice-surface: #ffffff;
@@ -62,7 +63,7 @@ require_once '../app/views/layout_creation.php';
         padding: 1.25rem;
         box-shadow: var(--invoice-shadow);
         color: var(--invoice-text);
-        margin-top: 90px;
+        margin-top: 0;
     }
 
     .invoice-header__eyebrow {
@@ -79,7 +80,7 @@ require_once '../app/views/layout_creation.php';
 
     .invoice-header__title {
         margin: 0;
-        font-size: clamp(1.35rem, 2vw, 1.7rem);
+        font-size: .95rem;
         line-height: 1.2;
         font-weight: 700;
         color: var(--invoice-text);
@@ -308,7 +309,7 @@ require_once '../app/views/layout_creation.php';
         background: #eef7fc;
     }
 
-    .pp-format:has(input:checked) .material-icons-outlined {
+    .pp-format:has(input:checked) .bi {
         color: #007abd;
     }
 
@@ -351,8 +352,8 @@ require_once '../app/views/layout_creation.php';
         /* fixo, alinhado com a largura máxima da página */
         .invoice-side-card {
             position: fixed;
-            top: 1rem;
-            right: max(1rem, calc((100% - 1240px) / 2 + 1rem));
+            top: 2.25rem;
+            right: max(1rem, calc((100% - 1360px) / 2 + 1rem));
             max-height: calc(100vh - 2rem);
             overflow-y: auto;
         }
@@ -394,7 +395,7 @@ require_once '../app/views/layout_creation.php';
     }
 </style>
 
-<main class="invoice-shell">
+<main class="invoice-shell bx-document-view">
     <div class="invoice-layout no-print">
 
         <!-- Esquerda: layout da fatura -->
@@ -407,7 +408,7 @@ require_once '../app/views/layout_creation.php';
 
         <!-- Direita: card com informação + botões -->
         <aside class="invoice-side-card" aria-label="Ações da fatura">
-            <div class="invoice-header__eyebrow">Factura</div>
+            <div class="invoice-header__eyebrow" id="invoice-document-label">Factura</div>
             <h1 class="invoice-header__title">
                 <strong id="fatura-id">-</strong>
                 <span id="status-invoice" class="invoice-status-badge is-draft d-none"></span>
@@ -416,22 +417,22 @@ require_once '../app/views/layout_creation.php';
             <div class="invoice-header__meta">Original</div>
 
             <div class="invoice-toolbar" aria-label="Ações principais">
-                <button type="button" class="btn btn-success d-none" id="btnRecibo" aria-label="Pagamento e recibo">
-                    <span class="material-icons-outlined" aria-hidden="true">paid</span>
+                <button type="button" class="bx-btn-primary d-none" id="btnRecibo" aria-label="Pagamento e recibo">
+                    <i class="bi bi-cash-coin" aria-hidden="true"></i>
                     Pagamento / Recibo
                 </button>
 
                 <div class="d-none" id="generatePdf">
-                    <button class="btn-invoice btn-invoice--secondary" type="button" id="btnFormatoImpressao"
+                    <button class="bx-btn-secondary" type="button" id="btnFormatoImpressao"
                         data-bs-toggle="modal" data-bs-target="#modalPrintPreview" aria-label="Imprimir ou baixar a factura">
-                        <span class="material-icons-outlined" aria-hidden="true">print</span>
-                        Imprimir / Baixar
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        Imprimir / Baixar PDF
                     </button>
                 </div>
 
-                <button type="button" class="btn-invoice btn-invoice--secondary d-none" id="btnEnviar"
+                <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
                     data-bs-toggle="modal" data-bs-target="#modalEnviarEmail" aria-label="Enviar factura por e-mail">
-                    <span class="material-icons-outlined" aria-hidden="true">send</span>
+                    <i class="bi bi-send" aria-hidden="true"></i>
                     Enviar factura
                 </button>
             </div>
@@ -440,37 +441,37 @@ require_once '../app/views/layout_creation.php';
                 <span class="pp-label">Mais ações</span>
 
                 <button type="button" class="dropdown-item d-none" id="btnCloneToInvoice" aria-label="Clonar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">content_copy</span>
+                    <i class="bi bi-copy" aria-hidden="true"></i>
                     Clonar factura
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaCredito" aria-label="Emitir nota de crédito">
-                    <span class="material-icons-outlined" aria-hidden="true">assignment_return</span>
+                    <i class="bi bi-reply-all" aria-hidden="true"></i>
                     Nota de crédito
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaDebito" aria-label="Emitir nota de débito">
-                    <span class="material-icons-outlined" aria-hidden="true">request_quote</span>
+                    <i class="bi bi-receipt" aria-hidden="true"></i>
                     Nota de débito
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaEntrega" aria-label="Emitir nota de entrega">
-                    <span class="material-icons-outlined" aria-hidden="true">local_shipping</span>
+                    <i class="bi bi-truck" aria-hidden="true"></i>
                     Nota de entrega
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnEditar" aria-label="Editar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">edit</span>
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
                     Editar
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnFinalizar" aria-label="Finalizar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">check_circle</span>
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>
                     Finalizar
                 </button>
 
                 <button type="button" class="dropdown-item danger d-none" id="btnDeleteInvoice" aria-label="Apagar factura">
-                    <span class="material-icons-outlined" aria-hidden="true">delete</span>
+                    <i class="bi bi-trash" aria-hidden="true"></i>
                     Apagar
                 </button>
             </div>
@@ -667,42 +668,189 @@ require_once '../app/views/layout_creation.php';
     </div>
 
 
+    <style>
+        #modalEnviarEmail .modal-content {
+            border: 0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 24px 64px rgba(15, 39, 78, .18);
+        }
+
+        #modalEnviarEmail .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #e7edf5;
+            background: #f8fbff;
+        }
+
+        #modalEnviarEmail .modal-body {
+            padding: 1.5rem;
+        }
+
+        #modalEnviarEmail .email-field-label {
+            color: #263b59;
+            font-size: .9rem;
+            font-weight: 650;
+        }
+
+        #modalEnviarEmail .email-chipbox {
+            display: flex;
+            min-height: 46px;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .6rem;
+            border: 1px solid #cbd6e5;
+            border-radius: .6rem;
+            background: #fff;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        #modalEnviarEmail .email-chipbox:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .18);
+        }
+
+        #modalEnviarEmail .email-chipbox.is-invalid {
+            border-color: #dc3545;
+        }
+
+        #modalEnviarEmail .email-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            max-width: 100%;
+            padding: .25rem .45rem .25rem .65rem;
+            border: 1px solid #d4e5ff;
+            border-radius: 999px;
+            background: #edf5ff;
+            color: #174b91;
+            font-size: .85rem;
+            overflow-wrap: anywhere;
+        }
+
+        #modalEnviarEmail .email-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+        }
+
+        #modalEnviarEmail .email-chip button {
+            display: inline-grid;
+            width: 1.3rem;
+            height: 1.3rem;
+            place-items: center;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        #modalEnviarEmail .email-chip button:hover,
+        #modalEnviarEmail .email-chip button:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 1px;
+        }
+
+        #modalEnviarEmail .email-chip-input {
+            flex: 1 1 190px;
+            min-width: 150px;
+            padding: .2rem .15rem;
+            border: 0;
+            outline: 0;
+            color: #172b4d;
+        }
+
+        #modalEnviarEmail .email-chip-input:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        #modalEnviarEmail .email-cc-toggle {
+            padding: .2rem 0;
+            border: 0;
+            background: transparent;
+            color: #1769c2;
+            font-size: .88rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        #modalEnviarEmail .email-cc-toggle:hover {
+            color: #0b4d96;
+            text-decoration: underline;
+        }
+
+        #modalEnviarEmail .modal-footer {
+            padding: 1rem 1.5rem 1.25rem;
+            border-top: 1px solid #e7edf5;
+        }
+
+        @media (max-width: 575.98px) {
+            #modalEnviarEmail .modal-body,
+            #modalEnviarEmail .modal-header,
+            #modalEnviarEmail .modal-footer {
+                padding-right: 1rem;
+                padding-left: 1rem;
+            }
+        }
+    </style>
+
     <!-- Modal :: Enviar fatura por e‑mail -->
-    <div class="modal fade" id="modalEnviarEmail" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade" id="modalEnviarEmail" tabindex="-1" aria-labelledby="emailModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <form id="formEnviarEmail" class="modal-content needs-validation" novalidate>
 
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <span class="material-icons-outlined me-1">mail</span>
-                        Enviar fatura por e‑mail
+                        <i class="bi bi-envelope me-1" aria-hidden="true"></i>
+                        <span id="emailModalTitle">Enviar fatura por e‑mail</span>
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
 
                 <div class="modal-body">
-                    <!-- --- Destinatários --- -->
-                    <div class="row g-2">
-                        <div class="col-md-8">
-                            <label class="form-label">Para</label>
-                            <input type="email" class="form-control" name="to" required>
-                            <div class="invalid-feedback">E‑mail inválido.</div>
+                    <div class="mb-3">
+                        <label class="form-label email-field-label" for="emailToInput">Para</label>
+                        <div class="email-chipbox" id="emailToChipbox" role="group" aria-describedby="emailToHelp emailToError">
+                            <div class="email-chips" id="emailToChips"></div>
+                            <input type="text" class="email-chip-input" id="emailToInput" autocomplete="email"
+                                aria-label="Adicionar destinatário" aria-controls="emailToChips"
+                                placeholder="nome@exemplo.com; prima Enter">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Cc (opcional)</label>
-                            <input type="email" class="form-control" name="cc">
+                        <input type="hidden" name="to" id="emailToValue">
+                        <div class="form-text" id="emailToHelp">Pode adicionar vários endereços. Prima Enter ou use vírgula/ponto e vírgula.</div>
+                        <div class="invalid-feedback d-block" id="emailToError" role="alert" hidden></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button type="button" class="email-cc-toggle" id="emailCcToggle"
+                            aria-expanded="false" aria-controls="emailCcField">
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Adicionar Cc
+                        </button>
+                        <div class="mt-2 d-none" id="emailCcField">
+                            <label class="form-label email-field-label" for="emailCcInput">Cc</label>
+                            <div class="email-chipbox" id="emailCcChipbox" role="group" aria-describedby="emailCcHelp emailCcError">
+                                <div class="email-chips" id="emailCcChips"></div>
+                                <input type="text" class="email-chip-input" id="emailCcInput" autocomplete="email"
+                                    aria-label="Adicionar endereço em Cc" aria-controls="emailCcChips"
+                                    placeholder="nome@exemplo.com; prima Enter">
+                            </div>
+                            <input type="hidden" name="cc" id="emailCcValue">
+                            <div class="form-text" id="emailCcHelp">Os endereços em Cc recebem uma cópia deste envio.</div>
+                            <div class="invalid-feedback d-block" id="emailCcError" role="alert" hidden></div>
                         </div>
                     </div>
 
-                    <!-- --- Assunto --- -->
-                    <div class="mt-3">
-                        <label class="form-label">Assunto</label>
-                        <input type="text" class="form-control" name="subject" required>
+                    <div class="mb-3">
+                        <label class="form-label email-field-label" for="emailSubject">Assunto</label>
+                        <input type="text" class="form-control" name="subject" id="emailSubject" required>
+                        <div class="invalid-feedback">Indique o assunto do e-mail.</div>
                     </div>
 
-                    <!-- --- Editor Quill --- -->
                     <div class="mt-3">
-                        <label class="form-label">Mensagem</label>
+                        <label class="form-label email-field-label" for="editor-container">Mensagem</label>
 
                         <!-- toolbar -->
                         <div id="editor-toolbar">
@@ -721,17 +869,17 @@ require_once '../app/views/layout_creation.php';
                         </div>
 
                         <!-- área de edição -->
-                        <div id="editor-container" style="height:280px"></div>
+                        <div id="editor-container" role="textbox" aria-label="Mensagem do e-mail"
+                            aria-multiline="true" style="height:240px"></div>
 
                         <!-- texto plano/HTML que realmente será enviado -->
                         <textarea name="body" id="body-hidden" class="d-none"></textarea>
                     </div>
 
-                    <!-- Anexar PDF -->
-                    <div class="form-check mt-3">
+                    <div class="form-check mt-3 p-3 rounded-3" style="background:#f5f9ff;border:1px solid #e0ebfa">
                         <input class="form-check-input" type="checkbox" id="chkAnexar" name="attach" checked>
                         <label class="form-check-label" for="chkAnexar">
-                            <span class="material-icons-outlined align-middle">picture_as_pdf</span>
+                            <i class="bi bi-file-earmark-pdf align-middle" aria-hidden="true"></i>
                             Anexar PDF da fatura
                         </label>
                     </div>
@@ -740,9 +888,9 @@ require_once '../app/views/layout_creation.php';
                 </div>
 
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <span class="material-icons-outlined align-middle me-1">send</span>
-                        Enviar e-mail
+                    <button type="submit" class="btn btn-primary w-100" id="emailSendButton">
+                        <i class="bi bi-send align-middle me-1" aria-hidden="true"></i>
+                        <span>Enviar e-mail</span>
                     </button>
                 </div>
             </form>
@@ -754,7 +902,7 @@ require_once '../app/views/layout_creation.php';
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="printPreviewTitle">
-                        <span class="material-icons-outlined align-middle me-1">print</span>
+                        <i class="bi bi-printer align-middle me-1" aria-hidden="true"></i>
                         Pré-visualizar e imprimir
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -768,7 +916,7 @@ require_once '../app/views/layout_creation.php';
 
                             <label class="pp-format">
                                 <input type="radio" name="pp_format" value="a4" checked>
-                                <span class="material-icons-outlined">description</span>
+                                <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
                                 <span>
                                     <strong>Fatura A4</strong>
                                     <small>PDF em folha A4, com Original e Duplicado</small>
@@ -777,7 +925,7 @@ require_once '../app/views/layout_creation.php';
 
                             <label class="pp-format">
                                 <input type="radio" name="pp_format" value="thermal">
-                                <span class="material-icons-outlined">receipt_long</span>
+                                <i class="bi bi-receipt" aria-hidden="true"></i>
                                 <span>
                                     <strong>Talão térmico</strong>
                                     <small>Rolo de 80mm (impressora POS)</small>
@@ -801,7 +949,7 @@ require_once '../app/views/layout_creation.php';
                                 <span>A preparar a pré-visualização...</span>
                             </div>
                             <div id="ppError" class="pp-overlay d-none">
-                                <span class="material-icons-outlined">error_outline</span>
+                                <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
                                 <span id="ppErrorText"></span>
                                 <button type="button" class="btn btn-light btn-sm" id="ppRetry">Tentar novamente</button>
                             </div>
@@ -813,11 +961,11 @@ require_once '../app/views/layout_creation.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fechar</button>
                     <button type="button" class="btn btn-outline-primary" id="ppDownload" disabled>
-                        <span class="material-icons-outlined align-middle" style="font-size:18px;">download</span>
+                        <i class="bi bi-download align-middle" aria-hidden="true"></i>
                         Baixar PDF
                     </button>
                     <button type="button" class="btn btn-primary" id="ppPrint" disabled>
-                        <span class="material-icons-outlined align-middle" style="font-size:18px;">print</span>
+                        <i class="bi bi-printer align-middle" aria-hidden="true"></i>
                         Imprimir
                     </button>
                 </div>
@@ -827,6 +975,7 @@ require_once '../app/views/layout_creation.php';
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="invoices/invoice.js?v=4.9"></script>
+<script src="/assets/js/document-tax.js"></script>
+<script src="invoices/invoice.js?v=5.9" data-spa-repeat></script>
 
 <?php require_once '../app/views/footer.php'; ?>

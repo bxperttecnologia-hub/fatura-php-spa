@@ -110,7 +110,7 @@
             <div class="modal-header modal-item">
                 <div>
                     <h5 class="modal-title"><?= t('Editar Item') ?></h5>
-                    <small class="opacity-75" style="margin-left: -50px !important;">
+                    <small class="opacity-75">
                         Preencha os dados do produto/serviço
                     </small>
                 </div>
@@ -123,7 +123,7 @@
 
                     <!-- IDS -->
                     <input type="hidden" name="id">
-                    <input type="hidden" name="id_company" value="<?= (int)($_SESSION['user']['company_id'] ?? 0) ?>">
+                    <input type="hidden" name="id_company" value="<?= $_SESSION['user']['company_id'] ?>">
 
                     <!-- ========================= -->
                     <!-- 1. IDENTIFICAÇÃO -->
@@ -259,7 +259,8 @@
 
                             <div class="col-md-4">
                                 <label class="form-label"><?= t('Preço Unitário') ?></label>
-                                <input type="number" class="form-control" name="unit_price" step="0.01" required>
+                                <input type="text" class="form-control" id="edit_unit_price_display" data-price-display inputmode="decimal" autocomplete="off" required>
+                                <input type="hidden" name="unit_price" id="edit_unit_price" data-price-value>
                             </div>
 
                             <!-- IVA -->
@@ -319,5 +320,3 @@
         </div>
     </div>
 </div>
-
-<script src="/assets/js/modal_item.js"></script>

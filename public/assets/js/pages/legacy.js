@@ -1,6 +1,6 @@
 // Carrega uma página PHP legada (app/pages/*.php) para dentro do #app.
 // O servidor (public/view.php) devolve só o conteúdo; aqui injectamos o HTML, executamos os
-// <script> da página e limpamos tudo (DataTables, charts, intervals, handlers) ao sair.
+// <script> da página e limpamos os recursos e handlers ao sair.
 import { navigate } from '../router.js';
 
 const $ = window.jQuery;
@@ -17,10 +17,15 @@ function patchGlobals() {
   patched = true;
 
   if ($) {
-    $.ajaxPrefilter(o => { if (o.url) o.url = toAbs(o.url); });
+    $.ajaxPrefilter((o, _originalOptions, xhr) => {
+      if (!o.url) return;
+      o.url = toAbs(o.url);
+      if (new URL(o.url, location.href).origin === location.origin && window.APP.csrf) {
+        xhr.setRequestHeader('X-CSRF-Token', window.APP.csrf);
+      }
+    });
     // 401 em qualquer endpoint AJAX legado (sessão expirada) -> volta ao login
     $.ajaxSetup({
-      headers: { 'X-CSRF-Token': window.APP.csrf },
       statusCode: { 401: () => document.dispatchEvent(new Event('app:unauthorized')) },
     });
 
@@ -52,35 +57,41 @@ function patchGlobals() {
   }
 }
 
-// Scripts: externos já presentes no shell (jQuery, DataTables…) não se recarregam;
+// Scripts externos já presentes no shell não se recarregam.
+// Scripts da aplicação são reiniciados a cada montagem da rota, para refazer handlers e pedidos AJAX;
 // inline via eval indirecto -> let/const ficam locais (sem "already declared" ao voltar à página),
 // var/function ficam globais (onclick="fn()" continua a funcionar).
-async function runScripts(scripts) {
+async function runScripts(scripts, page) {
   const loaded = new Set([...document.scripts].map(s => s.src).filter(Boolean));
   for (const s of scripts) {
     try {
       const src = s.getAttribute('src');
       if (src) {
         const url = new URL(src, location.origin).href;
-        if (loaded.has(url)) continue;
+        const repeat = s.hasAttribute('data-spa-repeat') || new URL(url).origin === location.origin;
+        if (loaded.has(url) && !repeat) continue;
         await new Promise(ok => {
           const el = document.createElement('script');
           el.src = url; el.onload = el.onerror = ok;
+          if (repeat) {
+            el.dataset.spaPageScript = 'true';
+            page.scripts.add(el);
+          }
           document.head.appendChild(el);
           loaded.add(url);
         });
       } else {
         (0, eval)(s.textContent);
       }
-    } catch (e) { console.error('Erro em script da página', e); }
+    } catch (e) { console.error('Erro em script da página'); }
   }
 }
 
 function cleanup(page) {
   page.intervals.forEach(clearInterval);
   page.listeners.forEach(([t, type, fn, opts]) => t.removeEventListener(type, fn, opts));
+  page.scripts.forEach(script => script.remove());
   if ($) { $(document).off('.spaPage'); $(window).off('.spaPage'); }
-  try { $?.fn?.dataTable?.tables?.().forEach(t => $(t).DataTable().destroy()); } catch {}
   try { Object.values(window.Chart?.instances ?? {}).forEach(c => c.destroy()); } catch {}
   document.querySelectorAll('.modal-backdrop, .select2-container--open, .select2-dropdown').forEach(n => n.remove());
   document.body.classList.remove('modal-open');
@@ -89,7 +100,7 @@ function cleanup(page) {
 }
 
 export function forRoute(routePath) {
-  const page = { intervals: new Set(), listeners: [] };
+  const page = { intervals: new Set(), listeners: [], scripts: new Set() };
 
   return {
     async render(el) {
@@ -113,10 +124,12 @@ export function forRoute(routePath) {
 
       const scripts = [...holder.querySelectorAll('script')];
       scripts.forEach(s => s.remove());
-      // O shell já tem <main id="app">: evita <main> aninhado e o margin-left do layout legado
-      holder.querySelectorAll('main.main-content').forEach(m => {
+      // O shell já tem <main id="app">: evita aplicar novamente o layout global a <main> legado
+      holder.querySelectorAll('main').forEach(m => {
         const d = document.createElement('div');
-        d.className = m.className; d.append(...m.childNodes); m.replaceWith(d);
+        for (const attr of m.attributes) d.setAttribute(attr.name, attr.value);
+        d.append(...m.childNodes);
+        m.replaceWith(d);
       });
 
       const abs = window.__spaAbs ?? (u => u);
@@ -129,7 +142,7 @@ export function forRoute(routePath) {
 
       el.append(...holder.childNodes);
       active = page;                 // a partir daqui, handlers/intervals criados pertencem a esta página
-      await runScripts(scripts);
+      await runScripts(scripts, page);
     },
     destroy() {
       cleanup(page);

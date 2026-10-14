@@ -18,11 +18,13 @@ try {
     $r->add('POST',   'auth/login',     [AuthController::class, 'login'], true);
     $r->add('POST',   'auth/logout',    [AuthController::class, 'logout'], true);
     $r->add('GET',    'auth/me',        [AuthController::class, 'me']);
+    $r->add('GET',    'documents/config', [DocumentApiController::class, 'config']);
     $r->add('GET',    'clientes',       [ClienteController::class, 'index']);
     $r->add('POST',   'clientes',       [ClienteController::class, 'store']);
     $r->add('GET',    'clientes/{id}',  [ClienteController::class, 'show']);
     $r->add('PUT',    'clientes/{id}',  [ClienteController::class, 'update']);
     $r->add('DELETE', 'clientes/{id}',  [ClienteController::class, 'destroy']);
+    $r->add('GET', 'files/companies/{company}/{name}', [FileController::class, 'show'], true);
 
     echo json_encode($r->dispatch($method, $path, $input));
 } catch (HttpException $e) {

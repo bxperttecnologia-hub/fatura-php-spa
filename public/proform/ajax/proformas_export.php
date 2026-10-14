@@ -61,7 +61,7 @@ if (isset($_GET['status'])) {
  * TODO: ajustar à tua camada de autenticação real.
  * Isto assume que o login guarda o id da empresa ativa na sessão.
  */
-$companyId = $_SESSION['company_id'] ?? null;
+$companyId = $_SESSION['user']['company_id'] ?? $_SESSION['company_id'] ?? null;
 
 if (!$companyId) {
     ob_end_clean();
@@ -195,7 +195,7 @@ try {
     }
 
     $cabecalho = [
-        'Número da Fatura',
+        'Número da Proforma',
         'Data Emissão',
         'Data Vencimento',
         'Cliente',
@@ -203,7 +203,7 @@ try {
         'Total Líquido',
         'Total Imposto',
         'Total Final',
-        'Produtos/Serviços da Fatura',
+        'Produtos/Serviços da Proforma',
     ];
 
     $totalFaturas = count($invoices);
@@ -220,7 +220,7 @@ try {
     if ($formato === 'excel') {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Faturas');
+        $sheet->setTitle('Proformas');
         $sheet->fromArray($cabecalho, null, 'A1');
 
         $row = 2;
@@ -264,7 +264,7 @@ try {
 
         ob_end_clean();
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="faturas.xlsx"');
+        header('Content-Disposition: attachment; filename="proformas.xlsx"');
         header('Cache-Control: max-age=0');
 
         $writer = new Xlsx($spreadsheet);
@@ -276,7 +276,7 @@ try {
 
         ob_end_clean();
         header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="faturas.csv"');
+        header('Content-Disposition: attachment; filename="proformas.csv"');
 
         $output = fopen('php://output', 'w');
 

@@ -1,0 +1,16 @@
+.metric-box {
+  background: linear-gradient(135deg, #eff6ff, #ffffff);
+  border-radius: 1rem;
+}
+
+.chart-panel {
+  min-height: 280px;
+}
+
+.chart-panel canvas {
+  max-height: 260px;
+}
+
+.app-shell .content-area {
+  background: #f8fafc;
+}

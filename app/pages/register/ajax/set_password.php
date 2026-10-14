@@ -1,13 +1,17 @@
 <?php
 // register/ajax/set_password.php
 // Define a senha de um utilizador recém-criado (não pede senha atual, pois ainda não existe uma).
-require_once '../../../app/config/db.php';
+ob_start();
+require_once '../../../config/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 function responder(int $status, array $data): void
 {
+    if (ob_get_length()) {
+        ob_clean();
+    }
     http_response_code($status);
     echo json_encode($data);
     exit;
@@ -16,10 +20,24 @@ function responder(int $status, array $data): void
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     responder(405, ['success' => false, 'message' => 'Método não permitido.']);
 }
+if (empty($_SESSION['csrf']) || !hash_equals((string) $_SESSION['csrf'], (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) {
+    responder(403, ['success' => false, 'message' => 'A página expirou. Recarregue e tente novamente.']);
+}
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
 if ($userId === 0) {
     responder(401, ['success' => false, 'message' => 'Sessão expirada. Faça login novamente.']);
+}
+
+$accessStmt = $pdo->prepare(
+    'SELECT 1 FROM users u
+      JOIN company_has_user chu ON chu.user_id = u.id
+     WHERE u.id = ? AND u.phone_verified_at IS NOT NULL AND u.must_change_password = 1
+     LIMIT 1'
+);
+$accessStmt->execute([$userId]);
+if (!$accessStmt->fetchColumn()) {
+    responder(403, ['success' => false, 'message' => 'Verifique o telefone e adicione uma empresa antes de definir a senha.']);
 }
 
 $senha = $_POST['password'] ?? '';

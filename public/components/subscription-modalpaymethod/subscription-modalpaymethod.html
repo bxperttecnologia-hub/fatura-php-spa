@@ -1,0 +1,32 @@
+<div class="modal fade" id="modalPayMethod" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" data-i18n="pagamento">Pagamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3"><span data-i18n="plano">
+            Plano: </span><strong id="payPlanLabel">—</strong>
+            — <strong id="payAmountLabel">—</strong>
+          </p>
+
+          <label class="form-label" data-i18n="metodo-de-pagamento">Método de pagamento</label>
+          <select class="form-select mb-3" id="payMethod">
+            <option value="REF" data-i18n="referencia-multicaixa-atm-internet-banking">Referência Multicaixa (ATM / Internet Banking)</option>
+            <option value="GPO" data-i18n="multicaixa-express">Multicaixa Express</option>
+          </select>
+
+          <div id="boxPhone">
+            <label class="form-label" data-i18n="n-de-telefone-multicaixa-express">Nº de telefone Multicaixa Express</label>
+            <input type="tel" class="form-control" id="payPhone" placeholder="923456789">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-link text-muted" id="btnMarkPaid" data-i18n="ja-paguei-confirmar-manualmente">Já paguei / confirmar manualmente</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+          <button class="btn btn-success" id="btnConfirmPay" data-i18n="gerar-cobranca">Gerar cobrança</button>
+        </div>
+      </div>
+    </div>
+  </div>

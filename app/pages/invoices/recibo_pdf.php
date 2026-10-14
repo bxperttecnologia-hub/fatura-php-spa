@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
+require_once __DIR__ . '/../../helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -134,11 +135,8 @@ $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 | Ajusta automaticamente para localhost
 */
 
-$isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
-
-$basePath = $isLocalhost
-  ? '/projects/bxpert/fatura/public'
-  : '';
+$basePath = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$basePath = $basePath === '.' ? '' : $basePath;
 
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 
@@ -148,9 +146,7 @@ $BASE_URL = "{$protocol}://{$host}{$basePath}";
 |--------------------------------------------------------------------------
 */
 
-$logo = !empty($d['logo_url'])
-  ? $BASE_URL . '/assets/img/companies/' . rawurlencode($d['logo_url'])
-  : '';
+$logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
 
 
 /*

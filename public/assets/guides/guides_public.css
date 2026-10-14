@@ -1,0 +1,245 @@
+body, html {
+    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+    font-size: 12.5px;
+    background-color: #f7f9fc;
+    color: #212529;
+    margin: 0;
+    padding: 0;
+}
+
+.invoice-page {
+    background: white;
+    max-width: 100%;
+    width: 100% !important;
+    margin: 30px auto;
+    margin-top: 0!important;
+    margin-bottom: 0!important;
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.06);
+    position: relative;
+}
+
+/* Cabeçalho */
+.inv-header {
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 20px;
+}
+
+.inv-left h6,
+.inv-right h6 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.inv-left p,
+.inv-right p,
+.inv-left small,
+.inv-right small {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+/* Meta */
+.inv-meta .title-line {
+    font-size: 1.0rem;
+    font-weight: 600;
+    color: #0d6efd;
+    margin-bottom: 8px;
+    display: block;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 4px;
+}
+
+.meta-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.meta-mini, .meta-obs {
+    flex: 1;
+    background: #f1f3f5;
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.meta-mini .head,
+.meta-obs .head {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+}
+
+.meta-mini .vals,
+.meta-obs .vals {
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+/* Itens */
+.items-grid {
+    margin-top: 18px;
+}
+
+.items-head {
+    background: #0d6efd;
+    color: white;
+    border-radius: 8px 8px 0 0;
+    font-weight: bold;
+}
+
+.items-row {
+    display: grid;
+    grid-template-columns: 1fr 3fr 1fr 1fr 1fr 1fr 1fr;
+    padding: 8px 10px;
+    border-bottom: 1px solid #dee2e6;
+    background-color: white;
+}
+
+.items-head {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.items-row:nth-child(even):not(.items-head) {
+    background: #f8f9fa;
+}
+
+.items-row span {
+    padding: 2px 4px;
+    word-break: break-word;
+}
+
+.right {
+    text-align: right;
+}
+
+.center {
+    text-align: center;
+}
+
+/* Totals */
+.totals-wrap {
+    margin-top: 22px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* Assinaturas (Dompdf: evitar flex; usar table) */
+.signatures {
+    margin-top: 12px; /* menor pra reduzir risco de quebrar página */
+    background-color: #fff !important;
+    padding: 8px 0 0 0; /* cobre qualquer fundo vazando e mantém altura baixa */
+    clear: both;
+    overflow: hidden;
+}
+
+.signatures-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    background-color: #fff !important;
+}
+
+.signatures-table tr {
+    background-color: #fff !important;
+}
+
+.signatures-table td {
+    width: 50%;
+    text-align: center;
+    vertical-align: bottom;
+    padding: 0 12px;
+    background-color: #fff !important;
+}
+
+.signature-space {
+    height: 38px; /* espaço para assinar acima da linha */
+}
+
+.signature-blank {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    color: #212529;
+    line-height: 1;
+    margin-bottom: 6px;
+    white-space: nowrap;
+}
+
+.signature-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.tax-grid,
+.sum-grid {
+    flex: 1;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+    min-width: 280px;
+}
+
+.tax-head,
+.sum-head {
+    font-weight: bold;
+    font-size: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+}
+
+.tax-row,
+.sum-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 0.9rem;
+}
+
+.sum-row.sep {
+    border-top: 1px dashed #ced4da;
+    margin: 8px 0;
+}
+
+.sum-row.bold {
+    font-weight: 700;
+}
+
+/* Impressão */
+@media print {
+    body {
+        background: white;
+    }
+
+    .invoice-page {
+        box-shadow: none;
+        border: none;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+    }
+
+    .meta-mini, .meta-obs, .tax-grid, .sum-grid {
+        background: white !important;
+        color: black !important;
+        border-color: #000 !important;
+    }
+
+    .items-row:nth-child(even):not(.items-head) {
+        background: white !important;
+    }
+}

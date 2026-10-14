@@ -5,6 +5,16 @@ require_once '../../../app/config/db.php';
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
+function fail_delivery_request(PDO $pdo, int $code, string $message): void
+{
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    http_response_code($code);
+    echo json_encode(['success' => false, 'error' => $message]);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Método inválido.']);
@@ -22,14 +32,13 @@ if (!$invoiceId) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = :id LIMIT 1");
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = :id LIMIT 1 FOR UPDATE");
     $stmt->execute([':id' => $invoiceId]);
     $inv = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$inv) {
-        http_response_code(404);
-        echo json_encode(['success' => false, 'error' => 'Fatura não encontrada.']);
-        exit;
+        fail_delivery_request($pdo, 404, 'Fatura não encontrada.');
     }
 
     // Só faturas finalizadas (não rascunho) podem gerar nota de entrega
@@ -39,9 +48,10 @@ try {
         $st->execute([':sid' => $statusId]);
         $statusName = $st->fetchColumn();
         if ($statusName === 'Rascunho') {
-            http_response_code(422);
-            echo json_encode(['success' => false, 'error' => 'Finalize a fatura antes de emitir a nota de entrega.']);
-            exit;
+            fail_delivery_request($pdo, 422, 'Finalize a fatura antes de emitir a nota de entrega.');
+        }
+        if (str_starts_with(strtolower(trim((string)$statusName)), 'cancel')) {
+            fail_delivery_request($pdo, 422, 'Não é possível emitir nota de entrega sobre uma fatura cancelada.');
         }
     }
 
@@ -70,9 +80,7 @@ try {
     }
 
     if (!$pending) {
-        http_response_code(422);
-        echo json_encode(['success' => false, 'error' => 'Todos os itens desta fatura já foram entregues.']);
-        exit;
+        fail_delivery_request($pdo, 422, 'Todos os itens desta fatura já foram entregues.');
     }
 
     // Endereço por defeito: morada do cliente
@@ -81,8 +89,6 @@ try {
         $c->execute([':id' => $inv['contact_id']]);
         $address = (string)($c->fetchColumn() ?: '');
     }
-
-    $pdo->beginTransaction();
 
     // Numeração sequencial por empresa e série (bloqueia para evitar duplicados)
     $serie = 'NE';

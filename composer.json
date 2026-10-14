@@ -1,7 +1,20 @@
+
 {
+    "name": "bxpert/app-system",
+    "description": "Sistema de faturação SPA em PHP",
+    "type": "project",
     "require": {
-        "phpmailer/phpmailer": "^6.9",
-        "google/apiclient": "^2.18",
-        "phpoffice/phpspreadsheet": "^3.9"
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "scripts": {
+        "serve": "php -S 127.0.0.1:8080 -t public public/router.php"
+    },
+    "config": {
+        "sort-packages": true
     }
 }

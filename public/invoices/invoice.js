@@ -1,3 +1,4 @@
+(function () {
 const currentYear = new Date().getFullYear();
 const pg_serie = document.getElementById("pg_serie");
 const get = new URLSearchParams(window.location.search).get("id");
@@ -91,6 +92,7 @@ $(function () {
       $("#subtitle-client").text(inv.client_name || "-");
 
       // Mostrar botões conforme status
+      const normalizedStatus = statusText.trim().toLowerCase();
       if (inv.status_invoice === "Rascunho") {
         $("#btnFinalizar").removeClass("d-none");
         $("#btnEditar").removeClass("d-none");
@@ -98,6 +100,8 @@ $(function () {
         $("#btnEnviar").removeClass("d-none");
         $("#btnCloneToInvoice").removeClass("d-none");
         $("#btnDeleteInvoice").removeClass("d-none");
+      } else if (normalizedStatus.startsWith("cancel")) {
+        $("#generatePdf, #btnEnviar, #btnNotaCredito").removeClass("d-none");
       } else {
         $("#btnRecibo").removeClass("d-none");
         $("#btnCloneToInvoice").removeClass("d-none");
@@ -158,15 +162,16 @@ $(function () {
                 text: response.message,
                 confirmButtonText: "OK",
               }).then(() => {
-                // Atualiza a tabela sem voltar à primeira página
-                $("#invoicesTable").DataTable().ajax.reload(null, false);
-
                 if (typeof loadDashboardCards === "function") {
                   loadDashboardCards();
                 }
 
                 // Se estiver na página de edição pode recarregar
-                location.replace("list_invoices.php");
+                if (typeof window.navigateSPA === "function") {
+                  window.navigateSPA("/invoices");
+                } else {
+                  window.location.assign("/invoices");
+                }
               });
             } else {
               Swal.fire({
@@ -261,11 +266,27 @@ $(function () {
 
   // ---------- 3) abrir recibo ou modal Pagamento ----------
   function showPaymentModal() {
-    new bootstrap.Modal(document.getElementById("modalPagamento")).show();
+    const balance = Number(
+      currentInvoice?.saldo ??
+        (Number(currentInvoice?.final_total || 0) -
+          Number(currentInvoice?.paid_total || 0)),
+    );
+    if (balance <= 0.009) {
+      return Swal.fire({
+        icon: "info",
+        title: "Fatura sem saldo pendente",
+        text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
+      });
+    }
+    bootstrap.Modal.getOrCreateInstance(
+      document.getElementById("modalPagamento"),
+    ).show();
   }
 
   function showReceiptsModal() {
-    new bootstrap.Modal(document.getElementById("modalReceipts")).show();
+    bootstrap.Modal.getOrCreateInstance(
+      document.getElementById("modalReceipts"),
+    ).show();
   }
 
   /* ======================================================
@@ -318,9 +339,9 @@ $(function () {
           <div class="d-flex gap-2 mt-3">
 
             <a
-              href="invoices/recibo_pdf.php?id=${receipt.id}"
-              target="_blank"
-              class="btn btn-sm btn-primary"
+              href="#"
+              data-id="${receipt.id}"
+              class="btn btn-sm btn-primary js-receipt-pdf"
             >
               <i class="fa fa-file-pdf me-1"></i>
               Ver PDF
@@ -366,19 +387,35 @@ $(function () {
 
     if (!id) return;
 
-    window.open(`invoices/recibo_pdf.php?id=${id}`, "_blank");
+    window.BXDocumentApi.openPdf(`/api/documents/receipts/${encodeURIComponent(id)}/pdf`)
+      .catch((error) => Swal.fire("Erro", error.message, "error"));
+  });
+
+  $(document).on("click", ".js-receipt-pdf", function (event) {
+    event.preventDefault();
+    const id = this.dataset.id;
+    if (!id) return;
+    window.BXDocumentApi.openPdf(`/api/documents/receipts/${encodeURIComponent(id)}/pdf`)
+      .catch((error) => Swal.fire("Erro", error.message, "error"));
   });
 
   // ---------- 4) abre modal Pagamento ----------
-  $("#modalPagamento").on("show.bs.modal", function () {
+  $("#modalPagamento").on("show.bs.modal", function (event) {
     if (!currentInvoice) return alert("Fatura ainda não carregada!");
-
-    console.log(currentInvoice);
 
     const total = Number(currentInvoice.final_total) || 0;
     const jaPago = Number(currentInvoice.paid_total) || 0;
     const retention = Number(currentInvoice.retention) || 0;
-    const saldo = total - jaPago;
+    const saldo = Math.max(0, total - jaPago);
+    if (saldo <= 0.009) {
+      event.preventDefault();
+      Swal.fire({
+        icon: "info",
+        title: "Fatura sem saldo pendente",
+        text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
+      });
+      return;
+    }
 
     $("#pg_valor")
       .val(saldo.toFixed(2))
@@ -411,27 +448,34 @@ $(function () {
     });
 
     $.post("invoices/ajax/registrar_pagamento.php", $form.serialize())
-      .done((resp) => {
+      .done(async (resp) => {
         Swal.close();
         bootstrap.Modal.getInstance(
           document.getElementById("modalPagamento"),
         ).hide();
 
-        // abre o PDF do recibo gerado
+        let receiptDownloadError = null;
         if (resp && resp.receipt_id) {
-          window.open(
-            "invoices/recibo_pdf.php?id=" + resp.receipt_id,
-            "_blank",
-          );
+          try {
+            await window.BXDocumentApi.download(
+              `/api/documents/receipts/${encodeURIComponent(resp.receipt_id)}/pdf`,
+              `Recibo_${resp.receipt_id}.pdf`,
+            );
+          } catch (error) {
+            receiptDownloadError = error;
+          }
         }
 
-        Swal.fire({
-          icon: "success",
-          title: "Sucesso",
-          text: "Pagamento registrado com sucesso!",
-        }).then(() => {
-          location.reload();
+        await Swal.fire({
+          icon: receiptDownloadError ? "warning" : "success",
+          title: receiptDownloadError
+            ? "Pagamento registrado"
+            : "Sucesso",
+          text: receiptDownloadError
+            ? `O pagamento foi registrado, mas não foi possível descarregar o recibo: ${receiptDownloadError.message}`
+            : "Pagamento registrado com sucesso!",
         });
+        location.reload();
       })
       .fail((xhr) => {
         Swal.close();
@@ -549,11 +593,11 @@ $(function () {
     return `${dd}/${mm}/${d.getFullYear()}`;
   }
 
-  function calcItemTotal(it) {
-    const base = it.unit_price * it.quantity;
-    const discount = base * ((it.discount || 0) / 100);
-    const tax = (base - discount) * ((it.tax || 0) / 100);
-    return { base, discount, tax, total: base - discount + tax };
+  function calcItemTotal(it, vatRegime) {
+    if (!window.BXDocumentTax) {
+      throw new Error("O cálculo partilhado do IVA não foi carregado.");
+    }
+    return window.BXDocumentTax.calculateItem(it, vatRegime);
   }
 
   async function imageUrlToDataURL(url) {
@@ -731,11 +775,12 @@ $(function () {
 
     if (api.logo_url && options.logoBaseUrl) {
       try {
-        const logoFile = String(api.logo_url).split("/").pop();
-        const logoUrl = new URL(
-          encodeURIComponent(logoFile),
-          options.logoBaseUrl,
-        ).toString();
+        const logoUrl = /^https?:\/\//i.test(String(api.logo_url))
+          ? String(api.logo_url)
+          : new URL(
+              encodeURIComponent(String(api.logo_url).split("/").pop()),
+              options.logoBaseUrl,
+            ).toString();
 
         invoiceData.company.logoImage = await imageUrlToDataURL(logoUrl);
       } catch (e) {
@@ -912,7 +957,7 @@ $(function () {
 
   function drawItemsTable(doc, invoiceData, y) {
     const { items, moneySymbol = "Kz", moneyPos = "right" } = invoiceData;
-    const bottomLimit = PAGE_HEIGHT - MARGIN_BOTTOM - 90; // reserva espaço p/ sumário
+    const bottomLimit = PAGE_HEIGHT - MARGIN_BOTTOM - 190;
 
     drawTopBorder(doc, y);
     y += 10;
@@ -941,7 +986,7 @@ $(function () {
         y += 5;
       }
 
-      const { total } = calcItemTotal(it);
+      const { total, taxRate } = calcItemTotal(it, invoiceData.vat_regime);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(...BLACK);
@@ -967,7 +1012,7 @@ $(function () {
         "right",
       );
       doc.text(String(it.quantity), COL_QTD_CENTER_X, y, { align: "center" });
-      doc.text(`${it.tax || 0}%`, COL_TAXA_CENTER_X, y, { align: "center" });
+      doc.text(`${taxRate}%`, COL_TAXA_CENTER_X, y, { align: "center" });
       doc.text(`${it.discount || 0}%`, COL_DESCPCT_CENTER_X, y, {
         align: "center",
       });
@@ -996,7 +1041,49 @@ $(function () {
   // Desenho — Dados fiscais/bancários + Sumário
   // ---------------------------------------------------------------------------
 
-  function drawTotalsSection(doc, invoiceData, y) {
+  function drawTaxSummaryTable(doc, rows, y, moneySymbol, moneyPos) {
+    const columns = [
+      { label: "Taxa", x: MARGIN_LEFT, width: 50, align: "left" },
+      { label: "Base", x: 110, width: 95, align: "right" },
+      { label: "Valor (IVA)", x: 215, width: 95, align: "right" },
+      { label: "Retenção", x: 320, width: 95, align: "right" },
+      { label: "Líquido", x: 425, width: 130, align: "right" },
+    ];
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...GRAY_LABEL);
+    columns.forEach((column) =>
+      doc.text(column.label, column.x, y, { align: column.align }),
+    );
+    y += 8;
+    doc.setDrawColor(...GRAY);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN_LEFT, y - 4, CONTENT_RIGHT, y - 4);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...BLACK);
+
+    rows.forEach((row) => {
+      columns.forEach((column, index) => {
+        const value =
+          index === 0
+            ? `${row.rate}%`
+            : formatCurrency(
+                [row.base, row.iva, row.retention, row.net][index - 1],
+                moneySymbol,
+                moneyPos,
+              );
+        doc.text(String(value), column.x, y, {
+          align: column.align,
+          maxWidth: column.width,
+        });
+      });
+      y += 8;
+    });
+    return y + 8;
+  }
+
+  function drawTotalsSection(doc, invoiceData, y, taxSummary) {
     const {
       vat_regime,
       iban,
@@ -1004,25 +1091,13 @@ $(function () {
       moneyPos = "right",
     } = invoiceData;
 
-    const calcTotals = () => {
-      let total_sum = 0,
-        total_discount = 0,
-        total_tax = 0;
-      invoiceData.items.forEach((it) => {
-        const { base, discount, tax } = calcItemTotal(it);
-        total_sum += base;
-        total_discount += discount;
-        total_tax += tax;
-      });
-      return {
-        total_sum,
-        total_discount,
-        total_tax,
-        retention_value: 0,
-        final_total: total_sum - total_discount + total_tax,
-      };
+    const totals = {
+      total_sum: taxSummary.totalSum,
+      total_discount: taxSummary.totalDiscount,
+      total_tax: taxSummary.totalTax,
+      retention_value: taxSummary.retention,
+      final_total: taxSummary.finalTotal,
     };
-    const totals = invoiceData.totals || calcTotals();
 
     const leftX = MARGIN_LEFT;
     const leftWidth = 260;
@@ -1166,7 +1241,19 @@ $(function () {
     let y = drawCompanyHeader(doc, invoiceData.company, assets.logoImg);
     y = drawMeta(doc, invoiceData, y, viaLabel);
     y = drawItemsTable(doc, invoiceData, y);
-    drawTotalsSection(doc, invoiceData, y);
+    const taxSummary = window.BXDocumentTax.summarize(
+      invoiceData.items,
+      invoiceData.vat_regime,
+      Number(invoiceData.totals?.retention_value ?? 0),
+    );
+    y = drawTaxSummaryTable(
+      doc,
+      taxSummary.rows,
+      y,
+      invoiceData.moneySymbol || "Kz",
+      invoiceData.moneyPos || "right",
+    );
+    drawTotalsSection(doc, invoiceData, y, taxSummary);
   }
 
   // ---------------------------------------------------------------------------
@@ -1178,12 +1265,15 @@ $(function () {
   async function fetchInvoicePdfBlob(invoiceData, copies = 2) {
     const payload = {
       ...invoiceData,
+      logo_url: invoiceData.logo_url || invoiceData.company?.logo_url || invoiceData.company?.logo || "",
       copies: Number(copies) || 1,
       document_url: new URL(
         `invoices/ajax/invoice_public.php?id=${encodeURIComponent(invoiceData.id)}`,
         window.location.href,
       ).toString(),
     };
+
+    console.debug("fetchInvoicePdfBlob payload:", payload);
 
     const hostname = window.location.hostname;
     const apiBaseUrl =
@@ -1427,10 +1517,30 @@ $(function () {
     const symbol = inv.symbol || inv.company_symbol || "Kz";
     const position = inv.position || inv.company_position || "right";
     const items = Array.isArray(inv.items) ? inv.items : [];
+    const logoSource = String(
+      inv.logo_url || inv.company?.logo_url || inv.company?.logo || inv.logo || "",
+    ).trim();
+    const hostname = window.location.hostname;
+    const apiBaseUrl =
+      hostname === "api-crm.bxpert.co.ao" ||
+      hostname === "www.api-crm.bxpert.co.ao"
+        ? "https://api-crm.bxpert.co.ao"
+        : "http://localhost:3004";
+    const logoUrl = /^data:image\//i.test(logoSource)
+      ? logoSource
+      : /^https?:\/\//i.test(logoSource)
+        ? logoSource
+        : logoSource.startsWith("/api/")
+          ? `${apiBaseUrl}${logoSource}`
+          : logoSource.startsWith("/")
+            ? new URL(logoSource, window.location.origin).toString()
+            : logoSource
+              ? `${window.location.origin}/assets/img/companies/${encodeURIComponent(logoSource)}`
+              : "";
 
     const rowsHtml = items
       .map((it) => {
-        const { total } = calcItemTotal(it);
+        const { total } = calcItemTotal(it, inv.vat_regime);
         const qty = Number(it.quantity) || 0;
         const price = Number(it.unit_price) || 0;
         return `
@@ -1471,6 +1581,7 @@ $(function () {
   }
   .t-center { text-align: center; }
   .t-bold { font-weight: bold; }
+  .t-logo { display: block; max-width: 105px; max-height: 55px; width: auto; height: auto; object-fit: contain; margin: 0 auto 5px; }
   .t-line { border-top: 1px dashed #000; margin: 5px 0; }
   .t-row { display: flex; justify-content: space-between; }
   .t-item-name { margin-top: 5px; }
@@ -1481,6 +1592,7 @@ $(function () {
 </style>
 </head>
 <body>
+  ${logoUrl ? `<img class="t-logo" src="${escapeHtml(logoUrl)}" alt="Logótipo">` : ""}
   <div class="t-center t-bold" style="font-size:13px;">${escapeHtml(inv.company_name || "")}</div>
   ${inv.company_address ? `<div class="t-center">${escapeHtml(inv.company_address)}</div>` : ""}
   ${inv.company_city ? `<div class="t-center">${escapeHtml(inv.company_city)}</div>` : ""}
@@ -1513,7 +1625,7 @@ $(function () {
 
   // ---------------------------------------------------------------------------
   // PRÉ-VISUALIZAR E IMPRIMIR
-  // O botão "Imprimir / Baixar" abre o modal #modalPrintPreview: o utilizador
+  // O botão "Imprimir / Baixar PDF" abre o modal #modalPrintPreview: o utilizador
   // escolhe o formato (A4 em PDF ou talão de 80mm), vê o documento e só depois
   // imprime ou descarrega.
   // ---------------------------------------------------------------------------
@@ -1698,7 +1810,11 @@ $(function () {
 
       // Se já existir nota de crédito
       if (verifyResponse?.data?.id) {
-        return (window.location.href = `credit_notes/ajax/generate_pdf.php?id=${verifyResponse.data.id}`);
+        window.BXDocumentApi.download(
+          `/api/documents/credit-notes/${encodeURIComponent(verifyResponse.data.id)}/pdf`,
+          `NotaCredito_${verifyResponse.data.id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
+        return;
       }
 
       // Pergunta antes de emitir
@@ -1729,7 +1845,11 @@ $(function () {
 
       // Sucesso
       if (res?.success && res?.credit_note_id) {
-        window.location.href = `credit_notes/ajax/generate_pdf.php?id=${res.credit_note_id}`;
+        window.location.reload();
+        window.BXDocumentApi.download(
+          `/api/documents/credit-notes/${encodeURIComponent(res.credit_note_id)}/pdf`,
+          `NotaCredito_${res.credit_note_id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
       } else {
         Swal.fire({
           icon: "error",
@@ -1783,7 +1903,10 @@ $(function () {
         });
 
         if (choice.isDenied) {
-          return window.open(`invoices/debit_note_pdf.php?id=${last.id}`, "_blank");
+          return window.BXDocumentApi.download(
+            `/api/documents/debit-notes/${encodeURIComponent(last.id)}/pdf`,
+            `NotaDebito_${last.id}.pdf`,
+          ).catch((error) => Swal.fire("Erro", error.message, "error"));
         }
         if (!choice.isConfirmed) return;
       }
@@ -1923,7 +2046,10 @@ $(function () {
       });
 
       if (res?.success && res?.debit_note_id) {
-        window.open(`invoices/debit_note_pdf.php?id=${res.debit_note_id}`, "_blank");
+        window.BXDocumentApi.download(
+          `/api/documents/debit-notes/${encodeURIComponent(res.debit_note_id)}/pdf`,
+          `NotaDebito_${res.debit_note_id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
       } else {
         Swal.fire({
           icon: "error",
@@ -1970,7 +2096,10 @@ $(function () {
         const last = existing[0];
 
         if (!hasPending) {
-          return window.open(`invoices/delivery_note_pdf.php?id=${last.id}`, "_blank");
+          return window.BXDocumentApi.download(
+            `/api/documents/delivery-notes/${encodeURIComponent(last.id)}/pdf`,
+            `NotaEntrega_${last.id}.pdf`,
+          ).catch((error) => Swal.fire("Erro", error.message, "error"));
         }
 
         const choice = await Swal.fire({
@@ -1984,7 +2113,10 @@ $(function () {
         });
 
         if (choice.isDenied) {
-          return window.open(`invoices/delivery_note_pdf.php?id=${last.id}`, "_blank");
+          return window.BXDocumentApi.download(
+            `/api/documents/delivery-notes/${encodeURIComponent(last.id)}/pdf`,
+            `NotaEntrega_${last.id}.pdf`,
+          ).catch((error) => Swal.fire("Erro", error.message, "error"));
         }
         if (!choice.isConfirmed) return;
       }
@@ -2020,7 +2152,10 @@ $(function () {
       });
 
       if (res?.success && res?.delivery_note_id) {
-        window.open(`invoices/delivery_note_pdf.php?id=${res.delivery_note_id}`, "_blank");
+        window.BXDocumentApi.download(
+          `/api/documents/delivery-notes/${encodeURIComponent(res.delivery_note_id)}/pdf`,
+          `NotaEntrega_${res.delivery_note_id}.pdf`,
+        ).catch((error) => Swal.fire("Erro", error.message, "error"));
       } else {
         Swal.fire({
           icon: "error",
@@ -2074,11 +2209,135 @@ $(function () {
     },
   });
 
+  const emailRecipients = { to: [], cc: [] };
+  const emailFields = {
+    to: {
+      input: document.getElementById("emailToInput"),
+      chips: document.getElementById("emailToChips"),
+      hidden: document.getElementById("emailToValue"),
+      box: document.getElementById("emailToChipbox"),
+      error: document.getElementById("emailToError"),
+    },
+    cc: {
+      input: document.getElementById("emailCcInput"),
+      chips: document.getElementById("emailCcChips"),
+      hidden: document.getElementById("emailCcValue"),
+      box: document.getElementById("emailCcChipbox"),
+      error: document.getElementById("emailCcError"),
+    },
+  };
+
+  function renderEmailRecipients(field) {
+    const controls = emailFields[field];
+    controls.chips.replaceChildren();
+    emailRecipients[field].forEach((address, index) => {
+      const chip = document.createElement("span");
+      chip.className = "email-chip";
+      const text = document.createElement("span");
+      text.textContent = address;
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.setAttribute("aria-label", `Editar ${address}`);
+      edit.innerHTML = '<i class="bi bi-pencil" aria-hidden="true"></i>';
+      edit.addEventListener("click", () => {
+        emailRecipients[field].splice(index, 1);
+        controls.input.value = address;
+        renderEmailRecipients(field);
+        controls.input.focus();
+        controls.input.select();
+      });
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Remover ${address}`);
+      remove.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+      remove.addEventListener("click", () => {
+        emailRecipients[field].splice(index, 1);
+        renderEmailRecipients(field);
+        controls.input.focus();
+      });
+      chip.append(text, edit, remove);
+      controls.chips.append(chip);
+    });
+    controls.hidden.value = emailRecipients[field].join(", ");
+  }
+
+  function addEmailRecipients(field, rawValue) {
+    const controls = emailFields[field];
+    const addresses = rawValue
+      .split(/[;,\r\n]+/)
+      .map((address) => address.trim())
+      .filter(Boolean);
+    let duplicateFound = false;
+    addresses.forEach((address) => {
+      if (emailRecipients[field].some((item) => item.toLowerCase() === address.toLowerCase())) {
+        duplicateFound = true;
+      }
+      emailRecipients[field].push(address);
+    });
+    controls.input.value = "";
+    renderEmailRecipients(field);
+    if (duplicateFound) {
+      controls.error.textContent = "Este endereço está repetido. Remova uma das etiquetas.";
+      controls.error.hidden = false;
+    }
+  }
+
+  Object.entries(emailFields).forEach(([field, controls]) => {
+    controls.input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === "," || event.key === ";") {
+        event.preventDefault();
+        addEmailRecipients(field, controls.input.value);
+      } else if (event.key === "Backspace" && !controls.input.value && emailRecipients[field].length) {
+        emailRecipients[field].pop();
+        renderEmailRecipients(field);
+      }
+    });
+    controls.input.addEventListener("input", () => {
+      if (/[;,\r\n]/.test(controls.input.value)) {
+        addEmailRecipients(field, controls.input.value);
+      }
+    });
+    controls.input.addEventListener("paste", (event) => {
+      const pasted = event.clipboardData?.getData("text") || "";
+      if (/[;,\r\n]/.test(pasted)) {
+        event.preventDefault();
+        addEmailRecipients(field, [controls.input.value, pasted].filter(Boolean).join(";"));
+      }
+    });
+  });
+
+  $("#emailCcToggle").on("click", function () {
+    const isExpanded = this.getAttribute("aria-expanded") === "true";
+    this.setAttribute("aria-expanded", String(!isExpanded));
+    $("#emailCcField").toggleClass("d-none", isExpanded);
+    this.innerHTML = isExpanded
+      ? '<i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Adicionar Cc'
+      : '<i class="bi bi-dash-lg me-1" aria-hidden="true"></i>Ocultar Cc';
+  });
+
   /* ---------- 2. abre a modal ---------- */
   $("#modalEnviarEmail").on("show.bs.modal", function () {
     if (!currentInvoice) {
       return alert("Fatura ainda não carregada!");
     }
+
+    emailRecipients.to = [];
+    emailRecipients.cc = [];
+    Object.values(emailFields).forEach((controls) => {
+      controls.input.value = "";
+      controls.error.textContent = "";
+      controls.error.hidden = true;
+      controls.box.classList.remove("is-invalid");
+    });
+    $("#emailCcField").addClass("d-none");
+    $("#emailCcToggle")
+      .attr("aria-expanded", "false")
+      .html('<i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Adicionar Cc');
+    if (currentInvoice.client_email) {
+      emailRecipients.to.push(currentInvoice.client_email.trim());
+    }
+    renderEmailRecipients("to");
+    renderEmailRecipients("cc");
 
     // Id oculto
     $("#email_invoice_id").val(currentInvoice.id);
@@ -2123,24 +2382,72 @@ $(function () {
   $("#formEnviarEmail").on("submit", function (e) {
     e.preventDefault();
 
-    // valida Bootstrap
-    if (this.checkValidity() === false) {
+    Object.entries(emailFields).forEach(([field, controls]) => {
+      controls.error.textContent = "";
+      controls.error.hidden = true;
+      controls.box.classList.remove("is-invalid");
+      if (controls.input.value.trim()) {
+        addEmailRecipients(field, controls.input.value);
+      }
+    });
+
+    const allAddresses = [...emailRecipients.to, ...emailRecipients.cc];
+    const duplicates = allAddresses.filter(
+      (address, index) =>
+        allAddresses.findIndex((item) => item.toLowerCase() === address.toLowerCase()) !== index,
+    );
+    let recipientsValid = emailRecipients.to.length > 0;
+    if (!emailRecipients.to.length) {
+      emailFields.to.error.textContent = "Adicione pelo menos um destinatário.";
+      emailFields.to.error.hidden = false;
+      emailFields.to.box.classList.add("is-invalid");
+    }
+    const emailValidator = document.createElement("input");
+    emailValidator.type = "email";
+    Object.entries(emailRecipients).forEach(([field, addresses]) => {
+      const invalid = addresses.filter((address) => {
+        emailValidator.value = address;
+        return !emailValidator.validity.valid;
+      });
+      const hasDuplicate = addresses.some((address) =>
+        duplicates.some((duplicate) => duplicate.toLowerCase() === address.toLowerCase()),
+      );
+      if (invalid.length || hasDuplicate) {
+        recipientsValid = false;
+        emailFields[field].box.classList.add("is-invalid");
+        emailFields[field].error.textContent = invalid.length
+          ? `Verifique os endereços inválidos: ${invalid.join(", ")}.`
+          : "Existem endereços repetidos entre Para e Cc.";
+        emailFields[field].error.hidden = false;
+      }
+    });
+
+    if (!this.checkValidity() || !recipientsValid) {
       this.classList.add("was-validated");
       return;
     }
 
-    // passa o HTML do Quill para <textarea hidden>
+    const $button = $("#emailSendButton");
+    if ($button.prop("disabled")) return;
+    $button.prop("disabled", true).find("span").text("A enviar...");
+    $button.find("i").removeClass("bi-send").addClass("bi-hourglass-split");
+
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("invoices/ajax/send_invoice.php", $(this).serialize())
+    $.post("invoices/ajax/send_invoice.php", $(this).serialize(), null, "json")
       .done(() => {
-        bootstrap.Modal.getInstance(
+        bootstrap.Modal.getOrCreateInstance(
           document.getElementById("modalEnviarEmail"),
         ).hide();
-        alert("E‑mail enviado com sucesso!");
+        Swal.fire("Sucesso", "E-mail enviado com sucesso!", "success");
       })
       .fail((xhr) => {
-        alert("Erro: " + xhr.responseText);
+        const message = xhr.responseJSON?.error || "Não foi possível enviar o e-mail.";
+        Swal.fire("Erro", message, "error");
+      })
+      .always(() => {
+        $button.prop("disabled", false).find("span").text("Enviar e-mail");
+        $button.find("i").removeClass("bi-hourglass-split").addClass("bi-send");
       });
   });
 
@@ -2187,7 +2494,13 @@ $(function () {
 
   // ---------- 7) Editar Fatura (Redirecionar) ----------
   $("#btnEditar").on("click", function () {
-    window.location.href = `create_${document_type === "PF" ? "proform" : "invoices"}.php?edit_id=${currentInvoice.id}`;
+    const documentRoute = document_type === "PF" ? "/proformas" : "/invoices";
+    const editUrl = `${documentRoute}/create?edit_id=${encodeURIComponent(currentInvoice.id)}&return_to=${encodeURIComponent(`${documentRoute}/view?id=${currentInvoice.id}`)}`;
+    if (typeof window.navigateSPA === "function") {
+      window.navigateSPA(editUrl);
+    } else {
+      window.location.assign(editUrl);
+    }
   });
 
   // ===========================================
@@ -2271,7 +2584,12 @@ $(function () {
 
           // redirecionar
           setTimeout(() => {
-            window.location.href = "invoice.php?id=" + data.new_invoice_id;
+            const invoiceUrl = `/invoices/view?id=${encodeURIComponent(data.new_invoice_id)}`;
+            if (typeof window.navigateSPA === "function") {
+              window.navigateSPA(invoiceUrl);
+            } else {
+              window.location.href = invoiceUrl;
+            }
           }, 1500);
         },
 
@@ -2340,3 +2658,4 @@ $(document).ready(function () {
     return base64Image;
   }
 });
+})();

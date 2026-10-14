@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/contact_nif_guard.php';
 session_start();
 
 // Nota: esta resposta continua SEM header "application/json" de propósito —
@@ -65,16 +66,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $query = "INSERT INTO contact (" . implode(", ", $fields) . ") VALUES (" . implode(", ", $placeholders) . ")";
 
+    $lockName = contact_nif_lock_name((int) $sessionCompanyId, (string) $_POST['contributor'], (string) $_POST['address']);
+    $lockAcquired = false;
     try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($values);
-        echo json_encode([
-            "status"  => "success",
-            "message" => "Contato cadastrado com sucesso",
-            "id"      => (int) $pdo->lastInsertId(),
-        ]);
+        $lockAcquired = contact_acquire_nif_lock($pdo, $lockName);
+        if (!$lockAcquired) {
+            http_response_code(503);
+            echo json_encode(["status" => "error", "message" => "Não foi possível validar o NIF agora. Tente novamente."]);
+        } elseif (contact_nif_address_exists($pdo, (int) $sessionCompanyId, (string) $_POST['contributor'], (string) $_POST['address'])) {
+            http_response_code(409);
+            echo json_encode(["status" => "error", "code" => "duplicate_nif_address", "message" => "Já existe um contacto com este NIF e endereço na sua empresa."]);
+        } else {
+            $stmt = $pdo->prepare($query);
+            $stmt->execute($values);
+            echo json_encode([
+                "status"  => "success",
+                "message" => "Contato cadastrado com sucesso",
+                "id"      => (int) $pdo->lastInsertId(),
+            ]);
+        }
     } catch (PDOException $e) {
         echo json_encode(["status" => "error", "message" => "Erro ao salvar contato: " . $e->getMessage()]);
+    } finally {
+        if ($lockAcquired) {
+            contact_release_nif_lock($pdo, $lockName);
+        }
     }
 }
 ?>

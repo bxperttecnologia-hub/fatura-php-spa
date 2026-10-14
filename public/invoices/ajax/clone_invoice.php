@@ -47,6 +47,12 @@ try {
         throw new Exception("Factura não encontrada.");
     }
 
+    $statusStmt = $pdo->prepare("SELECT name FROM invoice_status WHERE id = ? LIMIT 1");
+    $statusStmt->execute([$invoice['status']]);
+    if (str_starts_with(strtolower(trim((string)$statusStmt->fetchColumn())), 'cancel')) {
+        throw new Exception("Não é possível clonar uma factura cancelada.", 422);
+    }
+
     // =====================================================
     // BUSCAR ITENS
     // =====================================================
@@ -203,7 +209,7 @@ try {
         $pdo->rollBack();
     }
 
-    http_response_code(500);
+    http_response_code($e->getCode() === 422 ? 422 : 500);
 
     echo json_encode([
         'success' => false,

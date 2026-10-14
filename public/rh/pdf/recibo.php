@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once '../../../app/helpers/company_logo.php';
 require_once '../../../vendor/autoload.php';
 
 use Dompdf\Dompdf;
@@ -142,9 +143,7 @@ if (!empty($_SERVER['HTTP_HOST'])) {
 
 $logoSrc = '';
 
-if (!empty($dados['logo_url']) && $baseUrl) {
-    $logoSrc = $baseUrl . '/assets/img/companies/' . $dados['logo_url'];
-}
+$logoSrc = company_logo_src($dados['logo_url'] ?? '', $baseUrl);
 
 /*
 |--------------------------------------------------------------------------

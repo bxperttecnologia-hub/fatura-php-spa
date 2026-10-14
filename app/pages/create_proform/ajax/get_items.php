@@ -94,17 +94,7 @@ try {
             END AS retention,
 
             i.retention AS retention_raw,
-
-            /*
-            IVA
-            */
-            CASE
-                WHEN i.tax = '14' THEN '14% - Taxa 14'
-                WHEN i.tax = 'exempt' THEN 'Isento'
-                ELSE i.tax
-            END AS tax,
-
-            i.tax AS tax_raw,
+            i.tax,
 
             /*
             PREÇOS
@@ -160,7 +150,7 @@ try {
 
         FROM items i
 
-        INNER JOIN currencies cr
+        LEFT JOIN currencies cr
             ON cr.iso_code = i.currency
 
         LEFT JOIN stock_items si

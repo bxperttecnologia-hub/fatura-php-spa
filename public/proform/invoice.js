@@ -23,10 +23,24 @@ $(function () {
         currentInvoice = inv?.data;
 
         $("#fatura-id").text(`${inv.data?.reference}`);
-        $("#status-invoice").text("PROFORMA");
+        $("#action-proform-number").text(inv.data?.reference || "-");
+        const statusText = inv.data?.status_invoice || "Proforma";
+        $("#status-invoice")
+          .text(statusText)
+          .toggleClass("d-none", !statusText || statusText === "-")
+          .toggleClass("is-draft", statusText === "Rascunho");
         $("#subtitle-client").text(inv.data?.client_name);
+        $("#action-proform-client").text(inv.data?.client_name || "-");
 
         setupButtons(inv?.data);
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("send") === "1") {
+          bootstrap.Modal.getOrCreateInstance(
+            document.getElementById("modalEnviarEmail"),
+          ).show();
+        } else if (params.get("convert") === "1") {
+          $("#btnChangeToInvoice").trigger("click");
+        }
       })
       .fail(() => {
         alert("Erro ao carregar factura proforma");
@@ -44,13 +58,36 @@ $(function () {
   // 4. BOTÕES CONDICIONAIS
   // =========================
   function setupButtons(inv) {
-    if (inv.status_invoice === "Rascunho") {
+    const normalizedStatus = String(inv.status_invoice || "")
+      .trim()
+      .toLowerCase();
+    if (normalizedStatus === "rascunho") {
       $("#btnFinalizar, #btnEditar").removeClass("d-none");
     }
 
     $("#btnPdf, #generatePdf, #btnEnviar").removeClass("d-none");
-    $("#btnNotaCredito").removeClass("d-none");
+    if (normalizedStatus.startsWith("cancel")) {
+      $("#btnNotaCredito").removeClass("d-none");
+    }
   }
+
+  $("#btnNotaCredito").on("click", function () {
+    if (currentInvoice?.converted_invoice_id) {
+      const invoiceUrl = `/invoices/view?id=${encodeURIComponent(currentInvoice.converted_invoice_id)}`;
+      if (typeof window.navigateSPA === "function") {
+        window.navigateSPA(invoiceUrl);
+      } else {
+        window.location.assign(invoiceUrl);
+      }
+      return;
+    }
+
+    Swal.fire({
+      icon: "info",
+      title: "Nota de crédito indisponível",
+      text: "A nota de crédito é emitida sobre uma fatura. Esta proforma ainda não está associada a uma fatura convertida.",
+    });
+  });
 
   // =========================
   // 5. GERAR PDF PROFORMA
@@ -116,8 +153,10 @@ $(function () {
     }
 
     const hostname = window.location.hostname;
-    const apiBaseUrl = hostname === "api-crm.bxpert.co.ao" || hostname === "www.api-crm.bxpert.co.ao"
-      ? "https://api-crm.bxpert.co.ao"
+    const apiBaseUrl =
+      hostname === "api-sandibox.bxpert.co.ao" ||
+      hostname === "www.api-sandibox.bxpert.co.ao"
+      ? "https://api-sandibox.bxpert.co.ao"
       : "http://localhost:3004";
 
     fetch(`${apiBaseUrl}/api/invoices/pdf`, {
@@ -125,6 +164,7 @@ $(function () {
       headers: { "Content-Type": "application/json", Accept: "application/pdf" },
       body: JSON.stringify({
         ...currentInvoice,
+        logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
         document_type: "PF",
         document_url: new URL(
           `proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
@@ -132,11 +172,27 @@ $(function () {
         ).toString(),
       }),
     })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      .then(async (response) => {
+        if (!response.ok) {
+          let details = "";
+          try {
+            const error = await response.clone().json();
+            details = error.message || error.error || "";
+          } catch (_) {
+            details = (await response.text()).slice(0, 240);
+          }
+          throw new Error(details || `HTTP ${response.status}`);
+        }
         return response.blob();
       })
       .then((blob) => {
+        if (
+          !blob.size ||
+          (blob.type &&
+            !/^application\/(pdf|octet-stream)$/i.test(blob.type))
+        ) {
+          throw new Error("O serviço não devolveu um ficheiro PDF válido.");
+        }
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -144,14 +200,17 @@ $(function () {
         document.body.appendChild(link);
         link.click();
         link.remove();
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
       })
       .catch((error) => {
         console.error("Erro ao gerar PDF da proforma:", error);
-        alert("Não foi possível gerar o PDF da proforma.");
+        Swal.fire({
+          icon: "error",
+          title: "Erro ao imprimir a proforma",
+          text: error.message || "Não foi possível gerar o PDF da proforma.",
+        });
       })
       .finally(() => {
-        staging.remove();
         if (button) {
           button.disabled = false;
           button.innerHTML = originalHtml;
@@ -235,7 +294,9 @@ $(function () {
               // CORRIGIDO: só redireciona se o utilizador
               // clicar mesmo em "Abrir Factura".
               if (r.isConfirmed) {
-                window.location.href = `invoice.php?id=${response.new_invoice_id}`;
+                const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.new_invoice_id)}`;
+                if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
+                else window.location.href = invoiceUrl;
               }
             });
 
@@ -251,7 +312,9 @@ $(function () {
           }).then((r) => {
             // CORRIGIDO: mesma verificação aqui.
             if (r.isConfirmed) {
-              window.location.href = `invoice.php?id=${response.new_invoice_id}`;
+              const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.new_invoice_id)}`;
+              if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
+              else window.location.href = invoiceUrl;
             }
           });
         },
@@ -280,7 +343,12 @@ $(function () {
   // 7. EDITAR PROFORMA
   // =========================
   $("#btnEditar").on("click", function () {
-    window.location.href = `create_proform.php?edit_id=${currentInvoice.id}`;
+    const editUrl = `/proformas/create?edit_id=${encodeURIComponent(currentInvoice.id)}&return_to=${encodeURIComponent(`/proformas/view?id=${currentInvoice.id}`)}`;
+    if (typeof window.navigateSPA === "function") {
+      window.navigateSPA(editUrl);
+    } else {
+      window.location.assign(editUrl);
+    }
   });
 
   /* ---------- 1. inicializa Quill ---------- */
@@ -349,7 +417,7 @@ $(function () {
     // passa o HTML do Quill para <textarea hidden>
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("invoices/ajax/send_invoice.php", $(this).serialize())
+    $.post("proform/ajax/send_invoice.php", $(this).serialize())
       .done(() => {
         bootstrap.Modal.getInstance(
           document.getElementById("modalEnviarEmail"),

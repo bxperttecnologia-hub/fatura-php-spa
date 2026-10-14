@@ -1,0 +1,231 @@
+<div class="modal fade" id="modalEmployee" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:18px; overflow:hidden;">
+            <form id="formEmployee" enctype="multipart/form-data">
+                <input type="hidden" name="id" id="empId">
+
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="employeeModalTitle" data-i18n="novo-funcionario">Novo Funcionário</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <!-- COLUNA ESQUERDA: foto + navegação -->
+                    <div class="emp-modal-side">
+                        <div class="emp-photo-tile" id="empPhotoTile">
+                            <div class="emp-photo-placeholder" id="empPhotoPlaceholder">?</div>
+                            <img src="" id="empPhotoPreview" style="display:none">
+                            <div class="emp-photo-overlay">
+                                <i class="bi bi-camera"></i>
+                                <span data-i18n="alterar-foto">Alterar foto</span>
+                            </div>
+                            <input type="file" name="photo" id="empPhotoInput" accept="image/png,image/jpeg,image/webp,image/gif" class="d-none">
+                        </div>
+
+                        <ul class="emp-side-nav">
+                            <li class="active" data-tab="dados"><i class="bi bi-person"></i><span data-i18n="dados-pessoais"> Dados Pessoais</span></li>
+                            <li data-tab="cargo"><i class="bi bi-briefcase"></i><span data-i18n="cargo-contrato"> Cargo &amp; Contrato</span></li>
+                            <li data-tab="documentos"><i class="bi bi-file-earmark"></i><span data-i18n="documentos"> Documentos</span></li>
+                            <li data-tab="avaliacoes" id="navAvaliacoes" class="disabled"><i class="bi bi-clipboard-check"></i><span data-i18n="avaliacoes"> Avaliações</span></li>
+                            <li data-tab="situacao" id="navSituacao" class="disabled"><i class="bi bi-shield-exclamation"></i><span data-i18n="situacao"> Situação</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- COLUNA DIREITA: conteúdo das abas -->
+                    <div class="emp-modal-main">
+
+                        <!-- ---------- DADOS PESSOAIS ---------- -->
+                        <div class="emp-tab-pane active" data-pane="dados">
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="nome-completo">Nome completo *</label>
+                                <input type="text" name="employee_name" class="form-control" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label" data-i18n="tipo-de-documento">Tipo de documento</label>
+                                    <select name="document_type" class="form-control">
+                                        <option value="BI" data-i18n="bi">BI</option>
+                                        <option value="Passaporte" data-i18n="passaporte">Passaporte</option>
+                                        <option value="Outro" data-i18n="outro">Outro</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label" data-i18n="n-do-documento">Nº do documento</label>
+                                    <input type="text" name="bi" class="form-control">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label" data-i18n="data-de-nascimento">Data de nascimento</label>
+                                    <input type="date" name="birth_date" class="form-control">
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label" data-i18n="estado-civil">Estado civil</label>
+                                    <select name="marital_status" class="form-control">
+                                        <option value="">—</option>
+                                        <option value="Solteiro(a)" data-i18n="solteiro-a">Solteiro(a)</option>
+                                        <option value="Casado(a)" data-i18n="casado-a">Casado(a)</option>
+                                        <option value="Divorciado(a)" data-i18n="divorciado-a">Divorciado(a)</option>
+                                        <option value="Viúvo(a)" data-i18n="viuvo-a">Viúvo(a)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="nivel-academico">Nível académico</label>
+                                <select name="academic_level" class="form-control">
+                                    <option value="">—</option>
+                                    <option value="Ensino primário" data-i18n="ensino-primario">Ensino primário</option>
+                                    <option value="Ensino médio" data-i18n="ensino-medio">Ensino médio</option>
+                                    <option value="Técnico médio" data-i18n="tecnico-medio">Técnico médio</option>
+                                    <option value="Superior" data-i18n="superior">Superior</option>
+                                    <option value="Pós-graduação" data-i18n="pos-graduacao">Pós-graduação</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="e-mail">E-mail</label>
+                                <input type="email" name="email" class="form-control">
+                            </div>
+                            <div class="row">
+                                <div class="col-4 mb-3">
+                                    <label class="form-label" data-i18n="ddi">DDI</label>
+                                    <input type="text" name="phone_ddi" class="form-control" placeholder="+244">
+                                </div>
+                                <div class="col-8 mb-3">
+                                    <label class="form-label" data-i18n="telefone">Telefone</label>
+                                    <input type="text" name="phone" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ---------- CARGO & CONTRATO ---------- -->
+                        <div class="emp-tab-pane" data-pane="cargo">
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="cargo">Cargo *</label>
+                                <select name="position_id" id="selectEmployeePosition" class="form-control" required>
+                                    <option value="" data-i18n="selecione">— Selecione —</option>
+                                </select>
+                                <div class="form-text"><span data-i18n="nao-encontra-o-cargo">Não encontra o cargo? </span><a href="positions.php" target="_blank" data-i18n="cria-um-novo">Cria um novo</a>.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="departamento">Departamento</label>
+                                <select name="department_id" id="selectEmployeeDepartment" class="form-control">
+                                    <option value="" data-i18n="sem-departamento">— Sem departamento —</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="chefia-direta">Chefia direta</label>
+                                <select name="manager_id" id="selectEmployeeManager" class="form-control">
+                                    <option value="" data-i18n="sem-chefia-direta">— Sem chefia direta —</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="salario-base-kz">Salário base (Kz) *</label>
+                                <input type="number" step="0.01" name="salary" id="inputEmployeeSalary" class="form-control" required>
+                                <div class="form-text text-warning d-none" id="salaryWarningHint">
+                                    <i class="bi bi-exclamation-triangle"></i> <span></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label" data-i18n="tipo-de-contrato">Tipo de contrato</label>
+                                    <select name="contract_type" class="form-control">
+                                        <option value="">—</option>
+                                        <option value="período experimental" data-i18n="periodo-experimental">Período experimental</option>
+                                        <option value="tempo determinado" data-i18n="a-termo-certo-tempo-determinado">A termo certo (tempo determinado)</option>
+                                        <option value="efetivo" data-i18n="efetivo-sem-termo">Efetivo (sem termo)</option>
+                                        <option value="Prestação de Serviço" data-i18n="prestacao-de-servico">Prestação de Serviço</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label" data-i18n="data-de-admissao">Data de admissão</label>
+                                    <input type="date" name="admission_date" class="form-control">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="fim-do-contrato-se-a-termo-certo">Fim do contrato (se a termo certo)</label>
+                                <input type="date" name="contract_end_date" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="iban">IBAN</label>
+                                <input type="text" name="iban" id="inputEmployeeIban" class="form-control text-uppercase"
+                                       placeholder="AO06 0006 0000 0000 0000 0000 0" maxlength="30" autocomplete="off">
+                                <div class="form-text"><span data-i18n="formato-de-angola-ao-23-digitos-25-caracteres-no-total">Formato de Angola: AO + 23 dígitos (25 caracteres no total).</span></div>
+                            </div>
+                        </div>
+
+
+                        <!-- ---------- DOCUMENTOS ---------- -->
+                        <div class="emp-tab-pane" data-pane="documentos">
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="documento-1-ex-bi-digitalizado">Documento 1 (ex: BI digitalizado)</label>
+                                <input type="file" name="doc1" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.webp">
+                                <div class="form-text" id="doc1CurrentLink"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" data-i18n="documento-2-ex-contrato-assinado">Documento 2 (ex: contrato assinado)</label>
+                                <input type="file" name="doc2" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.webp">
+                                <div class="form-text" id="doc2CurrentLink"></div>
+                            </div>
+                        </div>
+
+                        <!-- ---------- AVALIAÇÕES ---------- -->
+                        <div class="emp-tab-pane" data-pane="avaliacoes">
+                            <div id="evalHistoryList"><p class="text-muted" data-i18n="guarda-o-funcionario-primeiro-para-ver-o-historico">Guarda o funcionário primeiro para ver o histórico.</p></div>
+                            <a href="avaliacoes.php" target="_blank" class="btn btn-sm btn-outline-primary mt-2" data-i18n="gerir-avaliacoes">Gerir avaliações</a>
+                        </div>
+
+                        <!-- ---------- SITUAÇÃO / RESCISÃO ---------- -->
+                        <div class="emp-tab-pane" data-pane="situacao">
+                            <div id="situacaoAtivoBlock">
+                                <p class="text-muted" data-i18n="funcionario-ativo-se-saiu-da-empresa-regista-o-desligamento-abaixo">Funcionário ativo. Se saiu da empresa, regista o desligamento abaixo.</p>
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="tipo-de-cessacao">Tipo de cessação</label>
+                                    <select id="selectTipoCessacao" class="form-control">
+                                        <option value="" data-i18n="selecione">— Selecione —</option>
+                                        <option value="periodo_experimental" data-i18n="periodo-experimental">Período experimental</option>
+                                        <option value="termo_certo_nao_renovado" data-i18n="contrato-a-termo-certo-nao-renovado">Contrato a termo certo não renovado</option>
+                                        <option value="causas_objetivas" data-i18n="despedimento-por-causas-objetivas-coletivo">Despedimento por causas objetivas / coletivo</option>
+                                        <option value="sem_justa_causa" data-i18n="despedimento-sem-justa-causa-rescisao-com-justa-causa-trabalhador">Despedimento sem justa causa / rescisão com justa causa (trabalhador)</option>
+                                        <option value="demissao_trabalhador" data-i18n="demissao-pelo-trabalhador-sem-justa-causa">Demissão pelo trabalhador (sem justa causa)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="data-de-cessacao">Data de cessação</label>
+                                    <input type="date" id="inputDataCessacao" class="form-control">
+                                </div>
+                                <div class="form-check mb-3" id="avisoPrevioDadoWrapper" style="display:none">
+                                    <input type="checkbox" class="form-check-input" id="checkAvisoPrevioDado">
+                                    <label class="form-check-label" for="checkAvisoPrevioDado" data-i18n="aviso-previo-de-30-dias-foi-dado-a-tempo">Aviso prévio de 30 dias foi dado a tempo</label>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSimularRescisao" data-i18n="simular-calculo">Simular cálculo</button>
+                                <div id="simulacaoRescisaoResult" class="mt-3"></div>
+                                <hr>
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="indemnizacao-final-ajustavel">Indemnização final (ajustável)</label>
+                                    <input type="number" step="0.01" id="inputIndemnizacaoFinal" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="notas">Notas</label>
+                                    <textarea id="inputNotasRescisao" class="form-control"></textarea>
+                                </div>
+                                <button type="button" class="btn btn-danger" id="btnDesligarFuncionario">
+                                    <i class="bi bi-box-arrow-right"></i><span data-i18n="desligar-funcionario"> Desligar Funcionário
+                                </span></button>
+                            </div>
+                            <div id="situacaoInativoBlock" style="display:none">
+                                <div class="termination-summary" id="terminationSummary"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4" data-i18n="salvar">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -17,6 +17,48 @@ if (!$company_id) {
     exit('Sessão inválida.');
 }
 
+function rhEmployeeIniSizeToBytes(string $value): int
+{
+    $value = trim($value);
+    if ($value === '') {
+        return 0;
+    }
+
+    $unit = strtolower(substr($value, -1));
+    $size = (float)$value;
+    if ($unit === 'g') {
+        $size *= 1024;
+        $unit = 'm';
+    }
+    if ($unit === 'm') {
+        $size *= 1024;
+        $unit = 'k';
+    }
+    if ($unit === 'k') {
+        $size *= 1024;
+    }
+
+    return (int)$size;
+}
+
+$contentLength = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+$postMaxBytes = rhEmployeeIniSizeToBytes((string)ini_get('post_max_size'));
+if (
+    $contentLength > 0
+    && $postMaxBytes > 0
+    && $contentLength > $postMaxBytes
+    && empty($_POST)
+    && empty($_FILES)
+) {
+    http_response_code(413);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'success' => false,
+        'message' => 'Os ficheiros excedem o tamanho máximo permitido pelo servidor.'
+    ]);
+    exit;
+}
+
 /*
 |--------------------------------------------------------------------------
 | INPUTS
@@ -139,16 +181,12 @@ if ($manager_id) {
 |--------------------------------------------------------------------------
 */
 
-$uploadImgDir = __DIR__ . '/../../assets/img/employees/';
-$uploadDocDir = __DIR__ . '/../../assets/docs/employees/';
-
-if (!is_dir($uploadImgDir)) {
-    mkdir($uploadImgDir, 0775, true);
+$assetRoot = dirname(__DIR__, 2);
+if (strtolower(basename($assetRoot)) !== 'public') {
+    $assetRoot = dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'public';
 }
-
-if (!is_dir($uploadDocDir)) {
-    mkdir($uploadDocDir, 0775, true);
-}
+$uploadImgDir = $assetRoot . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'img' . DIRECTORY_SEPARATOR . 'employees';
+$uploadDocDir = $assetRoot . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'employees';
 
 /*
 |--------------------------------------------------------------------------
@@ -158,8 +196,8 @@ if (!is_dir($uploadDocDir)) {
 
 // Extensão -> lista de MIME types reais aceites para essa extensão.
 // A extensão sozinha é só o que está escrito no nome do ficheiro; quem faz
-// upload pode renomear qualquer ficheiro para .jpg. finfo_file() lê a
-// assinatura real do ficheiro no disco, que é o que importa para segurança.
+// upload pode renomear qualquer ficheiro para .jpg. getimagesize() valida
+// o tipo real das imagens sem depender da extensão opcional fileinfo.
 const RH_ALLOWED_MIME_BY_EXT = [
     'png'  => ['image/png'],
     'jpg'  => ['image/jpeg'],
@@ -171,40 +209,119 @@ const RH_ALLOWED_MIME_BY_EXT = [
 
 function saveUpload($fileKey, $destDir, array $allowedExts)
 {
-    if (
-        !isset($_FILES[$fileKey]) ||
-        $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK
-    ) {
+    if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
+    }
+    $uploadError = (int)$_FILES[$fileKey]['error'];
+    if ($uploadError === UPLOAD_ERR_INI_SIZE || $uploadError === UPLOAD_ERR_FORM_SIZE) {
+        throw new Exception('O documento excede o tamanho máximo permitido pelo servidor.');
+    }
+    if ($uploadError !== UPLOAD_ERR_OK) {
+        throw new Exception('Não foi possível receber o documento. Tente novamente.');
     }
 
     $tmp  = $_FILES[$fileKey]['tmp_name'];
     $orig = $_FILES[$fileKey]['name'];
+    if (!is_uploaded_file($tmp)) {
+        throw new Exception('Não foi possível receber o documento. Tente novamente.');
+    }
 
     $ext = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
 
     if (!in_array($ext, $allowedExts, true)) {
-        throw new Exception("Formato inválido para {$fileKey}");
+        throw new Exception('Formato de documento não suportado. Use PDF, PNG, JPG ou WebP.');
     }
 
-    // Valida o MIME real do ficheiro (não apenas a extensão do nome).
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $realMime = $finfo ? finfo_file($finfo, $tmp) : false;
-    if ($finfo) {
-        finfo_close($finfo);
+    // Valida o conteúdo real sem depender da extensão fileinfo no PHP.
+    $imageInfo = @getimagesize($tmp);
+    $realMime = $imageInfo['mime'] ?? null;
+    if ($ext === 'pdf') {
+        $handle = fopen($tmp, 'rb');
+        $signature = $handle ? fread($handle, 5) : false;
+        if ($handle) {
+            fclose($handle);
+        }
+        if ($signature === '%PDF-') {
+            $realMime = 'application/pdf';
+        }
     }
 
     $expectedMimes = RH_ALLOWED_MIME_BY_EXT[$ext] ?? [];
     if (!$realMime || !in_array($realMime, $expectedMimes, true)) {
-        throw new Exception("O ficheiro enviado para {$fileKey} não corresponde a um {$ext} válido.");
+        throw new Exception('O conteúdo do documento não corresponde ao formato indicado.');
     }
 
-    $fileName = uniqid($fileKey . '_', true) . '.' . $ext;
+    $fileName = $fileKey . '_' . bin2hex(random_bytes(16)) . '.' . $ext;
 
-    $dest = rtrim($destDir, '/') . '/' . $fileName;
+    $dest = rtrim($destDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
 
     if (!move_uploaded_file($tmp, $dest)) {
-        throw new Exception("Erro ao salvar {$fileKey}");
+        throw new Exception('Não foi possível guardar o documento. Verifique as permissões da pasta e tente novamente.');
+    }
+
+    return $fileName;
+}
+
+function saveEmployeePhoto($fileKey, $destDir)
+{
+    if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if ($_FILES[$fileKey]['error'] === UPLOAD_ERR_INI_SIZE || $_FILES[$fileKey]['error'] === UPLOAD_ERR_FORM_SIZE) {
+        throw new Exception('A imagem deve ter no máximo 5 MB.');
+    }
+    if ($_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception('Não foi possível enviar a foto. Tente novamente.');
+    }
+
+    $file = $_FILES[$fileKey];
+    if ($file['size'] > 5 * 1024 * 1024) {
+        throw new Exception('A imagem deve ter no máximo 5 MB.');
+    }
+
+    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $mimeByExtension = [
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+    ];
+    if (!isset($mimeByExtension[$extension])) {
+        throw new Exception('Formato de imagem não suportado.');
+    }
+
+    $imageInfo = @getimagesize($file['tmp_name']);
+    $mime = $imageInfo['mime'] ?? null;
+    if (!$imageInfo || $mime !== $mimeByExtension[$extension]) {
+        throw new Exception('Formato de imagem não suportado.');
+    }
+
+    $width = (int)$imageInfo[0];
+    $height = (int)$imageInfo[1];
+    if ($width < 1 || $height < 1 || $width * $height > 12000000) {
+        throw new Exception('A resolução da imagem é demasiado grande.');
+    }
+
+    $source = @imagecreatefromstring(file_get_contents($file['tmp_name']));
+    if (!$source) {
+        throw new Exception('Formato de imagem não suportado.');
+    }
+
+    $side = min($width, $height);
+    $sourceX = (int)(($width - $side) / 2);
+    $sourceY = (int)(($height - $side) / 2);
+    $target = imagecreatetruecolor(512, 512);
+    $background = imagecolorallocate($target, 255, 255, 255);
+    imagefill($target, 0, 0, $background);
+    imagecopyresampled($target, $source, 0, 0, $sourceX, $sourceY, 512, 512, $side, $side);
+
+    $fileName = 'photo_' . bin2hex(random_bytes(16)) . '.jpg';
+    $destination = rtrim($destDir, '/\\') . DIRECTORY_SEPARATOR . $fileName;
+    $saved = imagejpeg($target, $destination, 86);
+    imagedestroy($source);
+    imagedestroy($target);
+    if (!$saved) {
+        throw new Exception('Não foi possível enviar a foto. Tente novamente.');
     }
 
     return $fileName;
@@ -227,7 +344,17 @@ function removeFileIfExists($dir, $file)
 |--------------------------------------------------------------------------
 */
 
+$newPhoto = $newDoc1 = $newDoc2 = null;
+$oldFilesToRemove = [];
+$transactionCommitted = false;
+
 try {
+
+    foreach ([$uploadImgDir, $uploadDocDir] as $uploadDirectory) {
+        if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0775, true) && !is_dir($uploadDirectory)) {
+            throw new RuntimeException('Não foi possível preparar a pasta para guardar os ficheiros.');
+        }
+    }
 
     $pdo->beginTransaction();
 
@@ -237,10 +364,9 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    $newPhoto = saveUpload(
+    $newPhoto = saveEmployeePhoto(
         'photo',
-        $uploadImgDir,
-        ['png', 'jpg', 'jpeg', 'webp', 'gif']
+        $uploadImgDir
     );
 
     $newDoc1 = saveUpload(
@@ -291,16 +417,16 @@ try {
         |--------------------------------------------------------------------------
         */
 
-        if ($newPhoto && $old['photo_url']) {
-            removeFileIfExists($uploadImgDir, $old['photo_url']);
-        }
-
         if ($newDoc1 && $old['doc1_url']) {
-            removeFileIfExists($uploadDocDir, $old['doc1_url']);
+            $oldFilesToRemove[] = [$uploadDocDir, $old['doc1_url']];
         }
 
         if ($newDoc2 && $old['doc2_url']) {
-            removeFileIfExists($uploadDocDir, $old['doc2_url']);
+            $oldFilesToRemove[] = [$uploadDocDir, $old['doc2_url']];
+        }
+
+        if ($newPhoto && $old['photo_url']) {
+            $oldFilesToRemove[] = [$uploadImgDir, $old['photo_url']];
         }
 
         /*
@@ -469,6 +595,10 @@ try {
     }
 
     $pdo->commit();
+    $transactionCommitted = true;
+    foreach ($oldFilesToRemove as [$directory, $filename]) {
+        removeFileIfExists($directory, $filename);
+    }
 
     // Fase 2, item 6: alerta (não bloqueia) se o salário base ficar abaixo
     // do salário mínimo nacional vigente, configurado por empresa em
@@ -484,12 +614,20 @@ try {
     echo json_encode([
         'success' => true,
         'id'      => $id,
+        'photo_url' => $newPhoto ?? ($id ? ($photoUrl ?? null) : null),
         'message' => $id ? 'Funcionário salvo com sucesso.' : 'Erro.',
         'warning' => $salaryWarning
     ]);
-} catch (Exception $e) {
+} catch (Throwable $e) {
 
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    if (!$transactionCommitted) {
+        removeFileIfExists($uploadImgDir, $newPhoto);
+        removeFileIfExists($uploadDocDir, $newDoc1);
+        removeFileIfExists($uploadDocDir, $newDoc2);
+    }
 
     http_response_code(400);
 

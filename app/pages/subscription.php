@@ -119,6 +119,25 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     transition: width 0.6s ease;
   }
 
+  .usage-limits {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .usage-limit {
+    min-width: 0;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f9fafc;
+  }
+
+  @media (max-width: 767.98px) {
+    .usage-limits {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /* Estilos para transformar a tabela em cards no mobile */
 
   /* ===== TABELA ESTILO ===== */
@@ -254,7 +273,9 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
         $inf = '∞';
         $limInv = $plan['invoice_limit_month'] === null ? $inf : (int)$plan['invoice_limit_month'];
         $limUsers = $plan['user_limit'] === null ? $inf : (int)$plan['user_limit'];
+        $limCompanies = $plan['company_limit'] === null ? $inf : (int)$plan['company_limit'];
         $limRh = $plan['rh_employee_limit'] === null ? $inf : (int)$plan['rh_employee_limit'];
+        $companyCount = subscription_owned_company_count($pdo, (int)($_SESSION['user']['id'] ?? 0));
         // $limStock = $plan['stock_item_limit'] === null ? $inf : (int)$plan['stock_item_limit'];
         ?>
 
@@ -294,9 +315,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
           <!-- USO -->
           <div class="col-md-12">
             <div class="soft-box h-100">
-              <div class="d-flex">
-                <h6 class="mb-3 fw-bold h-title" style="margin-left: 10px;"><i class="bi bi-bar-chart"></i> Uso do mês (<?= htmlspecialchars($usage['ym']) ?>)</h6>
-              </div>
+              <h6 class="mb-3 fw-bold h-title"><i class="bi bi-bar-chart"></i> Uso do mês (<?= htmlspecialchars($usage['ym']) ?>)</h6>
 
               <?php
 
@@ -311,41 +330,47 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
               $rhPct = ($limRh === '∞' || empty($limRh))
                 ? 0
                 : min(100, (($usage['employee_count'] ?? 0) / $limRh) * 100);
+
+              $companyPct = ($limCompanies === '∞' || empty($limCompanies))
+                ? 0
+                : min(100, ($companyCount / $limCompanies) * 100);
               ?>
 
-              <div class="d-flex col-md-12 justify-content-between">
-                <!-- Faturas -->
-                <div class="mb-3 col-6 p-2">
-                  <div class="d-flex justify-content-between">
-                    <span>Faturas</span>
+              <div class="usage-limits">
+                <div class="usage-limit">
+                  <div class="d-flex justify-content-between gap-2">
+                    <span>Facturas</span>
                     <strong><?= (int)$usage['invoice_count'] ?> / <?= $limInv ?></strong>
                   </div>
-                  <div class="progress mt-1">
+                  <div class="progress mt-2">
                     <div class="progress-bar" style="width: <?= $invoicePct ?>%"></div>
                   </div>
                 </div>
-
-                <!-- Utilizadores -->
-                <div class="mb-3 col-6 p-2">
-                  <div class="d-flex justify-content-between">
+                <div class="usage-limit">
+                  <div class="d-flex justify-content-between gap-2">
                     <span>Utilizadores</span>
                     <strong><?= (int)$usage['user_count'] ?> / <?= $limUsers ?></strong>
                   </div>
-                  <div class="progress mt-1">
+                  <div class="progress mt-2">
                     <div class="progress-bar" style="width: <?= $userPct ?>%"></div>
                   </div>
                 </div>
-              </div>
-
-              <div class="d-flex col-md-12 justify-content-between">
-                <!-- RH -->
-                <div class="mb-3 col-md-6 p-2">
-                  <div class="d-flex justify-content-between">
+                <div class="usage-limit">
+                  <div class="d-flex justify-content-between gap-2">
                     <span>RH</span>
                     <strong><?= (int)$usage['employee_count'] ?> / <?= $limRh ?></strong>
                   </div>
-                  <div class="progress mt-1">
+                  <div class="progress mt-2">
                     <div class="progress-bar" style="width: <?= $rhPct ?>%"></div>
+                  </div>
+                </div>
+                <div class="usage-limit">
+                  <div class="d-flex justify-content-between gap-2">
+                    <span>Empresas</span>
+                    <strong><?= $companyCount ?> / <?= $limCompanies ?></strong>
+                  </div>
+                  <div class="progress mt-2">
+                    <div class="progress-bar" style="width: <?= $companyPct ?>%"></div>
                   </div>
                 </div>
               </div>
@@ -371,7 +396,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
         </small>
 
         <div class="table-responsive">
-          <table class="table" id="tblOrders">
+          <table class="table bx-list-table" id="tblOrders">
             <thead>
               <tr>
                 <th>#</th>
@@ -427,8 +452,9 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
                   <h6 class="fw-bold"><?= htmlspecialchars($p['name']) ?></h6>
                   <div class="fs-5 fw-bold mb-2"><?= $p['price'] ?> Kz</div>
                   <ul class="small text-muted flex-grow-1 ps-3 mb-3">
-                    <li>Faturas/mês: <?= $p['invoice_limit_month'] ?? '∞' ?></li>
+                    <li>Facturas/mês: <?= $p['invoice_limit_month'] ?? '∞' ?></li>
                     <li>Utilizadores: <?= $p['user_limit'] ?? '∞' ?></li>
+                    <li>Empresas: <?= $p['company_limit'] ?? '∞' ?></li>
                     <li>RH: <?= $p['rh_employee_limit'] ?? '∞' ?></li>
                     <!-- <li>Stock: <?= $p['stock_item_limit'] ?? '∞' ?></li> -->
                   </ul>

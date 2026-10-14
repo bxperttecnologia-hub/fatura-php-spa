@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
+require_once __DIR__ . '/../../app/helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -44,7 +45,7 @@ $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' :
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $baseUrl = $host ? ($scheme.'://'.$host) : '';
 
-$logo = ($d['logo_url'] && $baseUrl) ? ($baseUrl.'/assets/img/companies/'.$d['logo_url']) : '';
+$logo = company_logo_src($d['logo_url'] ?? '', $baseUrl);
 
 $html = '<!doctype html><html><head><meta charset="utf-8">
 <style>

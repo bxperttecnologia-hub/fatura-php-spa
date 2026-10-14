@@ -1,0 +1,322 @@
+<style>
+    .modal-item {
+        background: linear-gradient(135deg, #007abd, #6ea8ff);
+        color: #fff;
+        border-bottom: none;
+    }
+
+    .modal-item .btn-close {
+        filter: invert(1);
+    }
+
+    .modal-content {
+        background: #f5f5f5;
+        border-radius: 18px;
+        overflow: hidden;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        padding: 0;
+    }
+
+    .form-control,
+    .form-select {
+        border-radius: 12px;
+        padding: 0px 12px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #007abd;
+        box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+    }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .soft-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 16px;
+        border: 1px solid #eef0f6;
+    }
+
+    .btn-primary {
+        background: #007abd;
+        border: none;
+        border-radius: 12px;
+    }
+
+    .btn-success {
+        border-radius: 12px;
+        padding: 10px 20px;
+        font-weight: 600;
+    }
+
+    .btn-outline-secondary {
+        border-radius: 12px;
+    }
+
+    #gerarCodigo {
+        border-radius: 10px;
+        width: 100px;
+        height: 40px;
+        margin-left: -5px;
+
+    }
+
+    #codeInput {
+        width: 70%;
+    }
+
+    #codeInput_content {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        align-content: center;
+        justify-items: center;
+        justify-content: center;
+    }
+
+    #depot {
+        transform: scale(-50px);
+        opacity: 0;
+        height: 0px;
+        transition: all ease-in-out .3s;
+        position: absolute;
+        z-index: -999;
+    }
+
+    #depot.active {
+        transform: translateY(0px);
+        opacity: 1;
+        height: auto;
+        transition: .3s;
+        position: inherit;
+        z-index: inherit;
+    }
+</style>
+
+<!-- Modal Editar Item -->
+<div class="modal fade" id="editItemModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="editItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <!-- HEADER -->
+            <div class="modal-header modal-item">
+                <div>
+                    <h5 class="modal-title"><span data-i18n="Editar Item">Editar Item</span></h5>
+                    <small class="opacity-75" style="margin-left: -50px !important;"><span data-i18n="preencha-os-dados-do-produto-servico">
+                        Preencha os dados do produto/serviço
+                    </span></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- BODY -->
+            <div class="modal-body p-3">
+                <form id="editItemForm">
+
+                    <!-- IDS -->
+                    <input type="hidden" name="id">
+                    <input type="hidden" name="id_company" value="">
+
+                    <!-- ========================= -->
+                    <!-- 1. IDENTIFICAÇÃO -->
+                    <!-- ========================= -->
+                    <div class="soft-card mb-3">
+                        <h6 class="mb-3 fw-bold"><span data-i18n="Identifica&#231;&#227;o do Item">Identifica&#231;&#227;o do Item</span></h6>
+
+                        <div class="row g-3 align-items-end">
+
+                            <!-- CÓDIGO -->
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="C&#243;digo">C&#243;digo</span></label>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <!-- VISUAL -->
+                                    <input type="text" class="form-control" id="codigo_display" disabled>
+
+                                    <!-- REAL (vai no POST) -->
+                                    <input type="hidden" name="codigo">
+
+                                    <i class="bi bi-info-circle text-muted"
+                                        data-bs-toggle="tooltip"
+                                        title="Código não editável"></i>
+                                </div>
+                            </div>
+
+                            <!-- NOME -->
+                            <div class="col-md-8">
+                                <label class="form-label">
+                                    <span data-i18n="Nome / Descri&#231;&#227;o">Nome / Descri&#231;&#227;o</span>
+                                    <small class="text-danger"><span data-i18n="opcional">(opcional)</span></small>
+                                </label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+
+                            <!-- DESCRIÇÃO -->
+                            <div class="col-12">
+                                <label class="form-label"><span data-i18n="Descri&#231;&#227;o detalhada">Descri&#231;&#227;o detalhada</span></label>
+                                <textarea class="form-control" rows="2" name="descricao"></textarea>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ========================= -->
+                    <!-- 2. CLASSIFICAÇÃO -->
+                    <!-- ========================= -->
+                    <div class="soft-card mb-3">
+                        <h6 class="mb-3 fw-bold"><span data-i18n="Classifica&#231;&#227;o">Classifica&#231;&#227;o</span></h6>
+
+                        <div class="row g-3">
+
+                            <div class="col-md-6">
+                                <label class="form-label"><span data-i18n="Tipo">Tipo</span></label>
+                                <select class="form-select" name="item_type" id="category" required>
+                                    <option value="selecione o Tipo de item" selected></option>
+                                    <option value="service" data-i18n="Servi&#231;o">Servi&#231;o</option>
+                                    <option value="product" data-i18n="Produto">Produto</option>
+                                    <option value="consumable" data-i18n="Consum&#237;vel">Consum&#237;vel</option>
+                                    <option value="raw_material" data-i18n="Mat&#233;ria-prima">Mat&#233;ria-prima</option>
+                                    <option value="finished_good" data-i18n="Produto final">Produto final</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label"><span data-i18n="subcategoria">Subcategoria</span></label>
+                                <select class="form-select" name="subcategory" id="subcategory">
+                                    <option value="" data-i18n="selecione">Selecione</option>
+                                    <option value="essential" data-i18n="bens-essenciais">Bens essenciais</option>
+                                    <option value="agriculture" data-i18n="insumos-agricolas">Insumos agrícolas</option>
+                                    <option value="other" data-i18n="outros-produtos">Outros produtos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="soft-card mb-3 d-flex flex-wrap gap-2">
+                        <div class="col-md-5">
+                            <label class="form-label"><span data-i18n="Unidade">Unidade</span></label>
+                            <select class="form-select" name="unit_measure">
+                                <option value="unit" data-i18n="unidade">Unidade</option>
+                                <option value="kg" data-i18n="kg">Kg</option>
+                                <option value="liter" data-i18n="litro">Litro</option>
+                                <option value="meter" data-i18n="metro">Metro</option>
+                                <option value="service" data-i18n="servico">Serviço</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label"><span data-i18n="Moeda">Moeda</span></label>
+                            <select class="form-select" name="currency">
+                                <option value="" data-i18n="loading">A carregar moedas...</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <!-- ========================= -->
+                    <!-- 3. STOCK -->
+                    <!-- ========================= -->
+                    <div class="soft-card mb-3" id="depot">
+                        <h6 class="mb-3 fw-bold"><span data-i18n="Gest&#227;o de Stock">Gest&#227;o de Stock</span></h6>
+
+                        <div class="row g-3">
+
+                            <div class="col-md-6">
+                                <label class="form-label"><span data-i18n="Dep&#243;sito / Stock">Dep&#243;sito / Stock</span></label>
+                                <select class="form-select" name="stock_id" id="stock_id">
+                                    <option value="" data-i18n="Selecione o stock">Selecione o stock</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label"><span data-i18n="Quantidade Inicial">Quantidade Inicial</span></label>
+                                <input type="number" class="form-control" name="quantidade" min="0">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label"><span data-i18n="Stock m&#237;nimo">Stock m&#237;nimo</span></label>
+                                <input type="number" class="form-control" name="min_stock" min="1" value="1">
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ========================= -->
+                    <!-- FISCAL -->
+                    <!-- ========================= -->
+                    <div class="soft-card mb-2">
+                        <h6 class="mb-3 fw-bold"><span data-i18n="Fiscalidade">Fiscalidade</span></h6>
+
+                        <div class="row g-3">
+
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="Pre&#231;o Unit&#225;rio">Pre&#231;o Unit&#225;rio</span></label>
+                                <input type="number" class="form-control" name="unit_price" step="0.01" required>
+                            </div>
+
+                            <!-- IVA -->
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="IVA">IVA</span></label>
+                                <input class="form-control" name="tax" readonly>
+                            </div>
+
+                            <!-- RETENÇÃO -->
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="Reten&#231;&#227;o">Reten&#231;&#227;o</span></label>
+                                <select class="form-select" name="retention">
+                                    <option value="0" data-i18n="nao-aplicar">Não aplicar</option>
+                                    <option value="6.5" data-i18n="aplicar-6-5">Aplicar (6.5%)</option>
+                                </select>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ========================= -->
+                    <!-- FINANCEIRO -->
+                    <!-- ========================= -->
+                    <div class="soft-card mb-3" id="financeBlock">
+                        <h6 class="mb-3 fw-bold"><span data-i18n="Pre&#231;os">Pre&#231;os</span></h6>
+
+                        <div class="row g-3">
+
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="Pre&#231;o de Custo">Pre&#231;o de Custo</span></label>
+                                <input type="number" class="form-control" name="cost_price">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="Pre&#231;o de Venda">Pre&#231;o de Venda</span></label>
+                                <input type="number" class="form-control" name="sale_price">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label"><span data-i18n="PVP">PVP</span></label>
+                                <input type="number" class="form-control" name="pvp">
+                            </div>
+
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-success" id="saveEdit">
+                    <span data-i18n="Salvar">Salvar</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+

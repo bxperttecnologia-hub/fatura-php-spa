@@ -2,69 +2,57 @@
 // invoices/ajax/send_invoice.php
 //---------------------------------------------------------------
 require_once '../../../app/config/db.php';   // $pdo
-require_once '../../../vendor/autoload.php'; // Composer
+require_once '../../../app/helpers/authentication.php';
+require_once '../../../app/helpers/document_pdf.php';
 
-use Dompdf\{Dompdf, Options};
 use PHPMailer\PHPMailer\PHPMailer;
-
-//---------------------------------------------------------------
-// util ‑ gera PDF da fatura e devolve caminho tmp
-function generateInvoicePdf(int $invId): string{
-
-  // -------- 1) captura HTML já pronto ------------------------
-  // chama o mesmo endpoint público que você carrega no <iframe>
-  $url  = "https://{$_SERVER['HTTP_HOST']}/sistema_fatura/public/invoices/ajax/invoice_public.php?id=$invId";
-$opts = [
-    "ssl" => [
-        "verify_peer"      => false,
-        "verify_peer_name" => false,
-    ]
-];
-$context = stream_context_create($opts);
-$html = file_get_contents($url, false, $context);
-
-
-  if(!$html){
-    throw new Exception('Não foi possível obter o HTML da fatura.');
-  }
-
-  // -------- 2) Dompdf ---------------------------------------
-  $opt = new Options;
-  $opt->set('isRemoteEnabled', true);        // permite <img src="http">
-  $opt->set('defaultMediaType', 'print');    // aplica @media print e @page em todas as páginas
-  $opt->set('isPhpEnabled', true);           // habilita <script type="text/php"> (numeração de páginas)
-  $dompdf = new Dompdf($opt);
-  $dompdf->setPaper('A4', 'portrait');
-  $dompdf->loadHtml($html, 'UTF-8');
-  $dompdf->render();
-
-  // -------- 3) salva em /tmp e devolve caminho --------------
-  $tmp = sys_get_temp_dir()."/invoice_$invId.pdf";
-  file_put_contents($tmp, $dompdf->output());
-  return $tmp;
-}
 
 //---------------------------------------------------------------
 // 1) CAPTURA INPUT
 header('Content-Type: application/json; charset=utf-8');
 
-$to          = trim($_POST['to']          ?? '');
-$cc          = trim($_POST['cc']          ?? '');
+$toRaw       = trim($_POST['to']          ?? '');
+$ccRaw       = trim($_POST['cc']          ?? '');
 $subject     = trim($_POST['subject']     ?? '');
 $bodyHtml    = trim($_POST['body']        ?? '');
 $invoiceId   = intval($_POST['invoice_id'] ?? 0);
 $attachPdf   = !empty($_POST['attach']);          // checkbox
+$companyId   = (int)($_SESSION['user']['company_id'] ?? 0);
 
-// validações mínimas
-if(!$invoiceId || !filter_var($to, FILTER_VALIDATE_EMAIL)){
+// Keep accepting legacy single-address requests while supporting comma/semicolon lists.
+$parseRecipients = static function (string $raw): array {
+  if ($raw === '') {
+    return [];
+  }
+  return array_values(array_filter(array_map('trim', preg_split('/[;,\r\n]+/', $raw))));
+};
+$to = $parseRecipients($toRaw);
+$cc = $parseRecipients($ccRaw);
+
+if (!$invoiceId || !$to) {
   http_response_code(422);
-  echo json_encode(['error'=>'Destinatário ou fatura inválidos.']);
+  echo json_encode(['error' => 'Adicione pelo menos um destinatário válido.']);
   exit;
 }
-if($cc && !filter_var($cc, FILTER_VALIDATE_EMAIL)){
-  http_response_code(422);
-  echo json_encode(['error'=>'Endereço CC inválido.']);
+if ($companyId <= 0) {
+  http_response_code(403);
+  echo json_encode(['error' => 'Empresa inválida para envio da fatura.']);
   exit;
+}
+$seenRecipients = [];
+foreach (array_merge($to, $cc) as $address) {
+  $normalizedAddress = strtolower($address);
+  if (!filter_var($address, FILTER_VALIDATE_EMAIL)) {
+    http_response_code(422);
+    echo json_encode(['error' => "Endereço de e-mail inválido: {$address}."]);
+    exit;
+  }
+  if (isset($seenRecipients[$normalizedAddress])) {
+    http_response_code(422);
+    echo json_encode(['error' => "O endereço {$address} está repetido em Para/Cc."]);
+    exit;
+  }
+  $seenRecipients[$normalizedAddress] = true;
 }
 
 //---------------------------------------------------------------
@@ -74,8 +62,8 @@ $stmt = $pdo->prepare("
          comp.name AS company_name
   FROM invoices i
   JOIN companies comp ON comp.id = i.company_id
-  WHERE i.id = :id");
-$stmt->execute([':id'=>$invoiceId]);
+  WHERE i.id = :id AND i.company_id = :company_id");
+$stmt->execute([':id' => $invoiceId, ':company_id' => $companyId]);
 $invInfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if(!$invInfo){
@@ -93,32 +81,45 @@ if(!$subject){
 $pdfPath = null;
 try{
   if($attachPdf){
-    $pdfPath = generateInvoicePdf($invoiceId);
+    $pdfPath = bx_generate_document_pdf(__DIR__ . '/invoice_public.php', $invoiceId, 'invoice_');
   }
 }catch(Exception $e){
   http_response_code(500);
-  echo json_encode(['error'=>'Falha ao gerar PDF: '.$e->getMessage()]); exit;
+  echo json_encode(['error' => 'Falha ao gerar PDF.']); exit;
 }
 
 //---------------------------------------------------------------
 // 4) ENVIA COM PHPMailer
+$smtpUsername = trim((string)getenv('SMTP_USERNAME'));
+$smtpPassword = (string)getenv('SMTP_PASSWORD');
+$smtpFromName = trim((string)getenv('SMTP_FROM_NAME')) ?: 'BXpert';
+if ($smtpUsername === '' || $smtpPassword === '' || !filter_var($smtpUsername, FILTER_VALIDATE_EMAIL)) {
+  if ($pdfPath && is_file($pdfPath)) {
+    unlink($pdfPath);
+  }
+  http_response_code(500);
+  echo json_encode(['error' => 'O serviço de email não está configurado.']);
+  exit;
+}
+
 try{
   $mail = new PHPMailer(true);
 
-  // 4.1 ‑ SMTP ----------------------------------------------------------------
-    $mail->isSMTP();
-    $mail->Host       = 'smtp.hostinger.com';
-    $mail->SMTPAuth   = true;
-    $mail->Username   = 'contato@israelsolucoesweb.com';
-    $mail->Password   = '@Learsi99@';
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // <- ATENÇÃO AQUI!
-    $mail->Port       = 465;
-    
+  $mail->isSMTP();
+  $mail->Host       = 'smtp.hostinger.com';
+  $mail->SMTPAuth   = true;
+  $mail->Username   = $smtpUsername;
+  $mail->Password   = $smtpPassword;
+  $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+  $mail->Port       = 465;
 
-  // 4.2 ‑ remetente e destinatários -------------------------------------------
-  $mail->setFrom('contato@israelsolucoesweb.com', 'Israel');
-  $mail->addAddress($to);
-  if($cc) $mail->addCC($cc);
+  $mail->setFrom($smtpUsername, $smtpFromName);
+  foreach ($to as $address) {
+    $mail->addAddress($address);
+  }
+  foreach ($cc as $address) {
+    $mail->addCC($address);
+  }
 
   // 4.3 ‑ anexo PDF ------------------------------------------------------------
   if($pdfPath){
@@ -133,11 +134,12 @@ try{
 
   $mail->send();
 
-  // remove o temp se gerado
-  if($pdfPath && file_exists($pdfPath)) unlink($pdfPath);
-
   echo json_encode(['ok'=>1]);
 }catch(Exception $e){
   http_response_code(500);
-  echo json_encode(['error'=>'Mailer Error: '.$mail->ErrorInfo]);
+  echo json_encode(['error' => 'Falha ao enviar o email.']);
+}finally{
+  if($pdfPath && is_file($pdfPath)){
+    unlink($pdfPath);
+  }
 }

@@ -1,0 +1,27 @@
+<div class="modal fade" id="modalTemplate" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formTemplate">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="modelo-de-avaliacao">Modelo de Avaliação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label data-i18n="nome-do-modelo">Nome do modelo</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <label data-i18n="criterios-com-peso">Critérios (com peso)</label>
+                    <div id="criteriaList"></div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnAddCriterion">
+                        <i class="bi bi-plus"></i><span data-i18n="adicionar-criterio"> Adicionar critério
+                    </span></button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="salvar">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

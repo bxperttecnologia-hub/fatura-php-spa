@@ -397,10 +397,10 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                     <div class="col-12">
                         <div class="d-flex justify-content-between col-12 col-sm-12">
                             <div class="tags">
-                                <a href="#" data-tag="sell" class="tag-link active btn">Vendas</a>
+                                <button type="button" data-tag="sell" class="tag-link active btn">Vendas</button>
                                 <!-- Stock permanece oculto para todos os planos (módulo ainda não lançado) -->
-                                <a href="#" data-tag="stock" class="tag-link btn d-none">Stock</a>
-                                <a href="#" data-tag="rh" class="tag-link btn<?= $dashboardCanRH ? '' : ' d-none' ?>">Recursos Humanos</a>
+                                <button type="button" data-tag="stock" class="tag-link btn d-none">Stock</button>
+                                <button type="button" data-tag="rh" class="tag-link btn<?= $dashboardCanRH ? '' : ' d-none' ?>">Recursos Humanos</button>
                             </div>
                             <div class="mb-3">
                                 <div style="width: 180px !important; margin-right: -80px;" name="export" id="exportData">
@@ -647,7 +647,7 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                                     <div class="row g-3">
                                                         <div class="col-md-4 col-6">
                                                             <div class="p-3 border rounded-3 h-100">
-                                                                <div class="small-text text-muted">Faturado Hoje</div>
+                                                                <div class="small-text text-muted">Vendas de Hoje</div>
                                                                 <h5 class="mb-0 fw-semibold fs-6 text-break" id="daily_sales">0</h5>
                                                             </div>
                                                         </div>
@@ -679,8 +679,15 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                     <?php if ($dashboardReportsScope === 'full'): ?>
                                         <!-- ================== GRÁFICO ================== -->
                                         <div class="card card-custom p-4" id="chart-card">
-                                            <div class="d-flex justify-content-between mb-3">
-                                                <h6 class="h-title"><i class="bi bi-graph-up"></i> Evolução Anual</h6>
+                                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                                <h6 class="h-title"><i class="bi bi-graph-up"></i> <span id="chartTitleText">Evolução Anual</span></h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <select id="chartPeriodSelect" class="form-select form-select-sm" aria-label="Período do gráfico">
+                                                        <option value="annual">Evolução anual</option>
+                                                        <option value="daily">Evolução diária</option>
+                                                    </select>
+                                                    <select id="chartMonthSelect" class="form-select form-select-sm" aria-label="Mês da evolução diária" hidden></select>
+                                                </div>
                                             </div>
                                             <div style="height: 400px;">
                                                 <canvas id="chart"></canvas>
@@ -1011,8 +1018,6 @@ require_once '../app/views/footer.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="../vendor/fontawesome-free-5.15.4-web/js/all.js"></script>
-<script src="./assets/js/script.js"></script>
 
 <script>
     /* =============================
@@ -1021,6 +1026,8 @@ require_once '../app/views/footer.php';
 
     const currentYear = new Date().getFullYear();
     let selectedYear = new Date().getFullYear();
+    let chartPeriod = "annual";
+    let chartMonth = new Date().getMonth() + 1;
     // Planos BXPERT_BAZA / BXPERT_BASE: o filtro do dashboard é mensal
     const isDailyPlan = <?= $isDailyPlan ? 'true' : 'false' ?>;
     let selectedMonth = new Date().getMonth() + 1;
@@ -1129,7 +1136,8 @@ require_once '../app/views/footer.php';
     const tagsContent = document.querySelectorAll(".tag-content");
 
     tagsLink.forEach(t => {
-        t.addEventListener("click", () => {
+        t.addEventListener("click", event => {
+            event.preventDefault();
             tagsLink.forEach(x => x.classList.remove("active"));
             t.classList.add("active");
 
@@ -1182,7 +1190,7 @@ require_once '../app/views/footer.php';
                 let html = '';
 
                 if (invoices.length === 0) {
-                    html = `<div class="p-3 text-center text-muted small">Sem faturas neste período</div>`;
+                    html = `<div class="p-3 text-center text-muted small">Sem facturas neste período</div>`;
                 }
 
                 invoices.forEach(inv => {
@@ -1193,7 +1201,7 @@ require_once '../app/views/footer.php';
                         clientName;
 
                     html += `
-                    <a href="invoice.php?id=${inv.id}">
+                    <a href="/invoices/view?id=${encodeURIComponent(inv.id)}" data-spa>
                         <div class="item">
                             <div class="card p-2 hover-row">
                                 <div class="d-flex justify-content-between">
@@ -1425,8 +1433,8 @@ require_once '../app/views/footer.php';
             const n = Number(kpis.a_receber_documentos) || 0;
             $("#a_receber_mensal_docs").text(
                 n === 0 ?
-                "Sem faturas por receber" :
-                `${n} fatura${n === 1 ? "" : "s"} por receber`
+                "Sem facturas por receber" :
+                `${n} factura${n === 1 ? "" : "s"} por receber`
             );
         }
 
@@ -1619,6 +1627,32 @@ require_once '../app/views/footer.php';
             }, 1000)
         };
 
+        const chartPeriodSelect = document.getElementById("chartPeriodSelect");
+        const chartMonthSelect = document.getElementById("chartMonthSelect");
+        const monthNames = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+
+        if (chartPeriodSelect && chartMonthSelect) {
+            chartMonthSelect.innerHTML = monthNames.map((name, index) => `
+                <option value="${index + 1}" ${index + 1 === chartMonth ? "selected" : ""}>${name}</option>
+            `).join("");
+            chartMonthSelect.hidden = chartPeriod !== "daily";
+
+            chartPeriodSelect.onchange = () => {
+                chartPeriod = chartPeriodSelect.value;
+                chartMonthSelect.hidden = chartPeriod !== "daily";
+                document.getElementById("chartTitleText").textContent =
+                    `Evolução ${chartPeriod === "daily" ? "Diária" : "Anual"}`;
+                updateChart(selectedYear);
+            };
+            chartMonthSelect.onchange = () => {
+                chartMonth = Number(chartMonthSelect.value);
+                updateChart(selectedYear);
+            };
+        }
+
         updateChart(selectedYear);
     }
 
@@ -1653,21 +1687,37 @@ require_once '../app/views/footer.php';
         const canvas = document.getElementById("chart");
         if (!canvas) return;
 
-        const labels = [];
+        let labels = [];
         const valores = [];
         const valoresAnteriores = [];
 
-        for (let mes = 1; mes <= 12; mes++) {
+        if (chartPeriod === "daily") {
+            const daysInMonth = new Date(selectedYear, chartMonth, 0).getDate();
+            const dailyCurrent = new Map();
+            const dailyPrevious = new Map();
 
-            const mesFormatado =
-                `${selectedYear}-${String(mes).padStart(2, '0')}`;
+            (currentData?.evolucao_diaria || []).forEach(item => {
+                const [year, month, day] = String(item.dia || "").split("-").map(Number);
+                if (month === chartMonth) {
+                    if (year === selectedYear) dailyCurrent.set(day, Number(item.total || 0));
+                    if (year === selectedYear - 1) dailyPrevious.set(day, Number(item.total || 0));
+                }
+            });
 
-            const mesAnteriorFormatado =
-                `${selectedYear - 1}-${String(mes).padStart(2, '0')}`;
+            for (let day = 1; day <= daysInMonth; day++) {
+                labels.push(`${String(day).padStart(2, "0")}/${String(chartMonth).padStart(2, "0")}`);
+                valores.push(dailyCurrent.get(day) || 0);
+                valoresAnteriores.push(dailyPrevious.get(day) || 0);
+            }
+        } else {
+            for (let mes = 1; mes <= 12; mes++) {
+                const mesFormatado = `${selectedYear}-${String(mes).padStart(2, "0")}`;
+                const mesAnteriorFormatado = `${selectedYear - 1}-${String(mes).padStart(2, "0")}`;
 
-            labels.push(nomesMeses[mes - 1]);
-            valores.push(map[mesFormatado] || 0);
-            valoresAnteriores.push(mapAnterior[mesAnteriorFormatado] || 0);
+                labels.push(nomesMeses[mes - 1]);
+                valores.push(map[mesFormatado] || 0);
+                valoresAnteriores.push(mapAnterior[mesAnteriorFormatado] || 0);
+            }
         }
 
         if (chartInstance) {
@@ -1686,22 +1736,22 @@ require_once '../app/views/footer.php';
             data: {
                 labels,
                 datasets: [{
-                        label: `Receita ${selectedYear}`,
+                        label: `Vendas ${selectedYear}`,
                         data: valores,
                         backgroundColor: gradient,
                         borderRadius: 8,
                         borderSkipped: false,
                         hoverBackgroundColor: "#007abd",
-                        barThickness: 20
+                        barThickness: chartPeriod === "annual" ? 20 : undefined
                     },
                     {
-                        label: `Receita ${selectedYear - 1}`,
+                        label: `Vendas ${selectedYear - 1}`,
                         data: valoresAnteriores,
                         backgroundColor: "#c3c2b7",
                         borderRadius: 8,
                         borderSkipped: false,
                         hoverBackgroundColor: "#a3a29c",
-                        barThickness: 20
+                        barThickness: chartPeriod === "annual" ? 20 : undefined
                     }
                 ]
             },
@@ -1730,6 +1780,12 @@ require_once '../app/views/footer.php';
                 },
 
                 scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: chartPeriod === "daily",
+                            maxTicksLimit: chartPeriod === "daily" ? 16 : 12
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         grid: {
@@ -1768,7 +1824,7 @@ require_once '../app/views/footer.php';
         <div class="hover-row d-flex justify-content-between p-2 rounded">
             <div title="${nome}">
                 <strong>${nomeCurto}</strong><br>
-                <small class="text-muted">${c.total_faturas || 0} faturas</small>
+                <small class="text-muted">${c.total_faturas || 0} facturas</small>
             </div>
             <span class="text-black small">
                 ${formatCurrency(c.total_faturado)}

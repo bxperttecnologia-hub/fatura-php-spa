@@ -5,8 +5,9 @@ require_once '../app/views/layout_creation.php';
     <div class="container mt-5">
         <div class="guide-container mt-4 mb-4">
             <h3 class="fw-bold mb-4"><?= t('Guias Emitidas') ?></h3>
+            <div id="guidesTableControls"></div>
             <div class="table-responsive">
-                <table id="guidesTable" class="table table-striped align-middle" style="width:100%">
+                <table id="guidesTable" class="table table-striped align-middle bx-list-table" style="width:100%">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -19,57 +20,35 @@ require_once '../app/views/layout_creation.php';
                             <th></th>
                         </tr>
                     </thead>
+                    <tbody></tbody>
                 </table>
             </div>
         </div>
     </div>
 </main>
 
-<!-- DataTables JS -->
-
 <script>
     $(document).ready(function() {
-        $('#guidesTable').DataTable({
-            processing: true,
-            serverSide: false,
+        BootstrapTable.create({
+            table: '#guidesTable',
+            toolbar: '#guidesTableControls',
             ajax: {
                 url: 'guides/ajax/list_guides.php',
-                dataSrc: ''
+                method: 'GET'
             },
-            columns: [{
-                    data: 'id'
-                },
-                {
-                    data: 'client_name'
-                },
-                {
-                    data: 'vehicle_plate'
-                },
-                {
-                    data: 'cargo_date'
-                },
-                {
-                    data: 'final_total'
-                },
-                {
-                    data: 'status'
-                },
-                {
-                    data: 'created_at'
-                },
-                {
-                    data: 'actions',
-                    orderable: false,
-                    searchable: false
-                }
+            dataSource: response => Array.isArray(response) ? response : response.data,
+            initialSort: { index: 0, direction: 'desc' },
+            emptyText: 'Nenhuma guia emitida encontrada.',
+            columns: [
+                { data: 'id' },
+                { data: 'client_name' },
+                { data: 'vehicle_plate' },
+                { data: 'cargo_date' },
+                { data: 'final_total' },
+                { data: 'status' },
+                { data: 'created_at' },
+                { data: 'actions', sortable: false, searchable: false, render: value => value ?? '' }
             ],
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json'
-            },
-            pageLength: 10,
-            order: [
-                [0, "desc"]
-            ]
         });
     });
 </script>

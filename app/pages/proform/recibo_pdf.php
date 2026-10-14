@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
+require_once __DIR__ . '/../../helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -40,11 +41,13 @@ function formatMoney(float $value, string $symbol, string $pos): string{
   return ($pos === 'left') ? ($symbol.' '.$formatted) : ($formatted.' '.$symbol);
 }
 
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'https';
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? '';
-$baseUrl = $host ? ($scheme.'://'.$host) : '';
+$basePath = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$basePath = $basePath === '.' ? '' : $basePath;
+$baseUrl = $host ? ($scheme.'://'.$host.$basePath) : '';
 
-$logo = ($d['logo_url'] && $baseUrl) ? ($baseUrl.'/assets/img/companies/'.$d['logo_url']) : '';
+$logo = company_logo_src($d['logo_url'] ?? '', $baseUrl);
 
 $html = '<!doctype html><html><head><meta charset="utf-8">
 <style>

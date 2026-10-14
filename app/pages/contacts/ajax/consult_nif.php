@@ -23,7 +23,7 @@ register_shutdown_function(function () {
     }
 });
 
-require_once '../../../app/config/db.php';
+require_once '../../../config/db.php';
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -45,10 +45,22 @@ header('Content-Type: application/json; charset=utf-8');
 // Se o projecto já carrega o .env noutro sítio (ex.: vlucas/phpdotenv no db.php), isto não interfere.
 function agt_load_env_file()
 {
-    $candidates = [
-        dirname(__DIR__, 3) . '/.env', // raiz do projecto (a pasta que contém app/)
-        dirname(__DIR__, 2) . '/.env', // raiz da pasta web
-    ];
+    $projectDir = __DIR__;
+    for ($level = 0; $level < 6; $level++) {
+        if (is_file($projectDir . '/app/config/db.php') && is_dir($projectDir . '/public')) {
+            break;
+        }
+        $parentDir = dirname($projectDir);
+        if ($parentDir === $projectDir) {
+            $projectDir = null;
+            break;
+        }
+        $projectDir = $parentDir;
+    }
+
+    $candidates = $projectDir
+        ? [$projectDir . '/.env']
+        : [];
     if (!empty($_SERVER['DOCUMENT_ROOT'])) {
         $candidates[] = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . '/../.env';
         $candidates[] = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\') . '/.env';
@@ -59,7 +71,7 @@ function agt_load_env_file()
             continue;
         }
         foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $line = trim($line);
+            $line = trim($line, "\xEF\xBB\xBF \t\n\r\0\x0B");
             if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
                 continue;
             }
@@ -104,7 +116,7 @@ function agt_env_value(array $names, $default = null)
 
 agt_load_env_file();
 
-$agtUrl      = agt_env_value(['AGT_NIF_URL', 'AGT_URL'], 'https://sifphml.minfin.gov.ao/sigt/contribuinte/consultarNIF/v5/obter');
+$agtUrl      = agt_env_value(['AGT_NIF_URL', 'AGT_URL'], 'https://sifp.minfin.gov.ao');
 $agtUsername = agt_env_value(['AGT_NIF_USERNAME', 'AGT_USERNAME', 'AGT_USER']);
 $agtPassword = agt_env_value(['AGT_NIF_PASSWORD', 'AGT_PASSWORD', 'AGT_TOKEN']);
 
@@ -123,20 +135,28 @@ function agt_respond(array $payload, int $httpCode = 200)
     exit;
 }
 
-// Só utilizadores autenticados
-if (empty($_SESSION['user'])) {
+// A consulta também é permitida durante o onboarding, após validação do telefone por OTP.
+$registrationUserId = (int) ($_SESSION['user_id'] ?? 0);
+$verifiedRegistration = false;
+if ($registrationUserId > 0) {
+    $verifiedStmt = $pdo->prepare(
+        'SELECT 1 FROM users u
+          WHERE u.id = ? AND u.phone_verified_at IS NOT NULL AND u.must_change_password = 1
+            AND NOT EXISTS (SELECT 1 FROM company_has_user chu WHERE chu.user_id = u.id)
+          LIMIT 1'
+    );
+    $verifiedStmt->execute([$registrationUserId]);
+    $verifiedRegistration = (bool) $verifiedStmt->fetchColumn();
+}
+if (empty($_SESSION['user']) && !$verifiedRegistration) {
     agt_respond(['status' => 'error', 'message' => 'Sessão expirada.'], 401);
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     agt_respond(['status' => 'error', 'message' => 'Método inválido.'], 405);
 }
 
-// Aceita JSON ou form-data
-$input = json_decode(file_get_contents('php://input'), true);
-if (!is_array($input)) {
-    $input = $_POST;
-}
+$input = $_GET;
 
 $tipoDocumento   = strtoupper(trim($input['tipoDocumento'] ?? 'NIF'));
 $numeroDocumento = trim($input['numeroDocumento'] ?? '');
@@ -157,7 +177,7 @@ if (!$agtUsername || !$agtPassword) {
 $cacheTtl  = 24 * 60 * 60; // 24h
 $cacheDir  = sys_get_temp_dir() . '/agt_nif_cache';
 $cacheFile = $cacheDir . '/' . sha1($tipoDocumento . '|' . strtoupper($numeroDocumento)) . '.json';
-$forceRefresh = !empty($input['refresh']);
+$forceRefresh = filter_var($input['refresh'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
 if (!$forceRefresh && is_file($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTtl) {
     $cached = json_decode((string) file_get_contents($cacheFile), true);
@@ -168,6 +188,12 @@ if (!$forceRefresh && is_file($cacheFile) && (time() - filemtime($cacheFile)) < 
 }
 
 // ---- Chamada à AGT ----
+$agtEndpointPath = '/sigt/contribuinte/consultarNIF/v5/obter';
+$configuredPath = rtrim((string) parse_url($agtUrl, PHP_URL_PATH), '/');
+if (!str_ends_with($configuredPath, $agtEndpointPath)) {
+    $agtUrl = rtrim($agtUrl, '/') . $agtEndpointPath;
+}
+
 $url = $agtUrl . '?' . http_build_query([
     'tipoDocumento'   => $tipoDocumento,
     'numeroDocumento' => $numeroDocumento,
@@ -179,12 +205,8 @@ $dev = defined('APP_ENV') && APP_ENV === 'development';
  * Pedido HTTP à AGT. Usa cURL se existir; senão, file_get_contents.
  * Devolve [corpo|false, código HTTP, erro].
  */
-function agt_http_request($method, $url, array $headers, $body = null)
+function agt_http_request($url, array $headers, $caBundle = null)
 {
-    if ($method === 'POST') {
-        $headers[] = 'Content-Type: application/json';
-    }
-
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
         $opts = [
@@ -193,9 +215,11 @@ function agt_http_request($method, $url, array $headers, $body = null)
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_HTTPHEADER     => $headers,
         ];
-        if ($method === 'POST') {
-            $opts[CURLOPT_POST]       = true;
-            $opts[CURLOPT_POSTFIELDS] = (string) $body;
+        if (defined('CURLSSLOPT_NATIVE_CA') && defined('CURLOPT_SSL_OPTIONS')) {
+            $opts[CURLOPT_SSL_OPTIONS] = CURLSSLOPT_NATIVE_CA;
+        }
+        if ($caBundle) {
+            $opts[CURLOPT_CAINFO] = $caBundle;
         }
         curl_setopt_array($ch, $opts);
         $raw  = curl_exec($ch);
@@ -207,15 +231,19 @@ function agt_http_request($method, $url, array $headers, $body = null)
 
     if (ini_get('allow_url_fopen')) {
         $http = [
-            'method'        => $method,
+            'method'        => 'GET',
             'header'        => implode("\r\n", $headers),
             'timeout'       => 15,
             'ignore_errors' => true, // devolve o corpo mesmo com HTTP 4xx/5xx
         ];
-        if ($method === 'POST') {
-            $http['content'] = (string) $body;
+        $ssl = [
+            'verify_peer'      => true,
+            'verify_peer_name' => true,
+        ];
+        if ($caBundle) {
+            $ssl['cafile'] = $caBundle;
         }
-        $raw  = @file_get_contents($url, false, stream_context_create(['http' => $http]));
+        $raw  = @file_get_contents($url, false, stream_context_create(['http' => $http, 'ssl' => $ssl]));
         $code = 0;
         if (isset($http_response_header[0]) && preg_match('#HTTP/\S+\s+(\d{3})#', $http_response_header[0], $m)) {
             $code = (int) $m[1];
@@ -239,28 +267,25 @@ $headers = [
     'Username: ' . $agtUsername,
     'Password: ' . $agtPassword,
 ];
-$jsonBody = json_encode([
-    'tipoDocumento'   => $tipoDocumento,
-    'numeroDocumento' => $numeroDocumento,
-]);
 
-// Método: GET (a AGT responde 405 "Allow: GET,OPTIONS" a POST). Pode mudar com AGT_NIF_METHOD.
-$method = strtoupper((string) agt_env_value(['AGT_NIF_METHOD'], 'GET'));
-if (!in_array($method, ['GET', 'POST'], true)) {
-    $method = 'GET';
+$caBundle = agt_env_value(['AGT_CA_BUNDLE']);
+if (!$caBundle) {
+    $caBundle = ini_get('curl.cainfo') ?: ini_get('openssl.cafile');
+}
+if ($caBundle && (!is_file($caBundle) || !is_readable($caBundle))) {
+    error_log('[AGT consultarNIF] O ficheiro configurado em AGT_CA_BUNDLE não existe ou não pode ser lido.');
+    agt_respond(['status' => 'error', 'message' => 'O ficheiro de certificados da AGT não está acessível no servidor.'], 500);
 }
 
-list($raw, $httpCode, $httpErr) = agt_http_request($method, $url, $headers, $jsonBody);
-
-// Se a AGT disser que o método não é permitido, tenta o outro
-if ($raw !== false && in_array($httpCode, [405, 501], true)) {
-    $other = ($method === 'POST') ? 'GET' : 'POST';
-    list($raw, $httpCode, $httpErr) = agt_http_request($other, $url, $headers, $jsonBody);
-}
+list($raw, $httpCode, $httpErr) = agt_http_request($url, $headers, $caBundle ?: null);
 
 if ($raw === false) {
     error_log('[AGT consultarNIF] Ligação: ' . $httpErr);
-    agt_respond(['status' => 'error', 'message' => 'Não foi possível contactar a AGT.' . ($dev && $httpErr ? ' [' . $httpErr . ']' : '')], 502);
+    $message = 'Não foi possível contactar a AGT.';
+    if (stripos($httpErr, 'certificate') !== false || stripos($httpErr, 'SSL') !== false) {
+        $message .= ' Verifique a cadeia de certificados TLS; pode definir AGT_CA_BUNDLE no .env com o caminho para o certificado CA confiável.';
+    }
+    agt_respond(['status' => 'error', 'message' => $message . ($dev && $httpErr ? ' [' . $httpErr . ']' : '')], 502);
 }
 
 // Credenciais recusadas pela AGT
@@ -275,7 +300,7 @@ if ($httpCode === 401 || $httpCode === 403) {
 $data = json_decode($raw, true);
 if (!is_array($data)) {
     error_log("[AGT consultarNIF] Resposta inválida (HTTP $httpCode): " . substr($raw, 0, 500));
-    agt_respond(['status' => 'error', 'message' => 'Resposta inválida da AGT.' . ($dev ? " [{$method} → HTTP {$httpCode}: " . substr(trim(preg_replace('/\s+/', ' ', strip_tags($raw))), 0, 200) . ']' : '')], 502);
+    agt_respond(['status' => 'error', 'message' => 'Resposta inválida da AGT.' . ($dev ? " [GET → HTTP {$httpCode}: " . substr(trim(preg_replace('/\s+/', ' ', strip_tags($raw))), 0, 200) . ']' : '')], 502);
 }
 
 // A resposta vem dentro de "ObterContribuinte"
@@ -286,7 +311,7 @@ $contribuinte = $root['contribuinte'] ?? null;
 if ($httpCode >= 400 || !is_array($contribuinte) || empty($contribuinte['numeroNIF'])) {
     if ($httpCode >= 500) {
         error_log("[AGT consultarNIF] HTTP $httpCode: " . substr($raw, 0, 500));
-        agt_respond(['status' => 'error', 'message' => 'Serviço da AGT indisponível.' . ($dev ? " [{$method} → HTTP {$httpCode}]" : '')], 502);
+        agt_respond(['status' => 'error', 'message' => 'Serviço da AGT indisponível.' . ($dev ? " [GET → HTTP {$httpCode}]" : '')], 502);
     }
     agt_respond([
         'status'  => 'not_found',

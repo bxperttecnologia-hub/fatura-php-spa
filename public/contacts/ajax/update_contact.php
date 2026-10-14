@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/contact_nif_guard.php';
 session_start();
 
 // Nota: esta resposta continua SEM header "application/json" de propósito —
@@ -69,26 +70,63 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit;
     }
 
+    $lockName = null;
+    $lockAcquired = false;
     try {
-        // updated_at passa a ser gravado no servidor. Antes vinha de um campo
-        // escondido que o JS só enviava se o valor mudasse — ou seja, nunca.
-        // Só o usamos se a coluna existir, para não partir a edição.
-        $hasUpdatedAt = $pdo->query("SHOW COLUMNS FROM contact LIKE 'updated_at'")->fetch() !== false;
-        if ($hasUpdatedAt) {
-            $fieldsToUpdate[] = "`updated_at` = :updated_at";
-            $params[":updated_at"] = date('Y-m-d H:i:s');
+        $canUpdate = true;
+        if (isset($_POST["contributor"]) || isset($_POST["address"])) {
+            $currentStmt = $pdo->prepare('SELECT contributor, address FROM contact WHERE id = :id AND company_id = :company_id LIMIT 1');
+            $currentStmt->execute([':id' => $contactId, ':company_id' => $companyId]);
+            $currentContact = $currentStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$currentContact) {
+                http_response_code(404);
+                echo json_encode(["status" => "error", "message" => "Contacto não encontrado."]);
+                $canUpdate = false;
+            } else {
+                $contributor = trim((string) ($_POST["contributor"] ?? $currentContact["contributor"]));
+                $address = trim((string) ($_POST["address"] ?? $currentContact["address"]));
+            }
         }
 
-        $query = "UPDATE contact SET " . implode(", ", $fieldsToUpdate) . " WHERE id = :id AND company_id = :company_id";
+        if ($canUpdate && isset($contributor, $address)) {
+            $lockName = contact_nif_lock_name((int) $companyId, $contributor, $address);
+            $lockAcquired = contact_acquire_nif_lock($pdo, $lockName);
+            if (!$lockAcquired) {
+                http_response_code(503);
+                echo json_encode(["status" => "error", "message" => "Não foi possível validar o NIF agora. Tente novamente."]);
+                $canUpdate = false;
+            } elseif (contact_nif_address_exists($pdo, (int) $companyId, $contributor, $address, $contactId)) {
+                http_response_code(409);
+                echo json_encode(["status" => "error", "code" => "duplicate_nif_address", "message" => "Já existe outro contacto com este NIF e endereço na sua empresa."]);
+                $canUpdate = false;
+            }
+        }
 
-        $params[":id"] = $contactId;
-        $params[":company_id"] = $companyId;
+        if ($canUpdate) {
+            // updated_at passa a ser gravado no servidor. Antes vinha de um campo
+            // escondido que o JS só enviava se o valor mudasse — ou seja, nunca.
+            // Só o usamos se a coluna existir, para não partir a edição.
+            $hasUpdatedAt = $pdo->query("SHOW COLUMNS FROM contact LIKE 'updated_at'")->fetch() !== false;
+            if ($hasUpdatedAt) {
+                $fieldsToUpdate[] = "`updated_at` = :updated_at";
+                $params[":updated_at"] = date('Y-m-d H:i:s');
+            }
 
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        echo json_encode(["status" => "success", "message" => "Contato atualizado com sucesso"]);
+            $query = "UPDATE contact SET " . implode(", ", $fieldsToUpdate) . " WHERE id = :id AND company_id = :company_id";
+
+            $params[":id"] = $contactId;
+            $params[":company_id"] = $companyId;
+
+            $stmt = $pdo->prepare($query);
+            $stmt->execute($params);
+            echo json_encode(["status" => "success", "message" => "Contato atualizado com sucesso"]);
+        }
     } catch (PDOException $e) {
         echo json_encode(["status" => "error", "message" => "Erro ao atualizar contato: " . $e->getMessage()]);
+    } finally {
+        if ($lockAcquired && $lockName !== null) {
+            contact_release_nif_lock($pdo, $lockName);
+        }
     }
 }
 ?>

@@ -32,12 +32,14 @@ ini_set('display_errors', config('debug') ? '1' : '0');
 
 // A sessão arranca aqui, antes de qualquer output.
 if (PHP_SAPI !== 'cli') {
-    session_set_cookie_params([
-        'httponly' => true,
-        'samesite' => 'Lax',
-        'secure'   => !empty($_SERVER['HTTPS']),
-    ]);
-    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure'   => !empty($_SERVER['HTTPS']),
+        ]);
+        session_start();
+    }
 
     // Helpers legados do ERP (t(), formatName(), currencySelects(), $paises...). Têm de existir uma só vez:
     // as páginas fazem require_once dos mesmos ficheiros, que o PHP ignora por já estarem carregados.

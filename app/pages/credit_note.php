@@ -11,7 +11,7 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h4 class="m-0">Nota de Crédito</h4>
       <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" href="list_invoices.php">Voltar</a>
+        <a class="btn btn-outline-secondary" href="/invoices" data-spa>Voltar</a>
       </div>
     </div>
 

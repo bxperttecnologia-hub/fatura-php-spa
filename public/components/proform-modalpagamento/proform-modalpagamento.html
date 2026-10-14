@@ -1,0 +1,73 @@
+<div class="modal fade" id="modalPagamento" tabindex="-1">
+        <div class="modal-dialog">
+            <form id="formPagamento" class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="pagamento-recibo">Pagamento / Recibo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- Valor -->
+                    <div class="p-3 bg-white rounded shadow-sm mb-2">
+                        <div class="mb-3">
+                            <label class="form-label" data-i18n="valor">Valor</label>
+                            <div class="input-group d-flex gap-0">
+                                <input type="number" step="0.01" min="0" id="pg_valor"
+                                    name="amount" class="form-control" required>
+                                <span class="input-group-text" id="pg_saldo"></span>
+                            </div>
+                            <!-- o .invalid-feedback será inserido aqui quando necessário -->
+                        </div>
+
+
+                    </div>
+
+                    <!-- Série -->
+                    <div class="p-3 bg-white rounded shadow-sm mb-2 d-flex gap-2">
+                        <!-- Data -->
+                        <div class="mb-3 col-6">
+                            <label class="form-label" data-i18n="data">Data</label>
+                            <input type="date" id="pg_data" name="pay_date"
+                                class="form-control" required>
+                        </div>
+
+                        <div class="mb-3 col-6">
+                            <label class="form-label" data-i18n="serie">Série</label>
+                            <input id="pg_serie" name="serie" class="form-control" required placeholder="EX: 12/2026">
+                        </div>
+
+                        <!-- Meio de pagamento -->
+                    </div>
+
+                    <div class="mb-3 p-3 bg-white rounded shadow-sm mb-2">
+                        <label class="form-label" data-i18n="meio-de-pagamento">Meio de pagamento</label>
+                        <select id="pg_meio" name="payment_method" class="form-select" required>
+                            <option data-i18n="transferencia-bancaria">Transferência bancária</option>
+                            <option data-i18n="dinheiro">Dinheiro</option>
+                            <option data-i18n="cheque">Cheque</option>
+                            <option data-i18n="tpa-cartao">TPA / Cartão</option>
+                        </select>
+                    </div>
+
+                    <!-- Observações -->
+                    <div class="p-3 bg-white rounded shadow-sm mb-2">
+
+                        <div class="mb-3">
+                            <label class="form-label" data-i18n="observacoes">Observações</label>
+                            <textarea id="pg_obs" name="notes" rows="2"
+                                class="form-control"></textarea>
+                        </div>
+
+                        <!-- campo oculto com ID da fatura -->
+                        <input type="hidden" name="invoice_id" value="">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success w-100" data-i18n="registar-pagamento-e-criar-recibo">
+                        Registar pagamento e criar recibo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
