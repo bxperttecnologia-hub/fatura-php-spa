@@ -78,7 +78,7 @@ require_once '../app/views/layout_creation.php';
 
                         <div class="bx-menu__label" id="bxExportTypeLabel">Exportar lista</div>
                         <button type="button" class="bx-menu__item" role="menuitem" data-export-action="list-pdf">
-                            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Exportar PDF
+                            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Baixar PDF
                         </button>
                         <button type="button" class="bx-menu__item" role="menuitem" data-export-action="list-excel">
                             <i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar Excel
@@ -220,7 +220,7 @@ require_once '../app/views/layout_creation.php';
                                 <i class="bi bi-filetype-csv" aria-hidden="true"></i> Exportar CSV
                             </button>
                             <button type="button" class="bx-menu__item" role="menuitem" data-export-action="selected-list-pdf">
-                                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Lista em PDF
+                                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Baixar PDF
                             </button>
                         </div>
                     </div>

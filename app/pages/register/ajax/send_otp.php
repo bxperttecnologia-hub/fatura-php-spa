@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $name  = trim($_POST['name'] ?? '');
-$canal = (($_POST['channel'] ?? '') === 'whatsapp') ? 'whatsapp' : 'sms';
+$canal = 'sms';
 $phone = normalizarTelefone($_POST['phone'] ?? '');
 $ip    = $_SERVER['REMOTE_ADDR'] ?? null;
 
@@ -44,7 +44,7 @@ if ($phone === null) {
     responder(422, ['success' => false, 'message' => 'Telefone inválido ou prefixo do país não reconhecido.']);
 }
 
-// BUG FIX: todo o bloco de base de dados / envio Twilio estava fora de
+// BUG FIX: todo o bloco de base de dados / envio SMS estava fora de
 // qualquer try/catch. Uma PDOException (ex: coluna obrigatória em falta
 // no INSERT, ligação perdida) rebentava como erro fatal do PHP em vez de
 // devolver JSON, com o mesmo sintoma do ecrã de erro genérico.
@@ -90,9 +90,13 @@ try {
     $stmt->execute([$name, $phone, $canal, password_hash($codigo, PASSWORD_DEFAULT), $ip, $expira, $agora]);
     $id = (int) $pdo->lastInsertId();
 
-    if (!enviarOtp($phone, $canal, $codigo)) {
+    $erroSms = null;
+    if (!enviarOtp($phone, $canal, $codigo, $erroSms)) {
         $pdo->prepare("DELETE FROM phone_verifications WHERE id = ?")->execute([$id]);
-        responder(502, ['success' => false, 'message' => 'Não foi possível enviar o código via Twilio. Verifique os dados no .env e os logs.']);
+        responder(502, [
+            'success' => false,
+            'message' => 'Não foi possível enviar o código por SMS.' . ($erroSms ? ' GoSMS: ' . $erroSms : ''),
+        ]);
     }
 
     $_SESSION['reg_verification_id'] = $id;

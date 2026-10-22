@@ -43,7 +43,6 @@ function loadFaturaWithRetry(invoiceId, maxRetries = 5) {
   tryLoad();
 }
 
-loadFaturaWithRetry(invoiceId, 5);
 // ───────── invoice.js ─────────
 $(function () {
   // id vindo da query‑string
@@ -68,20 +67,64 @@ $(function () {
       }
 
       currentInvoice = inv; // guarda para modal
+      const invoiceDisplayId =
+        inv.status_invoice === "Rascunho"
+          ? `${inv.series}/${inv.id}`
+          : inv.numero_validacao;
+      const creditNoteId = Number(inv.credit_note_id) || 0;
+
+      function showInvoicePreview() {
+        $("#invoice-document-label").text(
+          String(inv.document_type || "FT").toUpperCase() === "FR"
+            ? "Factura-Recibo"
+            : "Factura",
+        );
+        $("#invoice-document-meta").text("Original");
+        $("#fatura-id").text(invoiceDisplayId || "-");
+        $("#status-invoice")
+          .text(inv.status_invoice || "-")
+          .toggleClass("d-none", !inv.status_invoice || inv.status_invoice === "-")
+          .toggleClass("is-draft", inv.status_invoice === "Rascunho");
+        loadFaturaWithRetry(invoiceId, 5);
+      }
+
+      function showCreditNotePreview() {
+        if (!creditNoteId) return;
+
+        const frame = document.createElement("iframe");
+        frame.className = "credit-note-preview-frame";
+        frame.title = "Pré-visualização da nota de crédito";
+        frame.src = `/credit_notes/ajax/credit_note_public.php?id=${encodeURIComponent(creditNoteId)}`;
+
+        $("#preloader").hide();
+        $("#fatura-container").empty().append(frame).show();
+        $("#invoice-document-label").text("Nota de Crédito");
+        $("#invoice-document-meta").text("Documento associado");
+        $("#fatura-id").text(String(creditNoteId));
+        $("#status-invoice").addClass("d-none");
+        $("#btnToggleCreditNote").text("Ver factura original");
+      }
 
       // Esconde todos os botões antes
       $(
         "#btnFinalizar, #btnEditar, #btnCloneToInvoice, #btnNotaCredito, #btnNotaDebito, #btnNotaEntrega, #generatePdf, #btnEnviar, #btnDeleteInvoice, #btnRecibo",
       ).addClass("d-none");
+      $("#btnToggleCreditNote")
+        .toggleClass("d-none", !creditNoteId)
+        .off("click")
+        .on("click", function () {
+          if ($("#invoice-document-label").text() === "Nota de Crédito") {
+            showInvoicePreview();
+            $("#btnToggleCreditNote").text("Ver nota de crédito");
+          } else {
+            showCreditNotePreview();
+          }
+        });
 
       // Preenche formulário/UI
       $('#formPagamento [name="invoice_id"]').val(inv.id);
 
-      $("#fatura-id").text(
-        inv.status_invoice === "Rascunho"
-          ? `${inv.series}/${inv.id}`
-          : inv.numero_validacao,
-      );
+      $("#fatura-id").text(invoiceDisplayId || "-");
 
       const statusText = inv.status_invoice || "-";
       $("#status-invoice")
@@ -111,9 +154,16 @@ $(function () {
         $("#generatePdf").removeClass("d-none");
         $("#btnEnviar").removeClass("d-none");
       }
+
+      if (creditNoteId) {
+        showCreditNotePreview();
+      } else {
+        showInvoicePreview();
+      }
     })
     .fail((xhr) => {
       console.error("Erro AJAX:", xhr);
+      loadFaturaWithRetry(invoiceId, 5);
 
       Swal.fire({
         icon: "error",
@@ -336,11 +386,11 @@ $(function () {
             </a>
 
             <button
-              class="btn btn-sm btn-outline-secondary btnPrintReceipt"
+              class="btn btn-outline-secondary btnPrintReceipt"
               data-id="${receipt.id}"
             >
               <i class="fa fa-print me-1"></i>
-              Imprimir
+              Imprimir / Baixar PDF
             </button>
 
           </div>
@@ -1910,6 +1960,7 @@ $(function () {
                 <th style="text-align:left">Descrição</th>
                 <th style="width:80px">Qtd.</th>
                 <th style="width:120px">Preço unit.</th>
+                <th style="width:80px">Desconto %</th>
                 <th style="width:80px">IVA %</th>
                 <th style="width:110px;text-align:right">Total</th>
                 <th style="width:34px"></th>
@@ -1921,6 +1972,8 @@ $(function () {
             <button type="button" id="ndAddLine" class="swal2-styled" style="background:#6c757d;margin:0">+ Linha</button>
             <div style="text-align:right;font-size:.9rem">
               <div>Subtotal: <strong id="ndSub">0,00</strong></div>
+              <div>Desconto: <strong id="ndDiscount">0,00</strong></div>
+              <div>Subtotal c/ desconto: <strong id="ndNetSub">0,00</strong></div>
               <div>IVA: <strong id="ndTax">0,00</strong></div>
               <div style="font-size:1.05rem">Total: <strong id="ndTotal">0,00</strong></div>
             </div>
@@ -1935,20 +1988,27 @@ $(function () {
 
           const recalc = () => {
             let sub = 0;
+            let discount = 0;
             let tax = 0;
             body.querySelectorAll("tr").forEach((tr) => {
               const q = parseFloat(tr.querySelector(".nd-qty").value) || 0;
               const p = parseFloat(tr.querySelector(".nd-price").value) || 0;
+              const d = parseFloat(tr.querySelector(".nd-discount").value) || 0;
               const t = parseFloat(tr.querySelector(".nd-tax").value) || 0;
               const base = Math.round(q * p * 100) / 100;
-              const taxVal = Math.round(base * t) / 100;
-              tr.querySelector(".nd-line-total").textContent = fmt(base);
+              const discountVal = Math.round((base * d / 100 + Number.EPSILON) * 100) / 100;
+              const taxableBase = Math.round((base - discountVal + Number.EPSILON) * 100) / 100;
+              const taxVal = Math.round((taxableBase * t / 100 + Number.EPSILON) * 100) / 100;
+              tr.querySelector(".nd-line-total").textContent = fmt(taxableBase + taxVal);
               sub += base;
+              discount += discountVal;
               tax += taxVal;
             });
             document.getElementById("ndSub").textContent = fmt(sub);
+            document.getElementById("ndDiscount").textContent = fmt(discount);
+            document.getElementById("ndNetSub").textContent = fmt(sub - discount);
             document.getElementById("ndTax").textContent = fmt(tax);
-            document.getElementById("ndTotal").textContent = fmt(sub + tax);
+            document.getElementById("ndTotal").textContent = fmt(sub - discount + tax);
           };
 
           const addLine = () => {
@@ -1957,6 +2017,7 @@ $(function () {
               <td><input type="text" class="form-control form-control-sm nd-desc" maxlength="500" placeholder="Descrição"></td>
               <td><input type="number" class="form-control form-control-sm nd-qty" min="0" step="any" value="1"></td>
               <td><input type="number" class="form-control form-control-sm nd-price" min="0" step="any" value=""></td>
+              <td><input type="number" class="form-control form-control-sm nd-discount" min="0" max="100" step="any" value="0"></td>
               <td><input type="number" class="form-control form-control-sm nd-tax" min="0" max="100" step="any" value="14"></td>
               <td class="nd-line-total" style="text-align:right">0,00</td>
               <td><button type="button" class="btn btn-sm btn-link text-danger nd-del" title="Remover">&times;</button></td>
@@ -1988,6 +2049,7 @@ $(function () {
             const description = tr.querySelector(".nd-desc").value.trim();
             const quantity = parseFloat(tr.querySelector(".nd-qty").value);
             const unit_price = parseFloat(tr.querySelector(".nd-price").value);
+            const discount = parseFloat(tr.querySelector(".nd-discount").value);
             const tax = parseFloat(tr.querySelector(".nd-tax").value);
 
             if (!description) {
@@ -2006,7 +2068,13 @@ $(function () {
               Swal.showValidationMessage(`Linha ${i + 1}: IVA deve estar entre 0 e 100.`);
               return false;
             }
-            items.push({ description, quantity, unit_price, tax });
+            if (isNaN(discount) || discount < 0 || discount > 100) {
+              Swal.showValidationMessage(
+                `Linha ${i + 1}: desconto deve estar entre 0 e 100%.`,
+              );
+              return false;
+            }
+            items.push({ description, quantity, unit_price, discount, tax });
           }
 
           return { reason, items };

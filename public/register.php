@@ -117,6 +117,69 @@ require_once '../app/partials/head.php';
         position: absolute !important;
         z-index: 10;
     }
+
+    .registration-progress {
+        display: flex;
+        gap: 0.35rem;
+        margin: 1.5rem 0 2rem;
+        padding: 0;
+        list-style: none;
+    }
+
+    .registration-progress li {
+        flex: 1 1 0;
+        min-width: 0;
+        color: #8a929c;
+        text-align: center;
+        font-size: 0.72rem;
+    }
+
+    .registration-progress li::before {
+        content: attr(data-step);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        margin: 0 auto 0.4rem;
+        border: 1px solid #d7dbe0;
+        border-radius: 50%;
+        background: #fff;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+
+    .registration-progress li.is-active {
+        color: var(--blue, #2f9bff);
+        font-weight: 700;
+    }
+
+    .registration-progress li.is-active::before,
+    .registration-progress li.is-complete::before {
+        border-color: var(--blue, #2f9bff);
+        background: var(--blue, #2f9bff);
+        color: #fff;
+    }
+
+    .registration-progress li.is-complete {
+        color: #198754;
+    }
+
+    .registration-progress li.is-complete::before {
+        content: "\2713";
+        border-color: #198754;
+        background: #198754;
+    }
+
+    @media (max-width: 420px) {
+        .registration-progress {
+            gap: 0.15rem;
+        }
+
+        .registration-progress li {
+            font-size: 0.65rem;
+        }
+    }
 </style>
 
 <div class="row w-100 mx-0 gx-0">
@@ -134,6 +197,11 @@ require_once '../app/partials/head.php';
             <div style="max-width: 420px; width: 100%;">
                 <h2 class="fw-bold text-center mb-1">Registre-se</h2>
                 <p class="text-center text-muted mb-4">Crie a sua conta e adicione uma empresa para começar.</p>
+
+                <ol class="registration-progress" aria-label="Etapas do registo">
+                    <li data-step="1" data-form="#stepInfo">Dados e verificação</li>
+                    <li data-step="2" data-form="#stepCompany">Empresa</li>
+                </ol>
 
                 <!-- Passo 1: Dados -->
                 <form id="stepInfo" novalidate>
@@ -153,18 +221,6 @@ require_once '../app/partials/head.php';
                             <input type="tel" id="phone" name="phone" placeholder="+244 900 000 000" required>
                         </div>
                         <div class="field-error-msg">Número de telefone inválido.</div>
-                    </div>
-
-                    <div class="mb-4">
-                        <span class="form-label d-block text-muted small fw-bold mb-2">Receber código por</span>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="channel" id="chSms" value="sms" checked>
-                            <label class="form-check-label" for="chSms">SMS</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="channel" id="chWa" value="whatsapp">
-                            <label class="form-check-label" for="chWa">WhatsApp</label>
-                        </div>
                     </div>
 
                     <button type="submit" id="btnEnviar" class="btn btn-success w-100 rounded-pill py-2">Enviar código</button>
@@ -198,7 +254,6 @@ require_once '../app/partials/head.php';
                         </div>
                         <div class="field-error-msg">Indique um NIF válido.</div>
                     </div>
-                    <button type="button" id="btnConsultCompanyNif" class="btn btn-outline-success w-100 rounded-pill mb-3">Consultar NIF na AGT</button>
                     <div id="companyNifStatus" class="small text-center mb-3" role="status" aria-live="polite"></div>
                     <div class="field-group" data-field="company_name">
                         <label for="company_name">Nome da empresa</label>
@@ -209,28 +264,6 @@ require_once '../app/partials/head.php';
                         <div class="field-error-msg">Indique o nome da empresa.</div>
                     </div>
                     <button type="submit" id="btnCreateCompany" class="btn btn-success w-100 rounded-pill py-2">Continuar</button>
-                </form>
-
-                <!-- Passo 4: Senha -->
-                <form id="stepPassword" class="d-none" novalidate>
-                    <p class="text-muted text-center mb-3">Defina uma senha para concluir o seu registo.</p>
-                    <div class="field-group" data-field="password">
-                        <label for="registration_password">Senha</label>
-                        <div class="field-wrapper">
-                            <i class="bi bi-lock"></i>
-                            <input type="password" id="registration_password" name="password" autocomplete="new-password" required>
-                        </div>
-                        <div class="field-error-msg">Use pelo menos 6 caracteres, com maiúscula, minúscula e um carácter especial.</div>
-                    </div>
-                    <div class="field-group" data-field="password_confirm">
-                        <label for="registration_password_confirm">Confirmar senha</label>
-                        <div class="field-wrapper">
-                            <i class="bi bi-lock-fill"></i>
-                            <input type="password" id="registration_password_confirm" name="password_confirm" autocomplete="new-password" required>
-                        </div>
-                        <div class="field-error-msg">As senhas não coincidem.</div>
-                    </div>
-                    <button type="submit" id="btnSetPassword" class="btn btn-success w-100 rounded-pill py-2">Concluir registo</button>
                 </form>
 
                 <div class="text-center mt-4">
@@ -249,14 +282,32 @@ require_once '../app/partials/head.php';
         var $info = $('#stepInfo'),
             $code = $('#stepCode'),
             $company = $('#stepCompany'),
-            $password = $('#stepPassword'),
             registrationCsrf = null,
-            timer;
+            timer,
+            nifLookupTimer = null,
+            nifLookupRequest = null,
+            lastNifLookup = null,
+            lastAutoCompanyName = '';
 
         function showStep($step) {
-            $info.add($code).add($company).add($password).addClass('d-none');
+            $info.add($code).add($company).addClass('d-none');
             $step.removeClass('d-none');
+
+            var currentIndex = $step.is($company) ? 2 : 1;
+            $('.registration-progress li').each(function(index) {
+                var $item = $(this);
+                var stepNumber = index + 1;
+                $item.toggleClass('is-active', stepNumber === currentIndex)
+                    .toggleClass('is-complete', stepNumber < currentIndex);
+                if (stepNumber === currentIndex) {
+                    $item.attr('aria-current', 'step');
+                } else {
+                    $item.removeAttr('aria-current');
+                }
+            });
         }
+
+        showStep($info);
 
         function erro(msg) {
             if (typeof Swal !== 'undefined') {
@@ -307,8 +358,7 @@ require_once '../app/partials/head.php';
                 })
                 .done(function(r) {
                     if (r && r.phone_masked) {
-                        $info.addClass('d-none');
-                        $code.removeClass('d-none');
+                        showStep($code);
                         $('#codeHelp').text('Enviámos um código para ' + r.phone_masked + '.');
                         $('#code').val('').focus();
                         cooldown(60);
@@ -359,36 +409,65 @@ require_once '../app/partials/head.php';
                 });
         });
 
-        $('#btnConsultCompanyNif').on('click', function() {
-            var nif = $('#registration_number').val().trim();
-            if (!/^[A-Za-z0-9]{5,25}$/.test(nif)) {
-                window.setFieldError('registration_number', 'Indique um NIF válido (5 a 25 letras ou números).');
-                $('#registration_number').trigger('focus');
+        $('#registration_number').on('input', function() {
+            var nif = this.value.trim();
+            var $status = $('#companyNifStatus');
+
+            clearTimeout(nifLookupTimer);
+            if (nifLookupRequest) {
+                nifLookupRequest.abort();
+                nifLookupRequest = null;
+            }
+
+            if (nif.length < 10) {
+                lastNifLookup = null;
+                $status.removeClass('text-muted text-danger text-success').text('');
                 return;
             }
 
-            var $button = $(this).prop('disabled', true).text('A consultar...');
-            $('#companyNifStatus').removeClass('text-danger text-success').addClass('text-muted').text('A consultar o NIF na AGT...');
-            $.ajax({
-                url: registrationBasePath + '/contacts/ajax/consult_nif.php',
-                type: 'GET',
-                data: { tipoDocumento: 'NIF', numeroDocumento: nif },
-                dataType: 'json',
-                timeout: 20000
-            }).done(function(response) {
-                if (response.status === 'success' && response.data) {
-                    if (response.data.nome) $('#company_name').val(response.data.nome).trigger('input');
-                    $('#companyNifStatus').removeClass('text-muted text-danger').addClass('text-success').text('NIF encontrado na AGT. Confirme o nome da empresa.');
-                } else if (response.status === 'not_found') {
-                    $('#companyNifStatus').removeClass('text-muted text-success').addClass('text-danger').text((response.message || 'NIF não encontrado na AGT.') + ' Pode preencher o nome manualmente.');
-                } else {
-                    $('#companyNifStatus').removeClass('text-muted text-success').addClass('text-danger').text(response.message || 'Não foi possível consultar o NIF. Pode preencher os dados manualmente.');
-                }
-            }).fail(function(xhr) {
-                $('#companyNifStatus').removeClass('text-muted text-success').addClass('text-danger').text(msgDe(xhr) + ' Pode preencher os dados manualmente.');
-            }).always(function() {
-                $button.prop('disabled', false).text('Consultar NIF na AGT');
-            });
+            if (!/^[A-Za-z0-9]{10,25}$/.test(nif)) {
+                $status.removeClass('text-muted text-success').addClass('text-danger').text('Indique um NIF válido (10 a 25 letras ou números).');
+                return;
+            }
+            if (nif === lastNifLookup) {
+                return;
+            }
+
+            nifLookupTimer = setTimeout(function() {
+                lastNifLookup = nif;
+                $status.removeClass('text-danger text-success').addClass('text-muted').text('A consultar o NIF na AGT...');
+                nifLookupRequest = $.ajax({
+                    url: registrationBasePath + '/contacts/ajax/consult_nif.php',
+                    type: 'GET',
+                    data: { tipoDocumento: 'NIF', numeroDocumento: nif },
+                    dataType: 'json',
+                    timeout: 20000
+                }).done(function(response) {
+                    if ($('#registration_number').val().trim() !== nif) {
+                        return;
+                    }
+                    if (response.status === 'success' && response.data) {
+                        var companyName = response.data.nome || '';
+                        var currentCompanyName = $('#company_name').val().trim();
+                        if (companyName && (!currentCompanyName || currentCompanyName === lastAutoCompanyName)) {
+                            $('#company_name').val(companyName).trigger('input');
+                            lastAutoCompanyName = companyName;
+                        }
+                        $status.removeClass('text-muted text-danger').addClass('text-success').text('NIF encontrado na AGT. Confirme o nome da empresa.');
+                    } else if (response.status === 'not_found') {
+                        $status.removeClass('text-muted text-success').addClass('text-danger').text((response.message || 'NIF não encontrado na AGT.') + ' Pode preencher os dados manualmente.');
+                    } else {
+                        $status.removeClass('text-muted text-success').addClass('text-danger').text((response.message || 'Não foi possível consultar o NIF.') + ' Pode preencher os dados manualmente.');
+                    }
+                }).fail(function(xhr, status) {
+                    if (status === 'abort' || $('#registration_number').val().trim() !== nif) {
+                        return;
+                    }
+                    $status.removeClass('text-muted text-success').addClass('text-danger').text(msgDe(xhr) + ' Pode preencher os dados manualmente.');
+                }).always(function() {
+                    nifLookupRequest = null;
+                });
+            }, 400);
         });
 
         $company.on('submit', function(e) {
@@ -408,10 +487,23 @@ require_once '../app/partials/head.php';
                 timeout: 20000
             }).done(function(response) {
                 if (response && response.success) {
-                    showStep($password);
-                    $('#registration_password').focus();
+                var finishRegistration = function() {
+                    window.location.href = response.authenticated
+                        ? registrationBasePath + '/'
+                        : registrationBasePath + '/login';
+                };
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Registo concluído',
+                        text: response.message || 'As credenciais de acesso foram enviadas por SMS.'
+                    }).then(finishRegistration);
                 } else {
-                    erro((response && response.message) || 'Não foi possível criar a empresa.');
+                    alert(response.message || 'As credenciais de acesso foram enviadas por SMS.');
+                    finishRegistration();
+                }
+                } else {
+                erro((response && response.message) || 'Não foi possível criar a empresa.');
                 }
             }).fail(function(xhr) {
                 erro(msgDe(xhr));
@@ -420,51 +512,6 @@ require_once '../app/partials/head.php';
             });
         });
 
-        $password.on('submit', function(e) {
-            e.preventDefault();
-            var password = $('#registration_password').val();
-            var confirmation = $('#registration_password_confirm').val();
-            if (password !== confirmation) {
-                window.setFieldError('password_confirm', 'As senhas não coincidem.');
-                return;
-            }
-            var $button = $('#btnSetPassword').prop('disabled', true);
-            $.ajax({
-                url: registrationBasePath + '/register/ajax/set_password.php',
-                type: 'POST',
-                data: $password.serialize(),
-                headers: { 'X-CSRF-Token': registrationCsrf || '' },
-                dataType: 'json',
-                timeout: 20000
-            }).done(function(response) {
-                if (!response || !response.success) {
-                    erro((response && response.message) || 'Não foi possível definir a senha.');
-                    return;
-                }
-
-                $.ajax({
-                    url: registrationBasePath + '/api/auth/login',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    headers: { 'X-CSRF-Token': registrationCsrf || '' },
-                    data: JSON.stringify({
-                        user_email: $('#phone').val().trim(),
-                        password: password
-                    }),
-                    dataType: 'json',
-                    timeout: 20000
-                }).done(function() {
-                    window.location.href = registrationBasePath + '/';
-                }).fail(function() {
-                    erro('Registo concluído, mas não foi possível iniciar sessão automaticamente. Entre com o telefone e a senha que definiu.');
-                    window.setTimeout(function() { window.location.href = 'login.php'; }, 1800);
-                });
-            }).fail(function(xhr) {
-                erro(msgDe(xhr));
-            }).always(function() {
-                $button.prop('disabled', false);
-            });
-        });
     });
 
     // Controladores de estado dos campos (is-filled / has-error)

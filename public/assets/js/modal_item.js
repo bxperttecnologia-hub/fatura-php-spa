@@ -5,16 +5,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const financeBlock = document.getElementById("financeBlock");
   const categorySelect = document.getElementById("category");
   const subcategorySelect = document.getElementById("subcategory");
-  const depotCard = document.getElementById("depot");
   const codigoInput = document.getElementById("codigo");
-  const stockSelect = document.getElementById("stock_id");
 
   // CAMPOS FISCAIS
   const taxField = document.getElementById("taxVat");
-
-  const retentionField =
-    document.getElementById("retention_tax") ||
-    document.getElementById("retention");
 
   // PREÇOS
   const unitPriceInput = document.querySelector("[name='unit_price']");
@@ -33,22 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // UI TOGGLE
   // =========================
   function toggleUI() {
-    const isProduct = categorySelect.value === "product";
-
-    if (depotCard) {
-      depotCard.classList.toggle("active", isProduct);
-    }
-
-    // Gestão de stock é opcional: o usuário pode criar o item agora
-    // e associá-lo a um depósito/stock mais tarde.
-    if (stockSelect) {
-      stockSelect.required = false;
-    }
-
-    if (!isProduct) {
-      if (codigoInput) codigoInput.value = "";
-      if (stockSelect) stockSelect.value = "";
-    }
+    if (categorySelect.value !== "product" && codigoInput) codigoInput.value = "";
   }
 
   // =========================
@@ -100,12 +79,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // FISCAL
   // =========================
   function updateFiscal() {
-    if (!taxField || !retentionField) return;
+    if (!taxField) return;
 
-    const category = categorySelect.value;
     const subcategory = subcategorySelect?.value || "";
-
-    const unitPrice = parseFloat(unitPriceInput?.value) || 0;
 
     let taxVal = 0;
 
@@ -138,18 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     taxField.value = taxVal;
 
-    // =========================
-    // RETENÇÃO
-    // =========================
-    let retentionVal = 0;
-
-    // Serviços acima de 20.000
-    if (category === "service" && unitPrice >= 20000) {
-      retentionVal = 6.5;
-    }
-
-    retentionField.value = retentionVal;
-
     // RECALCULAR PVP
     calculatePrice();
   }
@@ -165,8 +129,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const salePrice = parseFloat(salePriceInput?.value) || 0;
 
     const tax = parseFloat(taxField?.value) || 0;
-    const retention = parseFloat(retentionField?.value) || 0;
-
     // BASE
     let base = 0;
 
@@ -182,13 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // SUBTOTAL
     const subtotal = base + ivaAmount;
 
-    // RETENÇÃO
-    const retentionAmount = (subtotal * retention) / 100;
-
-    // TOTAL FINAL
-    const total = subtotal - retentionAmount;
-
-    pvpInput.value = total.toFixed(2);
+    pvpInput.value = subtotal.toFixed(2);
   }
 
   // =========================
@@ -196,13 +152,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   async function generateCode() {
     try {
-      const stockId = stockSelect?.value || "";
       const itemType = categorySelect.value;
 
       const res = await fetch(
-        `items/ajax/generate_code.php?stock_id=${encodeURIComponent(
-          stockId,
-        )}&item_type=${encodeURIComponent(itemType)}`,
+        `items/ajax/generate_code.php?stock_id=0&item_type=${encodeURIComponent(itemType)}`,
       );
 
       const data = await res.json();
@@ -250,31 +203,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =========================
-  // CARREGAR STOCKS
-  // =========================
-  async function fetchStocks() {
-    if (!stockSelect) return;
-
-    try {
-      const res = await fetch("index/ajax/fetch_stocks.php");
-
-      const data = await res.json();
-
-      if (Array.isArray(data?.data)) {
-        stockSelect.innerHTML =
-          `<option value="">Selecione um stock</option>` +
-          data.data
-            .map(
-              (stock) => `<option value="${stock.id}">${stock.name}</option>`,
-            )
-            .join("");
-      }
-    } catch (err) {
-      console.error("Erro ao carregar stocks:", err);
-    }
-  }
-
-  // =========================
   // SINCRONIZAÇÃO
   // =========================
   function syncUI() {
@@ -309,11 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Stock
-  if (stockSelect) {
-    stockSelect.addEventListener("change", generateCode);
-  }
-
   // Código
   if (codigoInput) {
     codigoInput.addEventListener("blur", validateCode);
@@ -333,7 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // INIT
   // =========================
   syncUI();
-  fetchStocks();
   loadCompany();
 });
 

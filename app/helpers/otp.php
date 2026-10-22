@@ -1,6 +1,8 @@
 <?php
 // app/helpers/otp.php
 
+require_once __DIR__ . '/gosms.php';
+
 /**
  * Função para carregar variáveis de ambiente sem dependências externas/Composer
  */
@@ -95,59 +97,18 @@ function normalizarTelefone(string $raw): ?string
 }
 
 /**
- * Envia o código por SMS ou WhatsApp usando a API da Twilio
+ * Envia o código de verificação por SMS através da GoSMS.
  */
-function enviarOtp(string $telefone, string $canal, string $codigo): bool
+function enviarOtp(string $telefone, string $canal, string $codigo, ?string &$erro = null): bool
 {
-    $sid   = getenv('TWILIO_SID');
-    $token = getenv('TWILIO_TOKEN');
-    $isWa  = ($canal === 'whatsapp');
-
-    $from = $isWa ? getenv('TWILIO_WHATSAPP_FROM') : getenv('TWILIO_SMS_FROM');
-    $to   = $isWa ? 'whatsapp:' . $telefone : $telefone;
     $body = "O seu código de verificação é $codigo. Válido por " . OTP_TTL_MINUTES . " minutos. Não o partilhe com ninguém.";
-
-    if (!$sid || !$token || !$from) {
-        error_log("Falha no OTP: Variáveis da Twilio não estão configuradas no .env");
+    if ($canal !== 'sms') {
+        $erro = 'Canal de envio não suportado.';
+        error_log('[otp] Canal de envio não suportado.');
         return false;
     }
 
-    $ch = curl_init("https://api.twilio.com/2010-04-01/Accounts/$sid/Messages.json");
-
-    // BUG FIX: CURLOPT_SSL_VERIFYPEER estava fixo a "false" em todos os ambientes,
-    // o que desativa a verificação do certificado do servidor Twilio e expõe o
-    // pedido (incluindo o token de autenticação) a um ataque man-in-the-middle.
-    // Agora só se desativa quando explicitamente em ambiente de desenvolvimento.
-    $ambienteDev = strtolower((string) getenv('APP_ENV')) === 'local'
-        || strtolower((string) getenv('APP_ENV')) === 'development';
-
-    $options = [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query(['From' => $from, 'To' => $to, 'Body' => $body]),
-        CURLOPT_USERPWD        => "$sid:$token",
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_SSL_VERIFYPEER => !$ambienteDev, // true em produção
-    ];
-
-    curl_setopt_array($ch, $options);
-    $res  = curl_exec($ch);
-    $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $erroCurl = curl_error($ch); // BUG FIX: falhas de rede/cURL (timeout, DNS, etc.)
-                                  // nunca eram registadas; só erros HTTP eram logados.
-    curl_close($ch);
-
-    if ($res === false) {
-        error_log("Falha ao enviar OTP ($canal): erro cURL - $erroCurl");
-        return false;
-    }
-
-    if ($http < 200 || $http >= 300) {
-        error_log("Falha ao enviar OTP ($canal): HTTP $http - Resposta: $res");
-        return false;
-    }
-
-    return true;
+    return enviarMensagemGoSms($telefone, $body, $erro);
 }
 
 function gerarUsername(PDO $pdo, string $nome): string

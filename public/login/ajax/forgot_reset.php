@@ -29,7 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $fp = $_SESSION['fp'] ?? null;
-if (!$fp || empty($fp['id']) || empty($fp['verified'])) {
+if (
+    !$fp
+    || empty($fp['id'])
+    || empty($fp['verified'])
+    || empty($fp['verified_at'])
+    || (int) $fp['verified_at'] < time() - 900
+) {
     out(false, 'Sessão de recuperação inválida. Comece novamente.');
 }
 
@@ -47,14 +53,13 @@ if (strlen($password) < 8 || !preg_match('/[A-Za-z]/', $password) || !preg_match
 }
 
 $now = gmdate('Y-m-d H:i:s');
-$verifiedSince = gmdate('Y-m-d H:i:s', time() - 900); // 15 min para concluir depois de verificar
 
 $stmt = $pdo->prepare(
     "SELECT id, user_id FROM password_resets
-     WHERE id = :id AND verified_at IS NOT NULL AND verified_at > :since AND used_at IS NULL
+     WHERE id = :id AND used = 0 AND expires_at > :now
      LIMIT 1"
 );
-$stmt->execute([':id' => $fp['id'], ':since' => $verifiedSince]);
+$stmt->execute([':id' => $fp['id'], ':now' => $now]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$row) {
@@ -67,8 +72,8 @@ try {
     $pdo->prepare("UPDATE users SET password = :p WHERE id = :u")
         ->execute([':p' => password_hash($password, PASSWORD_DEFAULT), ':u' => $row['user_id']]);
 
-    $pdo->prepare("UPDATE password_resets SET used_at = :now WHERE id = :id")
-        ->execute([':now' => $now, ':id' => $row['id']]);
+    $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = :id AND used = 0")
+        ->execute([':id' => $row['id']]);
 
     // Termina as sessões ativas desta conta
     $pdo->prepare("DELETE FROM sessions WHERE user_id = :u")

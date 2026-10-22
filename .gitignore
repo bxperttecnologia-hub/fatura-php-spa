@@ -124,6 +124,7 @@ desktop.ini
 
 # Dumps locais
 *.sql
+!app/migrations/*.sql
 
 # =========================================================
 # BACKUPS

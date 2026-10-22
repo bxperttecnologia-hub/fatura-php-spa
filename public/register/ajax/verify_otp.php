@@ -64,13 +64,25 @@ try {
         responder(422, ['success' => false, 'message' => 'Código incorreto.']);
     }
 
-    // Código correto: cria a conta. Ainda não há senha: guarda-se o hash de um valor aleatório que
-    // ninguém conhece, e must_change_password = 1 leva o utilizador a definir a sua própria senha.
+    // Código correto: cria a conta com uma senha aleatória que será enviada por SMS após a criação da empresa.
     $username = gerarUsername($pdo, $v['name']);
+    $password = bin2hex(random_bytes(8));
     $agora    = date('Y-m-d H:i:s');
+    $email    = 'phone-' . hash('sha256', $v['phone']) . '@users.bxpert.invalid';
 
-    $stmt = $pdo->prepare("INSERT INTO users (username, name, password, phone, created_at, phone_verified_at, must_change_password) VALUES (?, ?, ?, ?, ?, ?, 1)");
-    $stmt->execute([$username, $v['name'], password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $v['phone'], $agora, $agora]);
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (username, name, email, password, phone, gender, is_active, created_at, phone_verified_at, must_change_password)
+         VALUES (?, ?, ?, ?, ?, 'prefer_not_to_say', 1, ?, ?, 1)"
+    );
+    $stmt->execute([
+        $username,
+        $v['name'],
+        $email,
+        password_hash($password, PASSWORD_DEFAULT),
+        $v['phone'],
+        $agora,
+        $agora,
+    ]);
     $userId = (int) $pdo->lastInsertId();
 
     $pdo->prepare("UPDATE phone_verifications SET verified_at = ? WHERE id = ?")->execute([$agora, $id]);
@@ -81,6 +93,12 @@ try {
     // Login automático: o telefone acabou de ser verificado por OTP
     iniciarSessao($userId, $username, $v['name']);
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
+    $_SESSION['registration_credentials'] = [
+        'user_id' => $userId,
+        'username' => $username,
+        'password' => $password,
+        'phone' => $v['phone'],
+    ];
 
     responder(200, ['success' => true, 'next_step' => 'company', 'csrf' => $_SESSION['csrf']]);
 } catch (Throwable $e) {

@@ -34,7 +34,11 @@ SELECT
     c.name AS client_name,
     c.email AS client_email,
     c.contributor AS client_contributor,
-    c.address AS client_address
+    c.address AS client_address,
+    c.telephone_ddi AS client_telephone_ddi,
+    c.telephone AS client_telephone,
+    c.cellphone_ddi AS client_cellphone_ddi,
+    c.cellphone AS client_cellphone
 
 FROM delivery_notes dn
 JOIN invoices  i    ON i.id    = dn.invoice_id
@@ -50,10 +54,22 @@ if (!$d) {
 }
 
 $st = $pdo->prepare("
-  SELECT description, quantity
-  FROM delivery_note_items
-  WHERE delivery_note_id = :id
-  ORDER BY id ASC
+  SELECT
+      dni.quantity,
+      COALESCE(
+          NULLIF(TRIM(dni.description), ''),
+          NULLIF(TRIM(it.name), ''),
+          NULLIF(TRIM(it.description), ''),
+          'Item sem descrição'
+      ) AS item_description,
+      NULLIF(TRIM(it.description), '') AS product_details,
+      COALESCE(NULLIF(TRIM(it.code), ''), '-') AS item_code,
+      COALESCE(NULLIF(TRIM(it.unit_measure), ''), 'Unidade') AS unit_measure
+  FROM delivery_note_items dni
+  LEFT JOIN invoice_items ii ON ii.id = dni.invoice_item_id
+  LEFT JOIN items it ON it.id = COALESCE(dni.item_id, ii.item_id)
+  WHERE dni.delivery_note_id = :id
+  ORDER BY dni.id ASC
 ");
 $st->execute(['id' => $dnId]);
 $items = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -69,6 +85,17 @@ function qty($v)
 {
   // 2 -> "2"; 2.5 -> "2,5"
   return rtrim(rtrim(number_format((float)$v, 3, ',', '.'), '0'), ',');
+}
+
+function unitLabel($value)
+{
+  return [
+    'unit' => 'Unidade',
+    'kg' => 'Kg',
+    'liter' => 'Litro',
+    'meter' => 'Metro',
+    'service' => 'Serviço',
+  ][$value] ?? $value;
 }
 
 /* ---------------- LOGO (mesmo esquema do recibo) ---------------- */
@@ -89,12 +116,24 @@ $number  = h($d['serie'] . ' ' . $d['number']);
 $issue   = $d['issue_date'] ? date('d/m/Y', strtotime($d['issue_date'])) : '-';
 $address = $d['delivery_address'] ?: $d['client_address'];
 $invRef  = $d['invoice_reference'] ?: $d['invoice_id'];
+$clientPhone = trim(
+  trim((string)$d['client_telephone_ddi'] . ' ' . (string)$d['client_telephone'])
+  ?: trim((string)$d['client_cellphone_ddi'] . ' ' . (string)$d['client_cellphone'])
+);
 
 $rows = '';
-foreach ($items as $n => $it) {
+foreach ($items as $it) {
+  $description = h($it['item_description']);
+  if (
+    !empty($it['product_details'])
+    && trim((string)$it['product_details']) !== trim((string)$it['item_description'])
+  ) {
+    $description .= '<br><span class="muted">' . h($it['product_details']) . '</span>';
+  }
   $rows .= '<tr>'
-    . '<td class="c">' . ($n + 1) . '</td>'
-    . '<td>' . h($it['description']) . '</td>'
+    . '<td class="code">' . h($it['item_code']) . '</td>'
+    . '<td>' . $description . '</td>'
+    . '<td class="unit">' . h(unitLabel($it['unit_measure'])) . '</td>'
     . '<td class="r">' . qty($it['quantity']) . '</td>'
     . '</tr>';
 }
@@ -116,7 +155,8 @@ $html = '
   .items { margin-top: 18px; }
   .items th { background: #f0f0f0; border: 1px solid #ccc; padding: 7px; text-align: left; }
   .items td { border: 1px solid #ccc; padding: 7px; }
-  .c { text-align: center; width: 40px; }
+  .code { width: 72px; }
+  .unit { width: 72px; }
   .r { text-align: right; width: 90px; }
   .sign { margin-top: 70px; }
   .sign td { width: 50%; text-align: center; padding: 0 20px; }
@@ -152,6 +192,7 @@ $html = '
       <strong>Cliente</strong><br>
       ' . h($d['client_name']) . '<br>
       NIF: ' . h($d['client_contributor']) . '<br>
+      ' . ($clientPhone !== '' ? 'Telefone: ' . h($clientPhone) . '<br>' : '') . '
       ' . h($d['client_email']) . '
     </td>
     <td style="width:2%"></td>
@@ -164,7 +205,7 @@ $html = '
 
 <table class="items">
   <thead>
-    <tr><th class="c">#</th><th>Descrição</th><th class="r">Qtd.</th></tr>
+    <tr><th class="code">Código</th><th>Descrição</th><th class="unit">Unidade</th><th class="r">Qtd.</th></tr>
   </thead>
   <tbody>' . $rows . '</tbody>
 </table>'

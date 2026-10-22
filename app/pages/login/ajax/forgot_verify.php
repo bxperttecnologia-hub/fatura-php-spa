@@ -28,7 +28,7 @@ if (!$fp || empty($fp['id'])) {
 
 $now = gmdate('Y-m-d H:i:s');
 
-$stmt = $pdo->prepare("SELECT * FROM password_resets WHERE id = :id AND used_at IS NULL LIMIT 1");
+$stmt = $pdo->prepare("SELECT * FROM password_resets WHERE id = :id AND used = 0 LIMIT 1");
 $stmt->execute([':id' => $fp['id']]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -36,23 +36,19 @@ if (!$row || $row['expires_at'] < $now) {
     out(false, 'Código inválido ou expirado. Peça um novo código.');
 }
 
-if ((int) $row['attempts'] >= 5) {
+$_SESSION['fp']['attempts'] = (int) ($_SESSION['fp']['attempts'] ?? 0);
+if ($_SESSION['fp']['attempts'] >= 5) {
     out(false, 'Muitas tentativas. Peça um novo código.');
 }
 
-// Conta a tentativa antes de comparar
-$pdo->prepare("UPDATE password_resets SET attempts = attempts + 1 WHERE id = :id")
-    ->execute([':id' => $row['id']]);
-
-if (!password_verify($code, $row['code_hash'])) {
-    $left = max(0, 4 - (int) $row['attempts']);
+if (!password_verify($code, $row['token'])) {
+    $_SESSION['fp']['attempts']++;
+    $left = max(0, 5 - $_SESSION['fp']['attempts']);
     out(false, "Código inválido. Tentativas restantes: $left.");
 }
 
-$pdo->prepare("UPDATE password_resets SET verified_at = :now WHERE id = :id")
-    ->execute([':now' => $now, ':id' => $row['id']]);
-
 session_regenerate_id(true);
 $_SESSION['fp']['verified'] = true;
+$_SESSION['fp']['verified_at'] = time();
 
 out(true, 'Código confirmado.');

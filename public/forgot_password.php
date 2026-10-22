@@ -176,7 +176,7 @@ require_once '../app/partials/head.php';
                         <i class="material-icons-outlined">smartphone</i>
                         <span>
                             <strong><?= t('Telefone') ?></strong>
-                            <small><?= t('Receber o código por SMS ou WhatsApp') ?></small>
+                            <small><?= t('Receber o código por SMS') ?></small>
                         </span>
                     </button>
                 </div>
@@ -188,18 +188,6 @@ require_once '../app/partials/head.php';
                             <label for="identifier" id="contactLabel"><?= t('E-mail') ?></label>
                             <span class="icon-left"><i class="material-icons-outlined" id="contactIcon">mail</i></span>
                             <input type="email" class="form-control" id="identifier" name="identifier" required>
-                        </div>
-
-                        <div id="channelGroup" class="d-none mb-4">
-                            <div class="fw-semibold small mb-2"><?= t('Receber código por') ?></div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="channel" id="chSms" value="sms" checked>
-                                <label class="form-check-label" for="chSms">SMS</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="channel" id="chWa" value="whatsapp">
-                                <label class="form-check-label" for="chWa">WhatsApp</label>
-                            </div>
                         </div>
 
                         <button type="submit" id="btnSend" class="btn-login"><?= t('Enviar código') ?></button>

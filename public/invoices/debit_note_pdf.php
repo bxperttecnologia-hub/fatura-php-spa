@@ -26,7 +26,7 @@ if (!$ndId) {
 $st = $pdo->prepare("
 SELECT
     nd.id, nd.serie, nd.number, nd.issue_date, nd.reason, nd.currency,
-    nd.subtotal_without_tax, nd.total_tax, nd.final_total,
+    nd.subtotal_without_tax, nd.total_discount, nd.total_tax, nd.final_total,
 
     i.id AS invoice_id,
     i.reference AS invoice_reference,
@@ -59,7 +59,7 @@ if (!$d) {
 }
 
 $st = $pdo->prepare("
-  SELECT description, quantity, unit_price, tax
+  SELECT description, quantity, unit_price, discount, tax
   FROM debit_note_items
   WHERE debit_note_id = :id
   ORDER BY id ASC
@@ -107,13 +107,16 @@ $currency = h($d['currency']);
 $rows = '';
 foreach ($items as $n => $it) {
   $lineBase = round((float)$it['quantity'] * (float)$it['unit_price'], 2);
+  $taxableBase = round($lineBase - round($lineBase * (float)$it['discount'] / 100, 2), 2);
+  $lineTotal = round($taxableBase + $taxableBase * (float)$it['tax'] / 100, 2);
   $rows .= '<tr>'
     . '<td class="c">' . ($n + 1) . '</td>'
     . '<td>' . h($it['description']) . '</td>'
     . '<td class="r">' . qty($it['quantity']) . '</td>'
     . '<td class="r">' . money($it['unit_price']) . '</td>'
+    . '<td class="r">' . rtrim(rtrim(number_format((float)$it['discount'], 2, ',', '.'), '0'), ',') . '%</td>'
     . '<td class="r">' . rtrim(rtrim(number_format((float)$it['tax'], 2, ',', '.'), '0'), ',') . '%</td>'
-    . '<td class="r">' . money($lineBase) . '</td>'
+    . '<td class="r">' . money($lineTotal) . '</td>'
     . '</tr>';
 }
 
@@ -188,6 +191,7 @@ $html = '
       <th>Descrição</th>
       <th class="r">Qtd.</th>
       <th class="r">Preço unit.</th>
+      <th class="r">Desconto</th>
       <th class="r">IVA</th>
       <th class="r">Total</th>
     </tr>
@@ -197,6 +201,7 @@ $html = '
 
 <table class="totals">
   <tr><td>Subtotal (sem IVA)</td><td style="text-align:right">' . money($d['subtotal_without_tax']) . ' ' . $currency . '</td></tr>
+  <tr><td>Desconto</td><td style="text-align:right">' . money($d['total_discount'] ?? 0) . ' ' . $currency . '</td></tr>
   <tr><td>IVA</td><td style="text-align:right">' . money($d['total_tax']) . ' ' . $currency . '</td></tr>
   <tr class="grand"><td>Total a débito</td><td style="text-align:right">' . money($d['final_total']) . ' ' . $currency . '</td></tr>
 </table>

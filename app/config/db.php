@@ -1,6 +1,8 @@
 <?php
 // Configurações de conexão ao banco de dados
 require_once __DIR__ . '/config.php';
+$permissionSessionOpened = session_status() !== PHP_SESSION_ACTIVE;
+require_once __DIR__ . '/../core/bootstrap.php';
 
 try {
     $isLocal = strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
@@ -20,6 +22,12 @@ try {
         DB_PASS,
         $options
     );
+    if (PHP_SAPI !== 'cli') {
+        Permission::guardCurrentRequest($pdo);
+        if ($permissionSessionOpened && session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
 } catch (PDOException $e) {
     die("Erro ao conectar ao banco de dados: " . $e->getMessage());
 }

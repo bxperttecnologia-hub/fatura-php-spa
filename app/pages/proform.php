@@ -325,16 +325,12 @@ require_once '../app/views/layout_creation.php';
                     <i class="bi bi-check-circle" aria-hidden="true"></i>
                     Emitir Fatura
                 </button>
-                <button type="button" class="bx-btn-secondary d-none" id="btnPagamentoRecibo">
-                    <i class="bi bi-cash-coin" aria-hidden="true"></i>
-                    Pagamento / Recibo
-                </button>
-                <button type="button" class="bx-btn-secondary d-none" id="generatePdf" aria-label="Imprimir ou baixar a proforma">
-                    <i class="bi bi-printer" aria-hidden="true"></i>
-                    Imprimir / Baixar
+                <button type="button" class="bx-btn-primary d-none" id="generatePdf" aria-label="Baixar PDF da proforma">
+                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                    Imprimir / Baixar PDF
                 </button>
                 <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
-                data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
+                    data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
                     <i class="bi bi-send" aria-hidden="true"></i>
                     Enviar Proforma
                 </button>

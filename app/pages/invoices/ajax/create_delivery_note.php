@@ -58,6 +58,8 @@ try {
     // Itens da fatura + quantidade já entregue em notas anteriores
     $stmt = $pdo->prepare("
         SELECT ii.*,
+               it.name AS item_name,
+               it.description AS item_description,
                COALESCE((
                    SELECT SUM(dni.quantity)
                    FROM delivery_note_items dni
@@ -65,6 +67,7 @@ try {
                    WHERE dni.invoice_item_id = ii.id AND dn.invoice_id = :inv
                ), 0) AS delivered_qty
         FROM invoice_items ii
+        LEFT JOIN items it ON it.id = ii.item_id
         WHERE ii.invoice_id = :inv2
     ");
     $stmt->execute([':inv' => $invoiceId, ':inv2' => $invoiceId]);
@@ -120,11 +123,19 @@ try {
         VALUES (:dn, :iid, :item, :descr, :qty)
     ");
     foreach ($pending as $p) {
+        $itemDescription = trim((string)($p['row']['description'] ?? ''));
+        if ($itemDescription === '') {
+            $itemDescription = trim((string)($p['row']['item_name'] ?? ''));
+        }
+        if ($itemDescription === '') {
+            $itemDescription = trim((string)($p['row']['item_description'] ?? ''));
+        }
+
         $insItem->execute([
             ':dn'    => $dnId,
             ':iid'   => $p['row']['id'] ?? null,
             ':item'  => $p['row']['item_id'] ?? null,
-            ':descr' => $p['row']['description'] ?? null,
+            ':descr' => $itemDescription !== '' ? $itemDescription : null,
             ':qty'   => $p['qty'],
         ]);
     }

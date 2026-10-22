@@ -40,6 +40,8 @@ $boot = [
     'user'      => Auth::publicUser(),
     'publicKey' => $user ? null : $pubKey,                       // só o login precisa dela
     'next'      => $user ? null : safe_next($_GET['next'] ?? null),
+    'permissions' => $user ? Permission::allowedModules($pdo, (int)$user['id'], (int)($user['company_id'] ?? 0)) : [],
+    'pageModules' => Permission::routeModules(require ROOT . '/app/config/pages.php'),
     // rota => {file,title}; também para visitantes, para o router mandar para /login em vez de 404
     'pages'     => array_map(fn($p) => ['file' => $p[0], 'title' => $p[1]], require ROOT . '/app/config/pages.php'),
 ];

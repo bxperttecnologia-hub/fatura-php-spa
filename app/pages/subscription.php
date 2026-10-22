@@ -8,6 +8,7 @@ require_once '../app/helpers/subscription.php';
 // layout_creation.php inclui head/nav e já envia output.
 
 $company_id = (int)($_SESSION['user']['company_id'] ?? 0);
+$user_id = (int)($_SESSION['user']['id'] ?? 0);
 
 // A troca de empresa acontece via sessão (navbar). Esta tela sempre segue a empresa ativa.
 // Se alguém chegar com company_id via GET, limpamos a URL (evita confusão e cache).
@@ -20,12 +21,24 @@ if (!$company_id) {
   die('Empresa inválida');
 }
 
+$membership = $pdo->prepare('SELECT role FROM company_has_user WHERE user_id = ? AND company_id = ? LIMIT 1');
+$membership->execute([$user_id, $company_id]);
+$companyRole = $membership->fetchColumn();
+if (!is_string($companyRole)) {
+  http_response_code(403);
+  die('Acesso negado');
+}
+$canManageSubscription = in_array($companyRole, ['owner', 'admin'], true);
+
 require_once '../app/views/layout_creation.php';
 
 $c = subscription_get_company($pdo, $company_id);
 $plans = subscription_plans();
-$planCode = $c['plan_code'] ?? 'BXPERT_BAZA';
+$planCode = isset($c['plan_code'], $plans[$c['plan_code']]) ? $c['plan_code'] : 'BXPERT_BAZA';
 $plan = $plans[$planCode] ?? $plans['BXPERT_BAZA'];
+$planCodes = array_keys($plans);
+$currentPlanRank = array_search($planCode, $planCodes, true);
+$hasUpgradePlans = count($planCodes) > $currentPlanRank + 1;
 $usage = subscription_usage($pdo, $company_id);
 $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 
@@ -258,13 +271,22 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     margin: 0;
     font-size: 0.9rem;
   }
+
+  #modalPayMethod .subscription-payment-dialog,
+  #modalPlans .subscription-plans-dialog {
+    left: 0;
+  }
+
+  #modalPayMethod .subscription-payment-dialog {
+    max-width: 520px;
+  }
 </style>
 
 <main class="main-content">
   <div class="container mt-5">
 
     <!-- CARD PRINCIPAL -->
-    <div">
+    <div>
       <div>
 
         <?php
@@ -299,14 +321,16 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
             </div>
           </div>
 
-          <div class="d-flex gap-2 flex-wrap">
-            <button class="btn-sm btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalPlans">
-              Alterar plano
-            </button>
-            <button class="btn-sm btn btn-outline-success" id="btnRenew">
-              Renovar
-            </button>
-          </div>
+          <?php if ($canManageSubscription): ?>
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnUpdatePlan">
+                <i class="bi bi-arrow-up-right-circle"></i> Atualizar plano
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-success" id="btnRenew">
+                <i class="bi bi-arrow-repeat"></i> Renovar subscrição
+              </button>
+            </div>
+          <?php endif; ?>
         </div>
 
         <!-- USO + LIMITES -->
@@ -386,13 +410,15 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h5 class="mb-0 h-title mb-2"><i class="bi bi-clock-history"></i> Histórico de pagamentos</h5>
 
-          <button class="btn btn-outline-secondary btn-sm" id="btnSyncOrders">
-            <i class="bi bi-arrow-repeat"></i> Atualizar status
-          </button>
+          <?php if ($canManageSubscription): ?>
+            <button class="btn btn-outline-secondary btn-sm" id="btnSyncOrders">
+              <i class="bi bi-arrow-repeat"></i> Atualizar status
+            </button>
+          <?php endif; ?>
         </div>
 
         <small class="text-muted d-block mb-2">
-          Últimas 30 transações do sistema
+          Histórico de cobranças de subscrição
         </small>
 
         <div class="table-responsive">
@@ -401,18 +427,21 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
               <tr>
                 <th>#</th>
                 <th>Plano</th>
+                <th>Operação</th>
                 <th>Método</th>
                 <th>Referência</th>
                 <th>Valor</th>
                 <th>Status</th>
+                <th>Status AppyPay</th>
                 <th>Transação</th>
+                <th>Acção</th>
                 <th>Data</th>
                 <th>Pago em</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="9" class="text-muted">Carregando...</td>
+                <td colspan="12" class="text-muted">Carregando...</td>
               </tr>
             </tbody>
           </table>
@@ -436,21 +465,27 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
   </div>
   </div>
 
+  <?php if ($canManageSubscription): ?>
   <!-- MODAL: Alterar plano -->
   <div class="modal fade" id="modalPlans" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered subscription-plans-dialog">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Escolha um plano</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <?php if (!$hasUpgradePlans): ?>
+            <div class="alert alert-info mb-0">A empresa já está no plano mais alto disponível. Pode renovar a subscrição pelo botão “Renovar subscrição”.</div>
+          <?php endif; ?>
           <div class="row g-3">
             <?php foreach ($plans as $code => $p): ?>
+              <?php $planRank = array_search($code, $planCodes, true); ?>
               <div class="col-md-4">
                 <div class="border rounded-4 p-3 h-100 d-flex flex-column <?= $code === $planCode ? 'border-primary border-2' : '' ?>">
                   <h6 class="fw-bold"><?= htmlspecialchars($p['name']) ?></h6>
-                  <div class="fs-5 fw-bold mb-2"><?= $p['price'] ?> Kz</div>
+                  <div class="fs-5 fw-bold mb-2"><?= number_format((float)$p['price'], 2, ',', '.') ?> Kz</div>
+                  <small class="text-muted mb-2">por 3 meses</small>
                   <ul class="small text-muted flex-grow-1 ps-3 mb-3">
                     <li>Facturas/mês: <?= $p['invoice_limit_month'] ?? '∞' ?></li>
                     <li>Utilizadores: <?= $p['user_limit'] ?? '∞' ?></li>
@@ -460,9 +495,11 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
                   </ul>
                   <?php if ($code === $planCode): ?>
                     <button class="btn btn-outline-secondary btn-sm" disabled>Plano atual</button>
+                  <?php elseif ($planRank < $currentPlanRank): ?>
+                    <button class="btn btn-outline-secondary btn-sm" disabled>Plano inferior</button>
                   <?php else: ?>
-                    <button class="btn btn-primary btn-sm btnChoosePlan" data-code="<?= $code ?>">
-                      Selecionar
+                    <button type="button" class="btn btn-primary btn-sm btnChoosePlan" data-code="<?= htmlspecialchars($code, ENT_QUOTES) ?>">
+                      Actualizar para este plano
                     </button>
                   <?php endif; ?>
                 </div>
@@ -476,7 +513,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 
   <!-- MODAL: Método de pagamento -->
   <div class="modal fade" id="modalPayMethod" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered subscription-payment-dialog">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Pagamento</h5>
@@ -494,13 +531,12 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
             <option value="GPO">Multicaixa Express</option>
           </select>
 
-          <div id="boxPhone">
+          <div id="boxPhone" style="display:none">
             <label class="form-label">Nº de telefone Multicaixa Express</label>
             <input type="tel" class="form-control" id="payPhone" placeholder="923456789">
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-link text-muted" id="btnMarkPaid">Já paguei / confirmar manualmente</button>
           <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button class="btn btn-success" id="btnConfirmPay">Gerar cobrança</button>
         </div>
@@ -508,13 +544,16 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     </div>
   </div>
 
+  <?php endif; ?>
 
 </main>
 
 
 <script>
-  const COMPANY_ID = <?= (int)$company_id ?>;
-  let SELECTED_PLAN_CODE = '<?= htmlspecialchars($planCode) ?>';
+  const CAN_MANAGE_SUBSCRIPTION = <?= $canManageSubscription ? 'true' : 'false' ?>;
+  const CURRENT_PLAN_CODE = <?= json_encode($planCode, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  const PLAN_NAMES = <?= json_encode(array_map(static fn(array $p): string => $p['name'], $plans), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  let SELECTED_PLAN_CODE = CURRENT_PLAN_CODE;
 
   // Se veio de um módulo bloqueado, mostra aviso de upgrade
   const params = new URLSearchParams(window.location.search);
@@ -550,9 +589,31 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     }
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '-').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
+  }
+
   let currentPage = 1;
   const limit = 10;
   let totalPages = 1;
+  let syncRequest = null;
+  const subscriptionCsrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+  function subscriptionPost(url, data) {
+    return $.ajax({
+      url,
+      method: 'POST',
+      data,
+      dataType: 'json',
+      headers: { 'X-CSRF-Token': subscriptionCsrfToken }
+    });
+  }
 
   /**
    * =========================
@@ -563,7 +624,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     const $tb = $('#tblOrders tbody');
 
     if (!rows || !rows.length) {
-      $tb.html('<tr><td colspan="9" class="text-muted">Nenhuma transação encontrada.</td></tr>');
+      $tb.html('<tr>      <td colspan="12" class="text-muted">Nenhuma transação encontrada.</td></tr>');
       return;
     }
 
@@ -572,6 +633,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     rows.forEach(r => {
       const st = String(r.status || '-');
       const gw = String(r.gateway_status || '-');
+      const operation = String(r.operation || 'legacy');
 
       // STATUS INTERNO
       let stLabel = st;
@@ -597,7 +659,16 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
       else if (['failed', 'failure'].includes(gwL)) gwLabel = 'Falhou';
       else if (['canceled', 'cancelled'].includes(gwL)) gwLabel = 'Cancelado';
 
-      const gwTxt = (gw && gw !== '-') ? ` <span class="text-muted">(${gwLabel})</span>` : '';
+      const operationLabel = operation === 'renewal'
+        ? 'Renovação'
+        : operation === 'upgrade'
+          ? 'Upgrade'
+          : operation === 'downgrade'
+            ? 'Alteração para plano inferior'
+            : 'Histórico anterior';
+      const reconcileAction = CAN_MANAGE_SUBSCRIPTION && Number(r.can_reconcile) === 1
+        ? `<button type="button" class="btn btn-sm btn-outline-warning btnReconcileCharge" data-order-id="${escapeHtml(r.id)}">Associar ID</button>`
+        : '-';
 
       // REFERÊNCIA
       let refTxt = '-';
@@ -610,25 +681,28 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
           const ref = pr.referenceNumber || '';
           const due = pr.dueDate ? formatDue(pr.dueDate) : '';
 
-          refTxt = `<span style="font-family:monospace">${ent} / ${ref}</span>`;
+          refTxt = `<span style="font-family:monospace">${escapeHtml(ent)} / ${escapeHtml(ref)}</span>`;
 
           if (due && due !== '-') {
-            refTxt += `<div class="text-muted" style="font-size:0.75rem">Vence: ${due}</div>`;
+            refTxt += `<div class="text-muted" style="font-size:0.75rem">Vence: ${escapeHtml(due)}</div>`;
           }
         }
       } catch (e) {}
 
       html += `
       <tr>
-        <td>${r.id}</td>
-        <td style="font-size:0.8rem;">${r.plan_code || '-'}</td>
-        <td>${r.payment_method || '-'}</td>
+        <td>${escapeHtml(r.id)}</td>
+        <td style="font-size:0.8rem;">${escapeHtml(PLAN_NAMES[r.plan_code] || r.plan_code)}</td>
+        <td>${escapeHtml(operationLabel)}</td>
+        <td>${escapeHtml(r.payment_method)}</td>
         <td>${refTxt}</td>
-        <td>${Number(r.amount || 0).toFixed(2)} AOA</td>
-        <td><span class="badge bg-${badge}">${stLabel}</span>${gwTxt}</td>
-        <td style="font-family:monospace; font-size:0.85rem;">${r.merchant_transaction_id || '-'}</td>
-        <td>${formatDt(r.created_at)}</td>
-        <td>${formatDt(r.paid_at)}</td>
+        <td>${escapeHtml((Number(r.amount || 0) || 0).toFixed(2))} AOA</td>
+        <td><span class="badge bg-${badge}">${escapeHtml(stLabel)}</span></td>
+        <td>${escapeHtml(gwLabel)}</td>
+        <td style="font-family:monospace; font-size:0.85rem;">${escapeHtml(r.merchant_transaction_id)}</td>
+        <td>${reconcileAction}</td>
+        <td>${escapeHtml(formatDt(r.created_at))}</td>
+        <td>${escapeHtml(formatDt(r.paid_at))}</td>
       </tr>
     `;
     });
@@ -649,19 +723,18 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 
     $('#tblOrders tbody').html(`
     <tr>
-      <td colspan="9" class="text-muted">Carregando...</td>
+      <td colspan="12" class="text-muted">Carregando...</td>
     </tr>
   `);
 
     return $.getJSON('subscription/ajax/list_orders.php', {
-        company_id: COMPANY_ID,
         page: currentPage,
         limit: limit
       })
       .done(resp => {
         if (!resp || !resp.success) {
           $('#tblOrders tbody').html(`
-        <tr><td colspan="9" class="text-danger">Erro ao carregar dados</td></tr>
+        <tr><td colspan="12" class="text-danger">Erro ao carregar dados</td></tr>
       `);
           return;
         }
@@ -674,7 +747,7 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
       })
       .fail(() => {
         $('#tblOrders tbody').html(`
-      <tr><td colspan="9" class="text-danger">Falha na comunicação com o servidor</td></tr>
+      <tr><td colspan="12" class="text-danger">Falha na comunicação com o servidor</td></tr>
     `);
       });
   }
@@ -740,20 +813,10 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     }
   });
 
-  /**
-   * =========================
-   * INIT
-   * =========================
-   */
-  $(document).ready(function() {
-    loadOrders(1);
-  });
-
-
   function syncOrders() {
-    return $.post('subscription/ajax/sync_orders.php', {
-        company_id: COMPANY_ID
-      }, null, 'json')
+    if (syncRequest) return syncRequest;
+
+    syncRequest = subscriptionPost('subscription/ajax/sync_orders.php', {})
       .done(resp => {
         if (resp && resp.success) {
           if ((resp.paid || 0) > 0) {
@@ -761,7 +824,11 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
               .then(() => location.reload());
           }
         }
+      })
+      .always(() => {
+        syncRequest = null;
       });
+    return syncRequest;
   }
 
   $('#btnSyncOrders').on('click', function() {
@@ -772,16 +839,83 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     });
   });
 
-  // Ao abrir a página: carrega histórico primeiro (rápido), depois sincroniza em background.
-  loadOrders();
-  syncOrders().always(loadOrders);
+  $(document).on('click', '.btnReconcileCharge', function() {
+    const orderId = $(this).data('order-id');
+    Swal.fire({
+      title: 'Reconciliar cobrança',
+      text: 'Introduza o ID da cobrança obtido no Portal AppyPay. O servidor verificará a transacção, o valor, a moeda e o estado directamente na API.',
+      input: 'text',
+      inputAttributes: { maxlength: 80, autocapitalize: 'off', autocorrect: 'off' },
+      inputPlaceholder: 'ID da cobrança AppyPay',
+      showCancelButton: true,
+      confirmButtonText: 'Verificar',
+      cancelButtonText: 'Cancelar',
+      preConfirm: value => {
+        const chargeId = String(value || '').trim();
+        if (!/^[A-Za-z0-9-]{1,80}$/.test(chargeId)) {
+          Swal.showValidationMessage('Informe um ID de cobrança válido.');
+          return false;
+        }
+        return chargeId;
+      }
+    }).then(result => {
+      if (!result.isConfirmed) return;
+      subscriptionPost('subscription/ajax/reconcile_unknown.php', {
+        order_id: orderId,
+        charge_id: result.value
+      }).done(resp => {
+        if (resp && resp.success) {
+          Swal.fire(
+            resp.paid ? 'Pagamento confirmado' : 'Cobrança associada',
+            resp.message || 'O estado foi actualizado.',
+            resp.paid ? 'success' : 'info'
+          ).then(() => {
+            if (resp.paid) location.reload();
+            else loadOrders();
+          });
+        } else {
+          Swal.fire('Não foi possível reconciliar', resp?.message || 'A cobrança não corresponde ao pedido.', 'error');
+        }
+      }).fail(xhr => {
+        Swal.fire('Não foi possível reconciliar', xhr.responseJSON?.message || 'Falha na comunicação com a AppyPay.', 'error');
+      });
+    });
+  });
 
-  // sincronização periódica (a cada 3 min) enquanto estiver na página
-  setInterval(() => {
-    syncOrders().always(loadOrders);
-  }, 180000);
+  if (CAN_MANAGE_SUBSCRIPTION) {
+    // Sincroniza uma vez ao abrir; actualizações seguintes são manuais ou após uma cobrança.
+    syncOrders().always(() => loadOrders(1));
+  } else {
+    loadOrders(1);
+  }
 
+  if (CAN_MANAGE_SUBSCRIPTION) {
   const payModal = new bootstrap.Modal(document.getElementById('modalPayMethod'));
+  const plansModalElement = document.getElementById('modalPlans');
+  const plansModal = plansModalElement ? bootstrap.Modal.getOrCreateInstance(plansModalElement) : null;
+  let pendingPaymentPlan = null;
+
+  $('#btnUpdatePlan').on('click', function() {
+    plansModal?.show();
+  });
+
+  function openPaymentModal(planCode, planName, planPrice) {
+    SELECTED_PLAN_CODE = planCode;
+    $('#payPlanLabel').text(planName);
+    $('#payAmountLabel').text(planPrice);
+    $('#payMethod').val('REF').trigger('change');
+    $('#payPhone').val('');
+    payModal.show();
+  }
+
+  if (plansModalElement) {
+    plansModalElement.addEventListener('hidden.bs.modal', function() {
+      if (!pendingPaymentPlan) return;
+      const paymentPlan = pendingPaymentPlan;
+      pendingPaymentPlan = null;
+      openPaymentModal(paymentPlan.code, paymentPlan.name, paymentPlan.price);
+    });
+  }
 
   $('#payMethod').on('change', function() {
     const m = $(this).val();
@@ -789,10 +923,15 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
   });
 
   $('#btnRenew').on('click', function() {
-    // Renovar plano atual (ou o selecionado, se tiver vindo de Alterar plano)
-    $('#payMethod').val('REF').trigger('change');
-    $('#payPhone').val('');
-    payModal.show();
+    const currentPrice = $('.btnChoosePlan[data-code="' + CURRENT_PLAN_CODE + '"]')
+      .closest('.col-md-4').find('.fs-5').text();
+    const fallbackPrice = $('#modalPlans .border-primary .fs-5').first().text() ||
+      $('#payAmountLabel').text();
+    openPaymentModal(
+      CURRENT_PLAN_CODE,
+      PLAN_NAMES[CURRENT_PLAN_CODE] || CURRENT_PLAN_CODE,
+      currentPrice || fallbackPrice
+    );
   });
 
   $('#btnConfirmPay').on('click', function() {
@@ -801,12 +940,11 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 
     $(this).prop('disabled', true).text('Gerando...');
 
-    $.post('subscription/ajax/create_charge.php', {
-      company_id: COMPANY_ID,
+    subscriptionPost('subscription/ajax/create_charge.php', {
       method,
       phone,
       plan_code: SELECTED_PLAN_CODE
-    }, function(resp) {
+    }).done(function(resp) {
       $('#btnConfirmPay').prop('disabled', false).text('Gerar cobrança');
 
       if (resp.success) {
@@ -818,42 +956,27 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
         let extra = '';
         if ((resp.method || '') === 'REF' && resp.ref && resp.ref.entity && resp.ref.referenceNumber) {
           extra = '<hr><div class="text-start">' +
-            '<div><b>Entidade:</b> ' + resp.ref.entity + '</div>' +
-            '<div><b>Referência:</b> ' + resp.ref.referenceNumber + '</div>' +
-            (resp.ref.dueDate ? '<div><b>Vencimento:</b> ' + formatDue(resp.ref.dueDate) + '</div>' : '') +
+            '<div><b>Entidade:</b> ' + escapeHtml(resp.ref.entity) + '</div>' +
+            '<div><b>Referência:</b> ' + escapeHtml(resp.ref.referenceNumber) + '</div>' +
+            (resp.ref.dueDate ? '<div><b>Vencimento:</b> ' + escapeHtml(formatDue(resp.ref.dueDate)) + '</div>' : '') +
             '</div>';
         }
 
-        const details = JSON.stringify(resp.charge || {}, null, 2);
         Swal.fire({
           title: 'Cobrança gerada',
-          html: '<div class="text-start"><b>Plano:</b> ' + (SELECTED_PLAN_CODE || '-') + '<br><b>Transação:</b> ' + (resp.merchantTransactionId || '-') + '<br><b>Método:</b> ' + (resp.method || '-') + '</div>' +
+          html: '<div class="text-start"><b>Plano:</b> ' + escapeHtml(PLAN_NAMES[SELECTED_PLAN_CODE] || SELECTED_PLAN_CODE) + '<br><b>Transação:</b> ' + escapeHtml(resp.merchantTransactionId) + '<br><b>Método:</b> ' + escapeHtml(resp.method) + '</div>' +
             extra +
-            '<details class="mt-2"><summary>Detalhes técnicos</summary>' +
-            '<pre style="text-align:left; max-height:220px; overflow:auto; background:#0b1220; color:#e5e7eb; padding:12px; border-radius:8px;">' + details + '</pre>' +
-            '</details>',
+            '<div class="text-muted mt-2">A subscrição será actualizada após confirmação do pagamento pela AppyPay.</div>',
           icon: 'success',
           confirmButtonText: 'Ok'
         });
       } else {
         Swal.fire('Erro', resp.message || 'Falha ao gerar cobrança.', 'error');
       }
-    }, 'json').fail(function() {
+    }).fail(function() {
       $('#btnConfirmPay').prop('disabled', false).text('Gerar cobrança');
       Swal.fire('Erro', 'Falha na requisição.', 'error');
     });
-  });
-
-  $('#btnMarkPaid').on('click', function() {
-    $.post('subscription/ajax/mark_paid.php', {
-      company_id: COMPANY_ID
-    }, function(resp) {
-      if (resp.success) {
-        Swal.fire('Ok', 'Renovação confirmada. Plano estendido.', 'success').then(() => location.reload());
-      } else {
-        Swal.fire('Erro', resp.message || 'Falha ao confirmar.', 'error');
-      }
-    }, 'json');
   });
 
   $(document).on('click', '.btnChoosePlan', function() {
@@ -861,19 +984,16 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
     const name = $(this).closest('.col-md-4').find('h6').text();
     const price = $(this).closest('.col-md-4').find('.fs-5').text();
 
-    SELECTED_PLAN_CODE = code;
-    $('#payPlanLabel').text(name);
-    $('#payAmountLabel').text(price);
-
-    const plansEl = document.getElementById('modalPlans');
-    const plansInst = plansEl ? bootstrap.Modal.getInstance(plansEl) : null;
-    if (plansInst) plansInst.hide();
-
-    $('#payMethod').val('REF').trigger('change');
-    $('#payPhone').val('');
-
-    setTimeout(() => payModal.show(), 250);
+    pendingPaymentPlan = { code, name, price };
+    if (plansModal) {
+      plansModal.hide();
+    } else {
+      const paymentPlan = pendingPaymentPlan;
+      pendingPaymentPlan = null;
+      openPaymentModal(paymentPlan.code, paymentPlan.name, paymentPlan.price);
+    }
   });
+  }
 </script>
 
 <?php require_once '../app/views/footer.php'; ?>

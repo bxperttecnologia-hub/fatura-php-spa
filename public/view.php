@@ -22,6 +22,21 @@ unset($_GET['__route'], $_REQUEST['__route']);   // as páginas não precisam de
 if (!Auth::user() && !$__isLoginPage) spa_json(401, ['message' => 'Sessão expirada ou inexistente', 'session_expired' => true]);
 if (!$__isLoginPage && !isset($__pages[$__route])) spa_json(404, ['message' => 'Página não encontrada']);
 
+if (!$__isLoginPage) {
+    $user = Auth::user();
+    $module = Permission::moduleForRoute($__route);
+    if ($user && $module !== null) {
+        $companyId = Permission::requestCompanyId($user);
+        $pdo = Database::pdo();
+        if (!Permission::hasAccess($pdo, (int)$user['id'], $companyId, $module)) {
+            spa_json(403, ['message' => 'Não tem permissão para aceder a este módulo.']);
+        }
+        if ($module === 'users' && !Permission::canManageUsers($pdo, (int)$user['id'], $companyId)) {
+            spa_json(403, ['message' => 'Apenas proprietários e administradores podem gerir utilizadores.']);
+        }
+    }
+}
+
 if ($__isLoginPage) {
     $__file = 'login.php';
     $__title = 'Entrar';

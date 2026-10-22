@@ -29,8 +29,8 @@ if ($method === 'email') {
         out(false, 'Informe um e-mail válido.');
     }
 } elseif ($method === 'phone') {
-    if (!in_array($channel, ['sms', 'whatsapp'], true)) {
-        out(false, 'Escolha receber o código por SMS ou WhatsApp.');
+    if ($channel !== 'sms') {
+        out(false, 'A recuperação por telefone está disponível por SMS.');
     }
     $phone9 = normalizePhone9($identifier);
     if (!$phone9) {
@@ -97,43 +97,39 @@ if ($channel === 'email') {
 // ---- Gera o código e invalida os anteriores ----
 $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-$pdo->prepare("UPDATE password_resets SET used_at = :now WHERE user_id = :u AND used_at IS NULL")
-    ->execute([':now' => $now, ':u' => $user['id']]);
+$pdo->prepare("UPDATE password_resets SET used = 1 WHERE user_id = :u AND used = 0")
+    ->execute([':u' => $user['id']]);
 
 $pdo->prepare(
-    "INSERT INTO password_resets (user_id, channel, destination, code_hash, ip, expires_at, created_at)
-     VALUES (:u, :ch, :dest, :hash, :ip, :exp, :now)"
+    "INSERT INTO password_resets (user_id, token, expires_at, used, created_at)
+     VALUES (:u, :token, :exp, 0, :now)"
 )->execute([
-    ':u'    => $user['id'],
-    ':ch'   => $channel,
-    ':dest' => $destination,
-    ':hash' => password_hash($code, PASSWORD_DEFAULT),
-    ':ip'   => $_SERVER['REMOTE_ADDR'] ?? null,
-    ':exp'  => gmdate('Y-m-d H:i:s', time() + RESET_CODE_TTL_SECONDS),
-    ':now'  => $now,
+    ':u' => $user['id'],
+    ':token' => password_hash($code, PASSWORD_DEFAULT),
+    ':exp' => gmdate('Y-m-d H:i:s', time() + RESET_CODE_TTL_SECONDS),
+    ':now' => $now,
 ]);
 $resetId = (int) $pdo->lastInsertId();
 
 // ---- Envia ----
 switch ($channel) {
     case 'sms':
-        $sent = sendSms($destination, $code);
-        break;
-    case 'whatsapp':
-        $sent = sendWhatsapp($destination, $code);
+        $smsError = null;
+        $sent = sendSms($destination, $code, $smsError);
         break;
     default:
         $sent = sendResetEmail($destination, $code);
 }
 
 if (!$sent) {
-    $pdo->prepare("UPDATE password_resets SET used_at = :now WHERE id = :id")
-        ->execute([':now' => $now, ':id' => $resetId]);
+    $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = :id")
+        ->execute([':id' => $resetId]);
     $_SESSION['fp_last_send'] = 0;
-    out(false, 'Não foi possível enviar o código. Tente novamente em instantes.');
+    out(false, 'Não foi possível enviar o código. Tente novamente em instantes.'
+        . (!empty($smsError) ? ' GoSMS: ' . $smsError : ''));
 }
 
 session_regenerate_id(true);
-$_SESSION['fp'] = ['id' => $resetId, 'verified' => false];
+$_SESSION['fp'] = ['id' => $resetId, 'verified' => false, 'attempts' => 0];
 
 out(true, $genericMsg, ['masked' => $masked, 'ttl' => RESET_CODE_TTL_SECONDS]);
