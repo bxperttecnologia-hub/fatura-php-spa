@@ -18,7 +18,8 @@ const AGT_CERTIFICATE = 'FE/344/AGT/2026';
 const ITEMS_PER_PAGE  = 15;
 const ITEMS_BOTTOM    = 640;   // limite vertical (pt) das linhas da tabela
 const FIRST_ROW_Y     = 360;   // y (pt) da primeira linha da tabela
-$copies = ['Original']; // para ver as duas cópias: ['Original', 'Duplicado']
+// Nº de vias (?copies=1..3); por omissão só o Original
+$copies = array_slice(['Original', 'Duplicado', 'Triplicado'], 0, max(1, min(3, (int)($_GET['copies'] ?? 1))));
 
 // ---------- utils ----------
 function e($value): string
@@ -187,7 +188,7 @@ $isDraft  = (int)$inv['status'] === 1;
 $docTitle = ($isDraft ? 'Factura Rascunho' : 'Factura') . ' n.º ' . ($isDraft ? '' : (string)$inv['reference']);
 
 require __DIR__ . '/../document_layout.php';
-exit;
+return; // não usar exit: este ficheiro também é incluído para gerar o PDF (bx_generate_document_pdf)
 $pages = paginateItems($items);
 $pageCount = count($pages);
 ?>

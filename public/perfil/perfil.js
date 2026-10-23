@@ -98,7 +98,7 @@ async function uploadCroppedImage() {
         const formData = new FormData();
         formData.append("profileImage", blob, "profile.jpg");
 
-        fetch("perfil/ajax/upload.php", {
+        fetch("/perfil/ajax/upload.php", {
           method: "POST",
           body: formData,
         })
@@ -204,7 +204,7 @@ $(document).ready(function () {
     });
 
     $.ajax({
-      url: "perfil/ajax/update_profile.php",
+      url: "/perfil/ajax/update_profile.php",
       type: "POST",
       data: formData, // objeto simples: deixa o jQuery serializar (não use processData:false/contentType:false aqui)
       dataType: "json",

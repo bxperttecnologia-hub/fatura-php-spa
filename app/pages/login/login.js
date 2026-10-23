@@ -24,7 +24,7 @@ EQIDAQAB
 
     let formData = $(this).serializeArray();
     let encrypt = new JSEncrypt();
-    encrypt.setPublicKey(publicKey);
+    encrypt.setPublicKey(window.APP?.publicKey || publicKey); // chave servida pelo servidor (app/keys/public.key); a fixa fica como fallback
 
     // Encontra o campo de senha e criptografa
     formData.forEach((field) => {

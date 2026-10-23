@@ -1,6 +1,6 @@
 <?php
 require_once '../app/views/layout_creation.php';
-$company_id = $_GET['company_id'];
+$company_id = $_GET['company_id'] ?? $_SESSION['user']['company_id'] ?? 0;
 ?>
 
 <style>

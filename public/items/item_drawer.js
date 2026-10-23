@@ -11,7 +11,7 @@
   $(function () {
 
   // Endpoint que devolve os depósitos [{id, name}] ou {data:[...]}. AJUSTE se for diferente.
-  const STOCKS_ENDPOINT = "items/ajax/get_stocks.php";
+  const STOCKS_ENDPOINT = "/items/ajax/get_stocks.php";
 
   const $backdrop = $("#drawerBackdrop");
   const $create = $("#itemDrawer");
@@ -170,7 +170,7 @@
   // ================= código automático =================
   function generateCode() {
     if (codeTouched) return;
-    $.getJSON("items/ajax/generate_code.php", {
+    $.getJSON("/items/ajax/generate_code.php", {
       item_type: $createForm.find("[data-type-value]").val(),
       stock_id: $createForm.find("[name='stock_id']").val() || 0,
     }).done((r) => r.generated_code && $("#codigo").val(r.generated_code));
@@ -262,13 +262,13 @@
     const $btn = $(this).prop("disabled", true);
     saving = true;
 
-    $.post("items/ajax/check_code.php", { codigo: $("#codigo").val() }, null, "json")
+    $.post("/items/ajax/check_code.php", { codigo: $("#codigo").val() }, null, "json")
       .then((chk) => {
         if (chk && chk.exists) {
           toast("warning", "Já existe um item com este código.");
           return $.Deferred().reject("dup").promise();
         }
-        return $.ajax({ url: "items/ajax/save_item.php", method: "POST", data: $createForm.serialize(), dataType: "json" });
+        return $.ajax({ url: "/items/ajax/save_item.php", method: "POST", data: $createForm.serialize(), dataType: "json" });
       })
       .done((res) => {
         if (res.status === "success") {
@@ -344,7 +344,7 @@
     const $btn = $(this).prop("disabled", true);
     saving = true;
 
-    $.ajax({ url: "items/ajax/edit_item.php", method: "POST", data: $editForm.serialize(), dataType: "json" })
+    $.ajax({ url: "/items/ajax/edit_item.php", method: "POST", data: $editForm.serialize(), dataType: "json" })
       .done((res) => {
         if (res.success) {
           closeDrawers(); // na edição, fecha

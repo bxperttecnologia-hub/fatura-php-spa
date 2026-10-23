@@ -1066,7 +1066,7 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                             type="date"
                             class="inv-input"
                             id="due_date_picker"
-                            name="due_date">
+                            >
 
                     </div>
 

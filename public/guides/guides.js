@@ -7,7 +7,7 @@ $(document).ready(function () {
 
     // Carrega contatos existentes para o select
     $.ajax({
-        url: "contacts/ajax/fetch_contacts.php", // Ajuste o path se necessário
+        url: "/contacts/ajax/fetch_contacts.php", // Ajuste o path se necessário
         type: "GET",
         dataType: "json",
         success: function (data) {
@@ -32,7 +32,7 @@ $(document).ready(function () {
         let contatoId = $(this).val();
         if (contatoId) {
             $.ajax({
-                url: "contacts/ajax/get_contact.php",
+                url: "/contacts/ajax/get_contact.php",
                 type: "POST",
                 data: { id: contatoId },
                 dataType: "json",
@@ -257,7 +257,7 @@ $(document).ready(function () {
     // AJAX para carregar itens no select2 (ajusta o endpoint conforme teu backend)
     function loadSelect2Items() {
         $.ajax({
-            url: "guides/ajax/get_items.php", // Crie este endpoint com retorno JSON igual invoices
+            url: "/guides/ajax/get_items.php", // Crie este endpoint com retorno JSON igual invoices
             dataType: "json",
             success: function (data) {
                 let opts = '<option value="">Selecione um produto/serviço...</option>';
@@ -294,7 +294,7 @@ $(document).ready(function () {
             });
         });
         $.ajax({
-            url: "guides/ajax/save_guide.php",
+            url: "/guides/ajax/save_guide.php",
             method: "POST",
             data: { guide: dados, items: itens },
             success: function (r) {
@@ -312,7 +312,7 @@ $(document).ready(function () {
 // Carrega itens no select2 ao abrir a página
 function loadGuideSelect2Items() {
     $.ajax({
-        url: "guides/ajax/get_items.php", // Seu endpoint para buscar os itens
+        url: "/guides/ajax/get_items.php", // Seu endpoint para buscar os itens
         dataType: "json",
         success: function (data) {
             let options = '<option value=""><?= t("Selecione um produto/serviço...") ?></option>';

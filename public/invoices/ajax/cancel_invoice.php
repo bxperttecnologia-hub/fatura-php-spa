@@ -1,10 +1,13 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 require_once '../../../app/config/db.php';
 
 header('Content-Type: application/json');
 
+
 $invoiceId = (int)($_POST['invoice_id'] ?? 0);
+require_owned('invoices', $invoiceId);
 
 try {
 

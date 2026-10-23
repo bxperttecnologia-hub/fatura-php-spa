@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 require_once '../../../app/config/db.php';
 
 // ==============================

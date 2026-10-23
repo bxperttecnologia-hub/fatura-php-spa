@@ -37,7 +37,7 @@ $(document).ready(function () {
     mostrarStatusSalvando();
 
     $.post(
-      "stock/ajax/stock_items.php",
+      "/stock/ajax/stock_items.php",
       {
         action: "save",
         stock_id: STOCK_ID,
@@ -73,7 +73,7 @@ $(document).ready(function () {
 
 function carregarItens(callback = null) {
   $.get(
-    "stock/ajax/stock_items.php",
+    "/stock/ajax/stock_items.php",
     { action: "list", stock_id: STOCK_ID },
     function (res) {
       $("#stockName")
@@ -276,7 +276,7 @@ $(document).on("click", ".btn-mover", function () {
   const qtdDisponivel = parseInt($linha.find(".item-quantity").val()) || 0;
 
   $.getJSON(
-    "stock/ajax/stock_controller.php",
+    "/stock/ajax/stock_controller.php",
     { action: "list_transfer", current_stock: STOCK_ID },
     function (res) {
       if (!res.success || !res.estoques.length) {
@@ -326,7 +326,7 @@ $(document).on("click", ".btn-mover", function () {
         const qtdMover = result.value.qtdMover;
 
         $.post(
-          "stock/ajax/move_item.php",
+          "/stock/ajax/move_item.php",
           {
             item_id: itemId,
             from_stock: STOCK_ID,
@@ -391,7 +391,7 @@ $(document).on("click", ".btn-deletar", function () {
   }).then((result) => {
     if (result.isConfirmed) {
       $.post(
-        "stock/ajax/delete_item.php",
+        "/stock/ajax/delete_item.php",
         {
           stock_id: STOCK_ID,
           id: id,
@@ -443,7 +443,7 @@ function carregarMoedas(selectedIso = "AOA") {
     return Promise.resolve(gerarOpcoesMoeda(data, selectedIso));
   }
 
-  return $.getJSON("assets/ajax/get_currencies.php").then((data) => {
+  return $.getJSON("/assets/ajax/get_currencies.php").then((data) => {
     sessionStorage.setItem(cacheKey, JSON.stringify(data));
     return gerarOpcoesMoeda(data, selectedIso);
   });
@@ -660,7 +660,7 @@ function saveAutomaticamente() {
   }
 
   $.ajax({
-    url: "items/ajax/update_item_inline.php",
+    url: "/items/ajax/update_item_inline.php",
     method: "POST",
     data: {
       items: JSON.stringify(dados),

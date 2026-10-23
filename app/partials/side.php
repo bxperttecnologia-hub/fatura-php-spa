@@ -446,6 +446,10 @@
 
     <div class="footer">
 
+        <a href="/agt" class="nav-item" data-spa data-tooltip="Faturação Eletrónica AGT">
+            <span><i data-lucide="shield-check"></i> <span>Faturação AGT</span></span>
+        </a>
+
         <a href="/settings" class="nav-item" data-spa data-tooltip="Definições">
             <span><i data-lucide="settings"></i> <span>Definições</span></span>
         </a>

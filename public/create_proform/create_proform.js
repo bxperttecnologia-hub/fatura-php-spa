@@ -216,7 +216,7 @@ $(document).ready(function () {
 
     if (contatoId) {
       $.ajax({
-        url: "contacts/ajax/get_contact.php",
+        url: "/contacts/ajax/get_contact.php",
         type: "POST",
         data: { id: contatoId },
         dataType: "json",
@@ -796,7 +796,7 @@ $(document).ready(function () {
     if (!document.getElementById("item_select")) return;
 
     $.ajax({
-      url: "create_proform/ajax/get_items.php",
+      url: "/create_proform/ajax/get_items.php",
       dataType: "json",
       cache: false,
       success: function (data) {
@@ -875,7 +875,7 @@ $(document).ready(function () {
         .html('<option value="">Carregando contatos...</option>');
 
       const response = await $.ajax({
-        url: "contacts/ajax/fetch_contacts.php",
+        url: "/contacts/ajax/fetch_contacts.php",
         type: "GET",
         dataType: "json",
       });
@@ -1200,7 +1200,7 @@ $(document).ready(function () {
   // porque em Angola a moeda padrão do sistema deve ser Kwanza.
   function fetchCurrencySymbol(selectedIso = "AOA") {
     $.ajax({
-      url: "assets/ajax/get_currency.php",
+      url: "/assets/ajax/get_currency.php",
       type: "GET",
       dataType: "json",
       success: function (data) {
@@ -1819,8 +1819,8 @@ $(document).ready(function () {
     $.ajax({
       url:
         proformId != null
-          ? "create_proform/ajax/update_proform.php"
-          : "create_proform/ajax/save_proform.php",
+          ? "/create_proform/ajax/update_proform.php"
+          : "/create_proform/ajax/save_proform.php",
       method: "POST",
       dataType: "json",
       data: {
@@ -1893,7 +1893,7 @@ $(document).ready(function () {
     proformId = id;
     $("#edit_proform_id").val(id);
 
-    $.getJSON("proform/ajax/get_proform.php", { id })
+    $.getJSON("/proform/ajax/get_proform.php", { id })
       .done(function (response) {
         if (!response?.success || !response?.data) {
           Swal.fire(

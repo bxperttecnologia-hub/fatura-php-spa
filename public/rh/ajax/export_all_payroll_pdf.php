@@ -2,8 +2,11 @@
 
 require_once '../../../app/config/db.php';
 require_once '../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../app/helpers/company_logo.php';
 
-session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -148,15 +151,8 @@ if (!empty($_SERVER['HTTP_HOST'])) {
     $baseUrl = $protocol . $_SERVER['HTTP_HOST'];
 }
 
-$logoSrc = '';
-
-if (!empty($empresa['logo_url']) && $baseUrl) {
-
-    $logoSrc =
-        $baseUrl .
-        '/assets/img/companies/' .
-        $empresa['logo_url'];
-}
+// Embutido a partir do disco: pedir o logótipo por HTTP ao próprio servidor bloqueava a geração.
+$logoSrc = company_logo_pdf_src($empresa['logo_url'] ?? '');
 
 /*
 |--------------------------------------------------------------------------

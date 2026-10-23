@@ -25,10 +25,8 @@ $clientAddress = implode(', ', array_filter([
   $inv['client_city'] ?? '',
   $inv['client_country'] ?? '',
 ])) ?: '-';
-$clientNameParts = preg_split('/\s+/', trim((string)($inv['client_name'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
-$clientName = count($clientNameParts) > 1
-  ? $clientNameParts[0] . ' ' . $clientNameParts[count($clientNameParts) - 1]
-  : ($clientNameParts[0] ?? '-');
+// Documento fiscal: nome completo do adquirente (antes ficava só "primeiro + último" nome).
+$clientName = trim(preg_replace('/\s+/', ' ', (string)($inv['client_name'] ?? ''))) ?: '-';
 $clientNif = trim((string)($inv['client_contributor'] ?? '')) ?: '-';
 $clientPhone = trim((string)($inv['client_phone'] ?? '')) ?: '-';
 $vatRegime = trim((string)($inv['vat_regime'] ?? '')) ?: '-';
@@ -40,7 +38,8 @@ $documentType = strtoupper((string)($inv['document_type'] ?? 'FT'));
 $isProforma = $documentType === 'PF';
 $title = ($isProforma ? 'Proforma' : 'Factura') . ' n.º ' . (string)($inv['reference'] ?? '');
 $certificate = defined('AGT_CERTIFICATE') ? AGT_CERTIFICATE : 'FE/344/AGT/2026';
-$logoSrc = company_logo_src($inv['logo_url'] ?? '', $publicBasePath);
+// Embutido (data URI): funciona igual no ecrã e no PDF, sem pedidos HTTP ao próprio servidor.
+$logoSrc = company_logo_pdf_src($inv['logo_url'] ?? '') ?: company_logo_src($inv['logo_url'] ?? '', $publicBasePath);
 $itemPages = [];
 $currentPageItems = [];
 $currentPageHeight = 0.0;
@@ -130,6 +129,7 @@ $pageCount = count($itemPages);
   </style>
 </head>
 <body class="document-public">
+  <?php foreach (($copies ?? ['Original']) as $copyLabel): ?>
   <?php foreach ($itemPages as $pageIndex => $pageItems): ?>
   <main class="document-page">
     <?php if ($logoSrc !== ''): ?>
@@ -151,7 +151,7 @@ $pageCount = count($itemPages);
       <p><?= $escape($clientPhone) ?></p>
     </div>
 
-    <div class="copy">Duplicado</div>
+    <div class="copy"><?= $escape($copyLabel) ?></div>
     <div class="doc-title"><?= $escape($title) ?></div>
     <div class="rule"></div>
 
@@ -237,6 +237,7 @@ $pageCount = count($itemPages);
     </div>
     <div class="pg"><?= $pageIndex + 1 ?>/<?= $pageCount ?></div>
   </main>
+  <?php endforeach; ?>
   <?php endforeach; ?>
 </body>
 </html>

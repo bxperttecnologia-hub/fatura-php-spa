@@ -1,11 +1,14 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/document_helper.php';
 
 header('Content-Type: application/json');
 
+
 $invoice_id     = (int)($_POST['invoice_id'] ?? 0);
+require_owned('invoices', $invoice_id);
 $serie          = trim($_POST['serie'] ?? '');
 $amount         = round((float)($_POST['amount'] ?? 0), 2);
 $pay_date       = trim($_POST['pay_date'] ?? '');

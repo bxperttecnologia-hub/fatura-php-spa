@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../app/helpers/document_tax.php';
@@ -23,20 +24,9 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    $isProforma = false;
-
-    $check = $pdo->prepare("
-        SELECT id
-        FROM proformas
-        WHERE id = ?
-        LIMIT 1
-    ");
-
-    $check->execute([$documentId]);
-
-    if ($check->fetch()) {
-        $isProforma = true;
-    }
+    // Faturas e proformas têm sequências de id independentes: o tipo tem de vir no pedido
+    // (antes "detetava-se" por existir uma proforma com o mesmo id, o que trocava documentos).
+    $isProforma = ($_GET['type'] ?? '') === 'proforma';
 
     /*
     |--------------------------------------------------------------------------
@@ -130,11 +120,12 @@ try {
             ON cr2.iso_code = comp.currency
 
         WHERE d.id = ?
+          AND d.company_id = ?
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$documentId]);
+    $stmt->execute([$documentId, session_company_id()]);
 
     $document = $stmt->fetch(PDO::FETCH_ASSOC);
 

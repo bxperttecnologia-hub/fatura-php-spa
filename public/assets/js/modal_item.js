@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!companyId) return;
 
       const res = await fetch(
-        `assets/ajax/get_company.php?id=${encodeURIComponent(companyId)}`,
+        `/assets/ajax/get_company.php?id=${encodeURIComponent(companyId)}`,
       );
 
       const data = await res.json();
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const itemType = categorySelect.value;
 
       const res = await fetch(
-        `items/ajax/generate_code.php?stock_id=${encodeURIComponent(
+        `/items/ajax/generate_code.php?stock_id=${encodeURIComponent(
           stockId,
         )}&item_type=${encodeURIComponent(itemType)}`,
       );
@@ -227,7 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const formData = new FormData();
       formData.append("codigo", codigo);
 
-      const res = await fetch("items/ajax/check_code.php", {
+      const res = await fetch("/items/ajax/check_code.php", {
         method: "POST",
         body: formData,
       });
@@ -256,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!stockSelect) return;
 
     try {
-      const res = await fetch("index/ajax/fetch_stocks.php");
+      const res = await fetch("/index/ajax/fetch_stocks.php");
 
       const data = await res.json();
 
@@ -368,7 +368,7 @@ $(document).ready(function () {
     // =========================
     // URL
     // =========================
-    const url = "items/ajax/save_item.php";
+    const url = "/items/ajax/save_item.php";
 
     $.ajax({
       url: url,
@@ -378,10 +378,21 @@ $(document).ready(function () {
       contentType: false,
       dataType: "json",
       success: function (response) {
+        // Em erro o modal fica aberto com os dados, para o utilizador corrigir.
+        if (response.status !== "success") {
+          Swal.fire("Erro", response.message || "Não foi possível guardar o produto/serviço.", "error");
+          return;
+        }
+
+        // Mesmo feedback da edição: toast verde com visto, sem bloquear o ecrã.
         Swal.fire({
-          icon: response.type || "info",
-          title: response.status || "",
-          text: response.message || "",
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: response.message || "Item criado com sucesso",
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
         });
 
         const modalEl = document.getElementById("itemModal");
@@ -395,12 +406,14 @@ $(document).ready(function () {
 
         $(document).trigger("items:reload");
       },
-      error: function () {
-        Swal.fire(
-          "Erro!",
-          "Ocorreu um erro ao salvar o produto/serviço.",
-          "error",
-        );
+      error: function (xhr) {
+        let message = "Ocorreu um erro ao salvar o produto/serviço.";
+        try {
+          message = JSON.parse(xhr.responseText).message || message;
+        } catch (_) {
+          // resposta não JSON
+        }
+        Swal.fire("Erro!", message, "error");
       },
     });
   });

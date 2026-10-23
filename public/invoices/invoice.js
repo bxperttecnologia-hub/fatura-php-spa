@@ -21,7 +21,7 @@ function loadFaturaWithRetry(invoiceId, maxRetries = 5) {
     $container.hide();
 
     $container.load(
-      "invoices/ajax/invoice_public.php?id=" + invoiceId,
+      "/invoices/ajax/invoice_public.php?id=" + invoiceId,
       function (response, status) {
         if (status === "success") {
           $preloader.hide();
@@ -58,7 +58,7 @@ $(function () {
 
   // O HTML da fatura já é carregado por loadFaturaWithRetry() acima.
   // ---------- carrega JSON da fatura ----------
-  $.getJSON("invoices/ajax/get_invoice.php", { id: invoiceId })
+  $.getJSON("/invoices/ajax/get_invoice.php", { id: invoiceId })
     .done((response) => {
       // Se os dados vêm dentro de response.data
       const inv = response.data;
@@ -147,7 +147,7 @@ $(function () {
         $btn.prop("disabled", true);
 
         $.ajax({
-          url: "invoices/ajax/delete_invoice.php",
+          url: "/invoices/ajax/delete_invoice.php",
           type: "POST",
           dataType: "json",
           data: {
@@ -213,7 +213,7 @@ $(function () {
     const $btn = $(this);
 
     $.ajax({
-      url: "invoices/ajax/get_last_receipt.php",
+      url: "/invoices/ajax/get_last_receipt.php",
       type: "GET",
       dataType: "json",
       data: {
@@ -447,7 +447,7 @@ $(function () {
       didOpen: () => Swal.showLoading(),
     });
 
-    $.post("invoices/ajax/registrar_pagamento.php", $form.serialize())
+    $.post("/invoices/ajax/registrar_pagamento.php", $form.serialize())
       .done(async (resp) => {
         Swal.close();
         bootstrap.Modal.getInstance(
@@ -1263,39 +1263,19 @@ $(function () {
   // Pede o PDF à API e devolve o Blob. Não descarrega nada: a pré-visualização
   // decide se mostra, imprime ou descarrega o mesmo ficheiro.
   async function fetchInvoicePdfBlob(invoiceData, copies = 2) {
-    const payload = {
-      ...invoiceData,
-      logo_url: invoiceData.logo_url || invoiceData.company?.logo_url || invoiceData.company?.logo || "",
-      copies: Number(copies) || 1,
-      document_url: new URL(
-        `invoices/ajax/invoice_public.php?id=${encodeURIComponent(invoiceData.id)}`,
-        window.location.href,
-      ).toString(),
-    };
-
-    console.debug("fetchInvoicePdfBlob payload:", payload);
-
-    const hostname = window.location.hostname;
-    const apiBaseUrl =
-      hostname === "api-crm.bxpert.co.ao" ||
-      hostname === "www.api-crm.bxpert.co.ao"
-        ? "https://api-crm.bxpert.co.ao"
-        : "http://localhost:3004";
+    // PDF gerado pela própria aplicação (public/document_pdf.php), com o mesmo modelo
+    // da pré-visualização e do envio por email. Já não depende do serviço Node na porta 3004.
+    const nCopies = Math.min(3, Math.max(1, Number(copies) || 1));
+    const url = `/api/documents/invoices/${encodeURIComponent(invoiceData.id)}/pdf?copies=${nCopies}`;
 
     let response;
     try {
-      response = await fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/pdf",
-        },
-        body: JSON.stringify(payload),
+      response = await fetch(url, {
+        credentials: "same-origin",
+        headers: { Accept: "application/pdf" },
       });
     } catch (_) {
-      throw new Error(
-        `Não foi possível conectar à API de PDF em ${apiBaseUrl}. Verifique se o bxintelligence-api-rest está em execução.`,
-      );
+      throw new Error("Não foi possível gerar o PDF da factura. Verifique a ligação ao servidor.");
     }
 
     const contentType = response.headers.get("content-type") || "";
@@ -1800,7 +1780,7 @@ $(function () {
 
       // Verifica se já existe nota de crédito
       const verifyResponse = await $.ajax({
-        url: "invoices/ajax/credit_notes.php",
+        url: "/invoices/ajax/credit_notes.php",
         method: "GET",
         dataType: "json",
         data: {
@@ -1834,7 +1814,7 @@ $(function () {
 
       // Criar nota de crédito
       const res = await $.ajax({
-        url: "invoices/ajax/create_credit_note.php",
+        url: "/invoices/ajax/create_credit_note.php",
         method: "POST",
         dataType: "json",
         data: {
@@ -1881,7 +1861,7 @@ $(function () {
 
       // Notas de débito já emitidas para esta fatura
       const verify = await $.ajax({
-        url: "invoices/ajax/debit_notes.php",
+        url: "/invoices/ajax/debit_notes.php",
         method: "GET",
         dataType: "json",
         data: { invoice_id: currentInvoice.id },
@@ -2035,7 +2015,7 @@ $(function () {
       if (!form.isConfirmed) return;
 
       const res = await $.ajax({
-        url: "invoices/ajax/create_debit_note.php",
+        url: "/invoices/ajax/create_debit_note.php",
         method: "POST",
         dataType: "json",
         data: {
@@ -2082,7 +2062,7 @@ $(function () {
 
       // Notas já emitidas + se ainda há itens por entregar
       const verify = await $.ajax({
-        url: "invoices/ajax/delivery_notes.php",
+        url: "/invoices/ajax/delivery_notes.php",
         method: "GET",
         dataType: "json",
         data: { invoice_id: currentInvoice.id },
@@ -2141,7 +2121,7 @@ $(function () {
       if (!form.isConfirmed) return;
 
       const res = await $.ajax({
-        url: "invoices/ajax/create_delivery_note.php",
+        url: "/invoices/ajax/create_delivery_note.php",
         method: "POST",
         dataType: "json",
         data: {
@@ -2434,7 +2414,7 @@ $(function () {
 
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("invoices/ajax/send_invoice.php", $(this).serialize(), null, "json")
+    $.post("/invoices/ajax/send_invoice.php", $(this).serialize(), null, "json")
       .done(() => {
         bootstrap.Modal.getOrCreateInstance(
           document.getElementById("modalEnviarEmail"),
@@ -2465,7 +2445,7 @@ $(function () {
     }).then((result) => {
       if (result.isConfirmed) {
         $.post(
-          "invoices/ajax/update_status.php",
+          "/invoices/ajax/update_status.php",
           {
             invoice_id: currentInvoice.id,
             new_status: "Finalizada",
@@ -2540,7 +2520,7 @@ $(function () {
       // AJAX
       // ==========================================
       $.ajax({
-        url: "invoices/ajax/clone_invoice.php",
+        url: "/invoices/ajax/clone_invoice.php",
 
         type: "POST",
 
@@ -2634,7 +2614,7 @@ $(document).ready(function () {
   }
 
   $.ajax({
-    url: "invoices/ajax/get_invoice.php",
+    url: "/invoices/ajax/get_invoice.php",
     type: "GET",
     data: { id: invoiceId },
     dataType: "json",

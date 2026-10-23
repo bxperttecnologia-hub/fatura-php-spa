@@ -77,11 +77,9 @@ try {
     // GERAR NOVA REFERÊNCIA
     // =====================================================
 
-    $reference = generate_document_number(
-        $pdo,
-        $companyId,
-        'FT'
-    );
+    // O clone é um rascunho: o número só é atribuído ao finalizar (update_status.php),
+    // para não consumir numeração (nem da série AGT) com rascunhos que podem nunca ser emitidos.
+    $reference = null;
 
     // =====================================================
     // CLONAR FATURA

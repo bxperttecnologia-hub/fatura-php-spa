@@ -83,7 +83,7 @@ $(document).ready(function () {
 
   function loadProformas() {
     $.ajax({
-      url: "proform/ajax/fetch_proforms.php",
+      url: "/proform/ajax/fetch_proforms.php",
       type: "GET",
       dataType: "json",
 
@@ -529,7 +529,7 @@ $(document).ready(function () {
 // ==================================================
 function downloadPDF(invoiceId) {
   $.ajax({
-    url: "proform/ajax/get_proform.php",
+    url: "/proform/ajax/get_proform.php",
     type: "GET",
     data: { id: invoiceId },
     dataType: "json",
@@ -869,7 +869,7 @@ $("#confirmDelete")
     if (!proformaToDelete) return;
 
     $.ajax({
-      url: "proform/ajax/delete_invoice.php",
+      url: "/proform/ajax/delete_invoice.php",
       type: "POST",
       data: { invoice_id: proformaToDelete, company_id: proformaCompanyId },
 
@@ -958,12 +958,12 @@ function renderInvoiceHTML(data) {
 //
 var EXPORT_CONFIG = {
   invoices: {
-    url: "proform/ajax/proformas_export.php",
+    url: "/proform/ajax/proformas_export.php",
     buildParams: (format) => ({ formato: format || "excel" }),
   },
 
   sales_report: {
-    url: "proform/ajax/export_sales_report.php",
+    url: "/proform/ajax/export_sales_report.php",
     buildParams: () => ({}),
     direct: true,
   },

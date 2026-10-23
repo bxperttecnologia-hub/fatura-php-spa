@@ -340,7 +340,7 @@ if ($paid_total >= $inv['final_total']) {  // quitada
 
 
 require __DIR__ . '/../../invoices/document_layout.php';
-exit;
+return; // não usar exit: também incluído para gerar o PDF
 
 // ---------- HTML legado ----------
 ?>

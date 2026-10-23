@@ -132,6 +132,64 @@ require_once '../app/views/layout_creation.php';
         border-color: rgba(55, 65, 81, 0.14);
     }
 
+    .agt-invoice-panel {
+        margin-top: 1rem;
+        padding: .75rem .85rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+        font-size: .82rem;
+    }
+
+    .agt-invoice-panel__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .agt-invoice-panel__title {
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .agt-invoice-panel__badge {
+        border-radius: 999px;
+        padding: .15rem .6rem;
+        font-weight: 600;
+        background: #e2e8f0;
+        color: #334155;
+    }
+
+    .agt-invoice-panel__badge.is-sent { background: #fef3c7; color: #92400e; }
+    .agt-invoice-panel__badge.is-valid { background: #dcfce7; color: #166534; }
+    .agt-invoice-panel__badge.is-invalid,
+    .agt-invoice-panel__badge.is-error { background: #fee2e2; color: #991b1b; }
+
+    .agt-invoice-panel__meta {
+        margin-top: .35rem;
+        color: #64748b;
+        word-break: break-word;
+    }
+
+    .agt-invoice-panel__errors {
+        margin: .5rem 0 0;
+        padding-left: 1.1rem;
+        color: #991b1b;
+    }
+
+    .agt-invoice-panel__actions {
+        display: flex;
+        gap: .5rem;
+        margin-top: .5rem;
+    }
+
+    .agt-invoice-panel__actions:empty,
+    .agt-invoice-panel__actions:not(:has(.btn:not(.d-none))) {
+        display: none;
+    }
+
     .invoice-toolbar {
         display: flex;
         flex-direction: column;
@@ -415,6 +473,19 @@ require_once '../app/views/layout_creation.php';
             </h1>
             <span class="invoice-header__subtitle" id="subtitle-client">-</span>
             <div class="invoice-header__meta">Original</div>
+
+            <div class="agt-invoice-panel d-none" id="agtInvoicePanel" aria-live="polite">
+                <div class="agt-invoice-panel__head">
+                    <span class="agt-invoice-panel__title">Faturação eletrónica AGT</span>
+                    <span class="agt-invoice-panel__badge" id="agtInvoiceBadge">—</span>
+                </div>
+                <div class="agt-invoice-panel__meta" id="agtInvoiceMeta"></div>
+                <ul class="agt-invoice-panel__errors d-none" id="agtInvoiceErrors"></ul>
+                <div class="agt-invoice-panel__actions">
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="agtInvoiceRefresh">Consultar estado</button>
+                    <button type="button" class="btn btn-sm btn-primary d-none" id="agtInvoiceSend">Enviar à AGT</button>
+                </div>
+            </div>
 
             <div class="invoice-toolbar" aria-label="Ações principais">
                 <button type="button" class="bx-btn-primary d-none" id="btnRecibo" aria-label="Pagamento e recibo">
@@ -976,6 +1047,79 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="invoices/invoice.js?v=5.9" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=6.0" data-spa-repeat></script>
+
+<script>
+// Estado da fatura na AGT (faturação eletrónica, ambiente HML).
+(function () {
+    const panel = document.getElementById('agtInvoicePanel');
+    const invoiceId = new URLSearchParams(location.search).get('id');
+    if (!panel || !invoiceId) return;
+
+    const endpoint = '/agt/ajax/agt.php';
+    const badge = document.getElementById('agtInvoiceBadge');
+    const meta = document.getElementById('agtInvoiceMeta');
+    const errors = document.getElementById('agtInvoiceErrors');
+    const refreshBtn = document.getElementById('agtInvoiceRefresh');
+    const sendBtn = document.getElementById('agtInvoiceSend');
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = (value) => value ? new Date(String(value).replace(' ', 'T')).toLocaleString('pt-PT') : '';
+    let timer = null;
+
+    function render(agt) {
+        if (!agt) {
+            panel.classList.add('d-none');
+            return;
+        }
+        panel.classList.remove('d-none');
+        badge.className = `agt-invoice-panel__badge is-${agt.status || 'none'}`;
+        badge.textContent = agt.label;
+        const parts = [];
+        if (agt.request_id) parts.push(`Pedido AGT nº ${esc(agt.request_id)}`);
+        if (agt.sent_at) parts.push(`enviada em ${esc(fmt(agt.sent_at))}`);
+        if (agt.checked_at) parts.push(`última consulta ${esc(fmt(agt.checked_at))}`);
+        meta.innerHTML = parts.join(' · ');
+        errors.innerHTML = (agt.errors || []).map((e) => `<li>${esc(e)}</li>`).join('');
+        errors.classList.toggle('d-none', !(agt.errors || []).length);
+        refreshBtn.classList.toggle('d-none', agt.status !== 'sent');
+        sendBtn.classList.toggle('d-none', !(agt.status === 'error' || !agt.status));
+
+        clearTimeout(timer);
+        // A AGT valida de forma assíncrona: volta a perguntar enquanto estiver pendente.
+        if (agt.status === 'sent' && document.body.contains(panel)) {
+            timer = setTimeout(() => load(), 25000);
+        }
+    }
+
+    async function load(action = 'invoice', method = 'GET') {
+        const url = `${endpoint}?action=${action}&id=${encodeURIComponent(invoiceId)}`;
+        const options = method === 'POST'
+            ? { method, credentials: 'same-origin', headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: new URLSearchParams({ id: invoiceId }) }
+            : { credentials: 'same-origin' };
+        const res = await fetch(url, options);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.message || 'Não foi possível consultar a AGT.');
+        render(data.agt);
+    }
+
+    async function withButton(button, fn) {
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Aguarde…';
+        try {
+            await fn();
+        } catch (e) {
+            Swal.fire('Faturação eletrónica', e.message, 'error');
+        } finally {
+            button.disabled = false;
+            button.textContent = label;
+        }
+    }
+
+    refreshBtn.addEventListener('click', () => withButton(refreshBtn, () => load('invoice')));
+    sendBtn.addEventListener('click', () => withButton(sendBtn, () => load('invoice_send', 'POST')));
+    load().catch(() => panel.classList.add('d-none'));
+})();
+</script>
 
 <?php require_once '../app/views/footer.php'; ?>

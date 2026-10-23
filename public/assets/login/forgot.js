@@ -12,7 +12,7 @@ EQIDAQAB
 `;
 
   const encrypt = new JSEncrypt();
-  encrypt.setPublicKey(publicKey);
+  encrypt.setPublicKey(window.APP?.publicKey || publicKey); // chave servida pelo servidor (app/keys/public.key); a fixa fica como fallback
 
   const endpoints = {
     send: "/login/ajax/forgot_send.php",

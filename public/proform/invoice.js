@@ -18,7 +18,7 @@ $(function () {
   // 2. CARREGAR DADOS JSON
   // =========================
   function loadInvoice() {
-    $.get("proform/ajax/get_proform.php", { id: invoiceId })
+    $.get("/proform/ajax/get_proform.php", { id: invoiceId })
       .done((inv) => {
         currentInvoice = inv?.data;
 
@@ -51,7 +51,7 @@ $(function () {
   // 3. CARREGAR HTML VISUAL
   // =========================
   $("#fatura-container").load(
-    `proform/ajax/proform_public.php?id=${invoiceId}`,
+    `/proform/ajax/proform_public.php?id=${invoiceId}`,
   );
 
   // =========================
@@ -152,25 +152,10 @@ $(function () {
       button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Preparando PDF...';
     }
 
-    const hostname = window.location.hostname;
-    const apiBaseUrl =
-      hostname === "api-sandibox.bxpert.co.ao" ||
-      hostname === "www.api-sandibox.bxpert.co.ao"
-      ? "https://api-sandibox.bxpert.co.ao"
-      : "http://localhost:3004";
-
-    fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/pdf" },
-      body: JSON.stringify({
-        ...currentInvoice,
-        logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
-        document_type: "PF",
-        document_url: new URL(
-          `proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
-          window.location.href,
-        ).toString(),
-      }),
+    // PDF gerado pela própria aplicação (public/document_pdf.php); já não depende do serviço Node.
+    fetch(`/api/documents/proformas/${encodeURIComponent(currentInvoice.id)}/pdf`, {
+      credentials: "same-origin",
+      headers: { Accept: "application/pdf" },
     })
       .then(async (response) => {
         if (!response.ok) {
@@ -259,7 +244,7 @@ $(function () {
       }
 
       $.ajax({
-        url: "proform/ajax/convert_proforma.php",
+        url: "/proform/ajax/convert_proforma.php",
         type: "POST",
         dataType: "json",
         data: {
@@ -417,7 +402,7 @@ $(function () {
     // passa o HTML do Quill para <textarea hidden>
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("proform/ajax/send_invoice.php", $(this).serialize())
+    $.post("/proform/ajax/send_invoice.php", $(this).serialize())
       .done(() => {
         bootstrap.Modal.getInstance(
           document.getElementById("modalEnviarEmail"),

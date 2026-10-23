@@ -2,6 +2,10 @@
 // Configurações de conexão ao banco de dados
 require_once __DIR__ . '/config.php';
 
+// Datas de emissão e systemEntryDate enviados à AGT têm de estar na hora de Angola,
+// independentemente do fuso do servidor (o PHP assume UTC por omissão).
+date_default_timezone_set(defined('APP_TIMEZONE') ? APP_TIMEZONE : 'Africa/Luanda');
+
 try {
     $isLocal = strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
 

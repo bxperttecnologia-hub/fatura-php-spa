@@ -6,7 +6,7 @@ session_start();
 
 $query = "SELECT i.id, i.code, i.description, i.unit_price, i.tax
           FROM items i
-          JOIN companies c ON c.id = i.id_company
+          JOIN companies c ON c.id = i.company_id
           JOIN company_has_user chu ON chu.company_id = c.id
           JOIN users u ON u.id = chu.user_id
           WHERE u.id = :user_id and c.id = :company_id";

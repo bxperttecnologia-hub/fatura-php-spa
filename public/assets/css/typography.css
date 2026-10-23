@@ -1,0 +1,29 @@
+/*
+ * Tipografia global da aplicação (Poppins).
+ * Carregado em último lugar (app/partials/head.php, login.php) para sobrepor as fontes
+ * dispersas pelas páginas (Roboto, Segoe UI, Arial, Inter...). As fontes de ícones
+ * (Material Icons, Bootstrap Icons, Font Awesome), o logótipo (.font-logo) e o código monoespaçado ficam de fora.
+ * Os PDFs gerados no servidor (Dompdf/mPDF) não usam este ficheiro.
+ */
+:root {
+  --font-ui: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  font-family: var(--font-ui) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body *:not([class*="material-icons"]):not([class*="material-symbols"]):not(.bi):not([class^="bi-"]):not([class*=" bi-"]):not(.fa):not(.fas):not(.far):not(.fab):not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.font-logo):not(code):not(pre):not(kbd):not(samp) {
+  font-family: var(--font-ui) !important;
+}
+
+/* Números alinhados em tabelas e totais */
+table,
+.table,
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}

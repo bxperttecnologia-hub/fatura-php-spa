@@ -453,7 +453,7 @@ $(document).ready(function () {
 
     try {
       const contact = await $.ajax({
-        url: "contacts/ajax/get_contact.php",
+        url: "/contacts/ajax/get_contact.php",
         method: "POST",
         data: { id: id },
         dataType: "json",
@@ -609,11 +609,11 @@ $(document).ready(function () {
       }
 
       formData["id"] = editedId;
-      url = "contacts/ajax/update_contact.php";
+      url = "/contacts/ajax/update_contact.php";
     } else {
       // Novo cliente: envia todos os dados do formulário
       formData = new FormData($form[0]);
-      url = "contacts/ajax/save_contact.php";
+      url = "/contacts/ajax/save_contact.php";
     }
 
     isSaving = true;
@@ -847,7 +847,7 @@ $(document).ready(function () {
         refresh: force ? "1" : "0",
       });
       const response = await fetchWithTimeout(
-        "contacts/ajax/consult_nif.php?" + query.toString(),
+        "/contacts/ajax/consult_nif.php?" + query.toString(),
         {
           method: "GET",
           headers: { Accept: "application/json" },

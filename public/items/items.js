@@ -29,7 +29,7 @@ $(document).ready(function () {
     renderTable();
 
     const request = $.ajax({
-      url: "items/ajax/get_items.php",
+      url: "/items/ajax/get_items.php",
       method: "GET",
       dataType: "json",
 
@@ -672,7 +672,7 @@ $(document).ready(function () {
       if (cancelled) return;
 
       $.ajax({
-        url: "items/ajax/delete_item.php",
+        url: "/items/ajax/delete_item.php",
         method: "POST",
         data: { id: itemId },
         dataType: "json",
@@ -772,7 +772,7 @@ $(document).ready(function () {
       });
 
       $.ajax({
-        url: "items/ajax/delete_items_bulk.php",
+        url: "/items/ajax/delete_items_bulk.php",
         method: "POST",
         data: { ids: selected },
         dataType: "json",
@@ -918,7 +918,7 @@ $(document).ready(function () {
     let formData = form.serialize();
 
     $.ajax({
-      url: "items/ajax/edit_item.php",
+      url: "/items/ajax/edit_item.php",
       method: "POST",
       data: formData,
       dataType: "json",

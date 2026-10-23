@@ -36,7 +36,8 @@
     const { accept, ...requestOptions } = options;
     const response = await fetch(url, {
       ...requestOptions,
-      credentials: 'omit',
+      // Mesmo domínio (PDFs gerados pela própria app): envia o cookie de sessão. Domínio externo: nunca.
+      credentials: url.origin === window.location.origin ? 'same-origin' : 'omit',
       headers: {
         Accept: accept || 'application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
         ...(requestOptions.headers || {}),

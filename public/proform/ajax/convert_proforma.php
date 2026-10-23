@@ -5,7 +5,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once '../../../app/config/db.php';
-require_once '../../../app/helpers/document_helper.php';
+require_once '../../../app/helpers/invoice_helper.php'; // mesma numeração das faturas normais (FT2026/0001)
 
 header('Content-Type: application/json');
 
@@ -245,11 +245,15 @@ try {
 
     $pdo->commit();
 
+    // Faturação eletrónica: envia à AGT depois de emitida (não bloqueia a conversão se falhar).
+    $agt = agt_submit_invoice($pdo, $invoiceId);
+
     echo json_encode([
         'success' => true,
         'already_converted' => false,
         'new_invoice_id' => $invoiceId,
-        'reference' => $reference
+        'reference' => $reference,
+        'agt' => $agt
     ]);
 } catch (Throwable $e) {
 

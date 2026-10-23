@@ -45,7 +45,7 @@ if (empty($_SESSION['user']['id'])) {
 
 // TODO: ajusta este require ao ficheiro real de bootstrap da tua ligação
 // PDO (o mesmo que os outros scripts em index/ajax/ já usam), populando $pdo.
-require_once '../../config/db.php';
+require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/ai_api.php';
 
 $companyId = (int)($_GET['company_id'] ?? $_SESSION['user']['company_id'] ?? 0);
