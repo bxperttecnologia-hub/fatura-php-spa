@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../helpers/env.php';
 
 final class DocumentApiController
 {
@@ -13,7 +14,7 @@ final class DocumentApiController
         // Em produção os documentos vêm da API de documentos (bxintelligence-api-rest).
         // Em desenvolvimento, sem o serviço Node da porta 3004, são gerados pela própria
         // aplicação (public/document_pdf.php). DOCUMENT_API_BASE_URL sobrepõe-se aos dois.
-        $apiBaseUrl = trim((string)getenv('DOCUMENT_API_BASE_URL'));
+        $apiBaseUrl = trim((string)bx_env('DOCUMENT_API_BASE_URL'));
         if ($apiBaseUrl === '' && defined('APP_ENV') && APP_ENV === 'production') {
             $apiBaseUrl = 'https://api-sandibox.bxpert.co.ao';
         }

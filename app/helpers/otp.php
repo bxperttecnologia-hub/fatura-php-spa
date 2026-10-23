@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/env.php';
 // app/helpers/otp.php
 
 require_once __DIR__ . '/gosms.php';
@@ -25,7 +26,7 @@ function carregarEnv(string $caminho): void
             $chave = trim($chave);
             $valor = trim($valor, " \t\n\r\0\x0B\"'"); // Remove espaços e aspas extras
 
-            putenv("$chave=$valor");
+            bx_putenv("$chave=$valor");
             $_ENV[$chave] = $valor;
             $_SERVER[$chave] = $valor;
         }

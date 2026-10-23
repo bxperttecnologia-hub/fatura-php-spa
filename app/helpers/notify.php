@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/env.php';
 
 require_once __DIR__ . '/gosms.php';
 
@@ -12,7 +13,7 @@ function normalizePhone9(string $raw): ?string
 
 function toE164(string $raw): string
 {
-    $countryCode = getenv('DEFAULT_COUNTRY_CODE') ?: '244';
+    $countryCode = bx_env('DEFAULT_COUNTRY_CODE') ?: '244';
     $digits = preg_replace('/\D+/', '', $raw);
     if (strpos($digits, '00') === 0) {
         $digits = substr($digits, 2);
@@ -31,7 +32,7 @@ function resetMessage(string $code): string
 
 function sendResetEmail(string $to, string $code): bool
 {
-    $from = getenv('MAIL_FROM') ?: 'no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $from = bx_env('MAIL_FROM') ?: 'no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
     $subject = 'Código de recuperação de senha';
     $headers = [
         'From: BXpert <' . $from . '>',

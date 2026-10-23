@@ -1,9 +1,10 @@
 <?php
+require_once __DIR__ . '/env.php';
 
 if (!function_exists('company_logo_api_base_url')) {
     function company_logo_api_base_url(): string
     {
-        $apiBaseUrl = trim((string) getenv('DOCUMENT_API_BASE_URL'));
+        $apiBaseUrl = trim((string) bx_env('DOCUMENT_API_BASE_URL'));
         if ($apiBaseUrl === '') {
             $isProduction = defined('APP_ENV') && APP_ENV === 'production';
             $apiBaseUrl = $isProduction
@@ -65,9 +66,9 @@ if (!function_exists('company_logo_mime_type')) {
 if (!function_exists('company_logo_signing_key')) {
     function company_logo_signing_key(): string
     {
-        $sharedSecret = trim((string) getenv('COMPANY_LOGO_UPLOAD_TOKEN'));
+        $sharedSecret = trim((string) bx_env('COMPANY_LOGO_UPLOAD_TOKEN'));
         if ($sharedSecret === '') {
-            $sharedSecret = trim((string) getenv('DOCUMENT_API_TOKEN_SECRET'));
+            $sharedSecret = trim((string) bx_env('DOCUMENT_API_TOKEN_SECRET'));
         }
         if ($sharedSecret === '' && defined('DB_PASS')) {
             $sharedSecret = (string) DB_PASS;
@@ -117,7 +118,7 @@ if (!function_exists('upload_company_logo_to_api')) {
 
         // Guardado localmente (o serviço Node de logótipos não faz parte desta instalação).
         // Defina COMPANY_LOGO_STORAGE=api para voltar a usar a API externa.
-        if (strtolower(trim((string) getenv('COMPANY_LOGO_STORAGE'))) !== 'api') {
+        if (strtolower(trim((string) bx_env('COMPANY_LOGO_STORAGE'))) !== 'api') {
             $dir = __DIR__ . '/../../public/assets/img/companies';
             if (!is_dir($dir) && !mkdir($dir, 0775, true)) {
                 throw new RuntimeException('Não foi possível criar a pasta dos logótipos.', 500);

@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+require_once __DIR__ . '/env.php';
 
 if (!function_exists('ai_api_base_url')) {
     function ai_api_base_url(): string
@@ -10,7 +11,7 @@ if (!function_exists('ai_api_base_url')) {
         }
 
         $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost'));
-        $env = getenv('APP_ENV') ?: (str_contains($host, 'api-crm.bxpert.co.ao') ? 'production' : 'development');
+        $env = bx_env('APP_ENV') ?: (str_contains($host, 'api-crm.bxpert.co.ao') ? 'production' : 'development');
 
         return $env === 'production' ? 'https://api-sandibox.bxpert.co.ao' : 'http://localhost:3000';
     }

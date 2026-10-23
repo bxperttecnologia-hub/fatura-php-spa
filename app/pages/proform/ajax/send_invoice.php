@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../helpers/env.php';
 // invoices/ajax/send_invoice.php
 //---------------------------------------------------------------
 require_once '../../../app/config/db.php';   // $pdo
@@ -71,9 +72,9 @@ try{
 
 //---------------------------------------------------------------
 // 4) ENVIA COM PHPMailer
-$smtpUsername = trim((string)getenv('SMTP_USERNAME'));
-$smtpPassword = (string)getenv('SMTP_PASSWORD');
-$smtpFromName = trim((string)getenv('SMTP_FROM_NAME')) ?: 'BXpert';
+$smtpUsername = trim((string)bx_env('SMTP_USERNAME'));
+$smtpPassword = (string)bx_env('SMTP_PASSWORD');
+$smtpFromName = trim((string)bx_env('SMTP_FROM_NAME')) ?: 'BXpert';
 if ($smtpUsername === '' || $smtpPassword === '' || !filter_var($smtpUsername, FILTER_VALIDATE_EMAIL)) {
   if ($pdfPath && is_file($pdfPath)) {
     unlink($pdfPath);

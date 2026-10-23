@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../helpers/env.php';
 // DIAGNÓSTICO TEMPORÁRIO da ligação à AGT. APAGAR ESTE FICHEIRO DEPOIS DE USAR.
 // Uso: abrir no browser (com sessão iniciada) .../contacts/ajax/test_agt.php?nif=5000000000
 ini_set('display_errors', '1');
@@ -18,7 +19,7 @@ function t_env(array $names, $default = null)
         if (defined($n) && constant($n) !== '') {
             return constant($n);
         }
-        $v = getenv($n);
+        $v = bx_env($n);
         if ($v !== false && $v !== '') {
             return $v;
         }
