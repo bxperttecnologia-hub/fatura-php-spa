@@ -1045,8 +1045,6 @@ $(document).ready(function () {
     // Dados do item
     const description = item?.name || item?.description || "";
     const code = item?.code || item?.codigo || "";
-    const retention = item?.retention || 0;
-
     // IVA: taxa do produto, só aplicada no regime geral
     const itemTax = getItemTaxRate(item);
     const taxValue = isRegimeGeral() ? itemTax : 0;
@@ -1086,7 +1084,6 @@ $(document).ready(function () {
                     value="${escapeAttr(code)}" readonly tabindex="-1">
                 ${isService ? '<span class="inv-tag">Serviço</span>' : ""}
             </div>
-            <input type="hidden" class="field_retention" value="${retention}">
         </div>
 
         <div class="inv-cell" data-label="Qtd">
@@ -1313,7 +1310,6 @@ $(document).ready(function () {
       const discountPercent = toNum($row.find(".field_desc").val());
       // Regime não geral => IVA 0, independentemente da taxa do produto
       const taxNum = isRegimeGeral() ? toNum($row.find(".field_tax").val()) : 0;
-      const retentionRate = toNum($row.find(".field_retention").val());
 
       const lineTotal = price * qtd;
 
@@ -1335,14 +1331,11 @@ $(document).ready(function () {
       // ==================================================
       // RETENÇÃO
       // ==================================================
-      const retentionValue = (lineSubtotal * retentionRate) / 100;
-
-      totalRetention += retentionValue;
 
       // ==================================================
       // TOTAL DA LINHA
       // ==================================================
-      const net = lineSubtotal + ivaValue - retentionValue;
+      const net = lineSubtotal + ivaValue;
 
       // ==================================================
       // INCIDÊNCIA IVA
@@ -1372,20 +1365,35 @@ $(document).ready(function () {
 
       grouped[groupTax].base += lineSubtotal;
       grouped[groupTax].iva += ivaValue;
-      grouped[groupTax].retention += retentionValue;
       grouped[groupTax].net += net;
     });
 
     totalSum = +totalSum.toFixed(2);
     totalDiscount = +totalDiscount.toFixed(2);
     totalTax = +totalTax.toFixed(2);
-    totalRetention = +totalRetention.toFixed(2);
-
     const subtotalWithoutTax = +(totalSum - totalDiscount).toFixed(2);
+    const retentionRate = parseFloat($("#retention").val()) || 0;
+    totalRetention = +(
+      ((subtotalWithoutTax + totalTax) * retentionRate) /
+      100
+    ).toFixed(2);
 
-    let finalTotal = +(subtotalWithoutTax + totalTax - totalRetention).toFixed(
-      2,
-    );
+    const taxableTotal = subtotalWithoutTax + totalTax;
+    let allocatedRetention = 0;
+    const taxGroups = Object.values(grouped);
+    taxGroups.forEach((group, index) => {
+      const groupTotal = group.base + group.iva;
+      const share = taxableTotal > 0
+        ? index === taxGroups.length - 1
+          ? totalRetention - allocatedRetention
+          : (totalRetention * groupTotal) / taxableTotal
+        : 0;
+      allocatedRetention += share;
+      group.retention = share;
+      group.net = groupTotal - share;
+    });
+
+    let finalTotal = +(taxableTotal - totalRetention).toFixed(2);
 
     if (finalTotal < 0) {
       finalTotal = 0;
@@ -1462,34 +1470,17 @@ $(document).ready(function () {
     updateRetention(subtotalWithoutTax, totalTax, totalRetention);
   }
 
-  function updateRetention(subtotal, totalTax, totalRetentionItems) {
-    let perc = parseFloat($("#retention").val()) || 0;
+  function updateRetention(subtotal, totalTax, retentionTotal) {
+    const final = Math.max(subtotal + totalTax - retentionTotal, 0);
+    $("input[name='retention_value']").val(retentionTotal.toFixed(2));
+    $("input[name='final_total']").val(final.toFixed(2));
 
-    // base já calculada corretamente
-    let base = subtotal + totalTax - totalRetentionItems;
-
-    let extraRetention = 0;
-
-    // retenção adicional global (opcional)
-    if (perc > 0) {
-      extraRetention = (base * perc) / 100;
-    }
-
-    let final = base - extraRetention;
-
-    // O que é gravado tem de coincidir com o que o ecrã mostra
-    $("input[name='retention_value']").val(
-      (totalRetentionItems + extraRetention).toFixed(2),
-    );
-    $("input[name='final_total']").val(Math.max(final, 0).toFixed(2));
-
-    // UI
-    if (extraRetention > 0 || totalRetentionItems > 0) {
+    if (retentionTotal > 0) {
       $("#retention_sumary").removeClass("d-none");
 
       $("#retention_value").text(
         formatCurrency(
-          totalRetentionItems + extraRetention,
+          retentionTotal,
           currencySymbol,
           currencyPosition,
         ),

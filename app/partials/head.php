@@ -51,7 +51,7 @@ $isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESS
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
   <script src="/assets/js/money-inputs.js?v=1.4"></script>
-  <script src="/assets/js/document-api.js?v=1.2"></script>
+  <script src="/assets/js/document-api.js?v=1.3"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js"></script>

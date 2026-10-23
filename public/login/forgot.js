@@ -90,8 +90,6 @@ EQIDAQAB
         placeholder: isEmail ? "seuemail@exemplo.com" : "+244 900 000 000",
       })
       .val("");
-    $("#channelGroup").toggleClass("d-none", isEmail);
-
     show("contact");
     $("#identifier").trigger("focus");
   });
@@ -99,8 +97,7 @@ EQIDAQAB
   // ---- Passo 2: enviar código ----
   function sendCode($btn) {
     state.identifier = $.trim($("#identifier").val());
-    state.channel =
-      state.method === "email" ? "email" : $("input[name=channel]:checked").val();
+    state.channel = state.method === "email" ? "email" : "sms";
 
     post(
       endpoints.send,

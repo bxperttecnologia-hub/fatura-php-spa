@@ -23,10 +23,6 @@ try {
     $item_type = $_POST['item_type'] ?? 'product';
     $unit_measure = $_POST['unit_measure'] ?? 'unit';
 
-    $stock_id = !empty($_POST['stock_id']) ? (int)$_POST['stock_id'] : null;
-    $quantity = (int)($_POST['quantidade'] ?? 0);
-    $min_quantity = (int)($_POST['min_stock'] ?? 1);
-
     $currency = $_POST['currency'] ?? 'AOA';
 
     // =========================
@@ -37,22 +33,8 @@ try {
     $taxRaw = str_replace(',', '.', $taxRaw);
     $tax = is_numeric($taxRaw) ? (float)$taxRaw : 0;
 
-    // =========================
-    // NORMALIZAÇÃO RETENTION
-    // =========================
-    $retentionRaw = $_POST['retention'] ?? 0;
-
-    if (is_numeric($retentionRaw)) {
-        $retention = (float)$retentionRaw;
-    } elseif (strtolower($retentionRaw) === 'apply') {
-        $retention = 6.5;
-    } else {
-        $retention = 0;
-    }
-
     // proteção decimal
     $tax = round($tax, 2);
-    $retention = round($retention, 2);
 
     // =========================
     // PREÇOS
@@ -75,6 +57,13 @@ try {
 
     if ($name === '') {
         throw new Exception("Nome é obrigatório.");
+    }
+
+    $descriptionLength = function_exists('mb_strlen')
+        ? mb_strlen($description, 'UTF-8')
+        : strlen($description);
+    if ($descriptionLength > 500) {
+        throw new Exception("A descrição não pode exceder 500 caracteres.");
     }
 
     // =========================
@@ -115,7 +104,6 @@ try {
         unit_measure = :unit_measure,
         currency = :currency,
         tax = :tax,
-        retention = :retention,
         unit_price = :unit_price,
         cost_price = :cost_price,
         sale_price = :sale_price,
@@ -133,7 +121,6 @@ try {
         ':unit_measure' => $unit_measure,
         ':currency' => $currency,
         ':tax' => $tax,
-        ':retention' => $retention,
         ':unit_price' => $unit_price,
         ':cost_price' => $cost_price,
         ':sale_price' => $sale_price,
@@ -143,32 +130,6 @@ try {
     if (!$executed) {
         $error = $stmt->errorInfo();
         throw new Exception("Erro ao atualizar item: " . $error[2]);
-    }
-
-    // =========================
-    // STOCK
-    // =========================
-    if ($stock_id !== null) {
-
-        $check = $pdo->prepare("SELECT id FROM stock_items WHERE item_id = ?");
-        $check->execute([$id]);
-
-        if ($check->fetch()) {
-            $ok = $pdo->prepare("
-                UPDATE stock_items 
-                SET stock_id = ?, quantity = ?, min_quantity = ?
-                WHERE item_id = ?
-            ")->execute([$stock_id, $quantity, $min_quantity, $id]);
-        } else {
-            $ok = $pdo->prepare("
-                INSERT INTO stock_items (stock_id, item_id, quantity, min_quantity)
-                VALUES (?, ?, ?, ?)
-            ")->execute([$stock_id, $id, $quantity, $min_quantity]);
-        }
-
-        if (!$ok) {
-            throw new Exception("Erro ao atualizar stock.");
-        }
     }
 
     echo json_encode([

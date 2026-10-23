@@ -39,9 +39,7 @@ try {
 
   $company_id = (int)($_POST['id_company'] ?? 0);
 
-  $stock_id = !empty($_POST['stock_id'])
-    ? (int)$_POST['stock_id']
-    : null;
+  $stock_id = null;
 
   $code = trim($_POST['codigo'] ?? '');
 
@@ -80,16 +78,14 @@ try {
   // =========================
   // RETENÇÃO
   // =========================
-  $retention = isset($_POST['retention'])
-    ? (float)$_POST['retention']
-    : 0.0;
+  $retention = 0.0;
 
   // =========================
   // STOCK
   // =========================
-  $quantity = (int)($_POST['quantidade'] ?? 0);
+  $quantity = 0;
 
-  $min_quantity = (int)($_POST['min_stock'] ?? 1);
+  $min_quantity = 1;
 
   // =========================
   // VALIDAÇÕES
@@ -100,6 +96,13 @@ try {
 
   if ($name === '') {
     throw new Exception("O nome do item é obrigatório.");
+  }
+
+  $descriptionLength = function_exists('mb_strlen')
+    ? mb_strlen($description, 'UTF-8')
+    : strlen($description);
+  if ($descriptionLength > 500) {
+    throw new Exception("A descrição não pode exceder 500 caracteres.");
   }
 
   if ($code === '') {

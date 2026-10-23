@@ -45,6 +45,7 @@ if (count($rawItems) > 50) {
 // Validar linhas e calcular totais no servidor (nunca confiar nos totais do browser)
 $lines = [];
 $subtotal = 0.0;
+$totalDiscount = 0.0;
 $totalTax = 0.0;
 
 foreach ($rawItems as $i => $r) {
@@ -52,6 +53,7 @@ foreach ($rawItems as $i => $r) {
     $desc = trim((string)($r['description'] ?? ''));
     $qty  = (float)($r['quantity'] ?? 0);
     $unit = (float)($r['unit_price'] ?? 0);
+    $discount = (float)($r['discount'] ?? 0);
     $tax  = (float)($r['tax'] ?? 0);
 
     $descLen = function_exists('mb_strlen') ? mb_strlen($desc) : strlen($desc);
@@ -64,19 +66,32 @@ foreach ($rawItems as $i => $r) {
     if ($unit <= 0 || $unit > 1000000000000) {
         fail(422, "Linha $n: preço unitário inválido.");
     }
+    if ($discount < 0 || $discount > 100) {
+        fail(422, "Linha $n: desconto deve estar entre 0 e 100.");
+    }
     if ($tax < 0 || $tax > 100) {
         fail(422, "Linha $n: IVA deve estar entre 0 e 100.");
     }
 
-    $base    = round($qty * $unit, 2);
-    $taxVal  = round($base * $tax / 100, 2);
-    $subtotal += $base;
+    $base = round($qty * $unit, 2);
+    $discountValue = round($base * $discount / 100, 2);
+    $taxableBase = round($base - $discountValue, 2);
+    $taxVal = round($taxableBase * $tax / 100, 2);
+    $subtotal += $taxableBase;
+    $totalDiscount += $discountValue;
     $totalTax += $taxVal;
 
-    $lines[] = ['description' => $desc, 'quantity' => $qty, 'unit_price' => $unit, 'tax' => $tax];
+    $lines[] = [
+        'description' => $desc,
+        'quantity' => $qty,
+        'unit_price' => $unit,
+        'discount' => $discount,
+        'tax' => $tax,
+    ];
 }
 
 $subtotal = round($subtotal, 2);
+$totalDiscount = round($totalDiscount, 2);
 $totalTax = round($totalTax, 2);
 $final    = round($subtotal + $totalTax, 2);
 
@@ -113,10 +128,10 @@ try {
     $ins = $pdo->prepare("
         INSERT INTO debit_notes
             (invoice_id, contact_id, company_id, serie, number, issue_date, reason,
-             currency, subtotal_without_tax, total_tax, final_total, user_id)
+             currency, subtotal_without_tax, total_discount, total_tax, final_total, user_id)
         VALUES
             (:invoice_id, :contact_id, :company_id, :serie, :number, :issue_date, :reason,
-             :currency, :subtotal, :tax, :final, :user_id)
+             :currency, :subtotal, :discount, :tax, :final, :user_id)
     ");
     $ins->execute([
         ':invoice_id' => $inv['id'],
@@ -128,6 +143,7 @@ try {
         ':reason'     => $reason,
         ':currency'   => $inv['currency'],
         ':subtotal'   => $subtotal,
+        ':discount'   => $totalDiscount,
         ':tax'        => $totalTax,
         ':final'      => $final,
         ':user_id'    => (int)($_SESSION['user']['id'] ?? $inv['user_id'] ?? 0) ?: null,
@@ -135,8 +151,8 @@ try {
     $ndId = (int)$pdo->lastInsertId();
 
     $insItem = $pdo->prepare("
-        INSERT INTO debit_note_items (debit_note_id, description, quantity, unit_price, tax)
-        VALUES (:nd, :descr, :qty, :unit, :tax)
+        INSERT INTO debit_note_items (debit_note_id, description, quantity, unit_price, discount, tax)
+        VALUES (:nd, :descr, :qty, :unit, :discount, :tax)
     ");
     foreach ($lines as $l) {
         $insItem->execute([
@@ -144,6 +160,7 @@ try {
             ':descr' => $l['description'],
             ':qty'   => $l['quantity'],
             ':unit'  => $l['unit_price'],
+            ':discount' => $l['discount'],
             ':tax'   => $l['tax'],
         ]);
     }

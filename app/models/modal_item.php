@@ -398,35 +398,7 @@
                                 <!-- DESCRIÇÃO -->
                                 <div class="col-12">
                                     <label class="form-label"><?= t('Descrição detalhada') ?> <small>(opcional)</small></label>
-                                    <textarea class="form-control" rows="2" name="descricao" id="descricao"></textarea>
-                                </div>
-
-                            </div>
-                        </div>
-
-                        <!-- ========================= -->
-                        <!-- 3. STOCK -->
-                        <!-- ========================= -->
-                        <div class="soft-card mb-3" id="depot">
-                            <h6 class="mb-3 fw-bold"><?= t('Gestão de Stock') ?></h6>
-
-                            <div class="row g-3">
-
-                                <div class="col-md-6">
-                                    <label class="form-label"><?= t('Depósito / Stock') ?></label>
-                                    <select class="form-select" name="stock_id" id="stock_id">
-                                        <option value=""><?= t('Selecione o stock') ?></option>
-                                    </select>
-                                </div>
-
-                                <div class="col-md-3">
-                                    <label class="form-label"><?= t('Quantidade Inicial') ?></label>
-                                    <input type="number" class="form-control" name="quantidade" min="0">
-                                </div>
-
-                                <div class="col-md-3">
-                                    <label class="form-label"><?= t('Stock mínimo') ?></label>
-                                    <input type="number" class="form-control" name="min_stock" min="1" value="1">
+                                    <textarea class="form-control" rows="2" name="descricao" id="descricao" maxlength="500"></textarea>
                                 </div>
 
                             </div>
@@ -450,15 +422,6 @@
                                 <div class="col-md-4">
                                     <label class="form-label"><?= t('IVA') ?></label>
                                     <input class="form-control" type="text" name="tax_vat" id="taxVat">
-                                </div>
-
-                                <!-- RETENÇÃO -->
-                                <div class="col-md-4">
-                                    <label class="form-label"><?= t('Retenção') ?></label>
-                                    <select class="form-select" name="retention" id="retention_tax">
-                                        <option value="0">Não aplicar</option>
-                                        <option value="6.5">Aplicar (6.5%)</option>
-                                    </select>
                                 </div>
 
                             </div>
@@ -964,4 +927,4 @@
 
 <script src="/assets/js/preset_items.js?v=1.2"></script>
 <script src="/assets/js/quick_add.js?v=1.6"></script>
-<script src="/assets/js/modal_item.js?v=2.0"></script>
+<script src="/assets/js/modal_item.js?v=2.1"></script>

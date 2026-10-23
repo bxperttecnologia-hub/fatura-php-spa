@@ -203,6 +203,14 @@ require_once '../app/views/layout_creation.php';
         width: 100%;
     }
 
+    .credit-note-preview-frame {
+        display: block;
+        width: 100%;
+        height: 297mm;
+        border: 0;
+        background: #fff;
+    }
+
     .invoice-actions {
         display: flex;
         flex-direction: column;
@@ -472,7 +480,7 @@ require_once '../app/views/layout_creation.php';
                 <span id="status-invoice" class="invoice-status-badge is-draft d-none"></span>
             </h1>
             <span class="invoice-header__subtitle" id="subtitle-client">-</span>
-            <div class="invoice-header__meta">Original</div>
+            <div class="invoice-header__meta" id="invoice-document-meta">Original</div>
 
             <div class="agt-invoice-panel d-none" id="agtInvoicePanel" aria-live="polite">
                 <div class="agt-invoice-panel__head">
@@ -488,6 +496,10 @@ require_once '../app/views/layout_creation.php';
             </div>
 
             <div class="invoice-toolbar" aria-label="Ações principais">
+                <button type="button" class="bx-btn-secondary d-none" id="btnToggleCreditNote">
+                    Ver nota de crédito
+                </button>
+
                 <button type="button" class="bx-btn-primary d-none" id="btnRecibo" aria-label="Pagamento e recibo">
                     <i class="bi bi-cash-coin" aria-hidden="true"></i>
                     Pagamento / Recibo
@@ -1047,7 +1059,7 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="invoices/invoice.js?v=6.0" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=6.1" data-spa-repeat></script>
 
 <script>
 // Estado da fatura na AGT (faturação eletrónica, ambiente HML).

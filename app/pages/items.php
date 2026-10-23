@@ -465,7 +465,7 @@
                         <div class="items-export-menu" id="itemsExportMenu" role="menu" aria-labelledby="itemsExportToggle" hidden>
                             <button type="button" id="downloadCSV" role="menuitem"><i class="bi bi-filetype-csv text-success" aria-hidden="true"></i> CSV</button>
                             <button type="button" id="downloadExcel" role="menuitem"><i class="bi bi-filetype-xls text-primary" aria-hidden="true"></i> Excel</button>
-                            <button type="button" id="downloadPDF" role="menuitem"><i class="bi bi-filetype-pdf text-danger" aria-hidden="true"></i> PDF</button>
+                            <button type="button" id="downloadPDF" role="menuitem"><i class="bi bi-filetype-pdf text-danger" aria-hidden="true"></i> Baixar PDF</button>
                         </div>
                     </div>
                 </div>

@@ -23,7 +23,7 @@ function get_anonymous_contact_id(PDO $pdo, int $companyId): int
         return (int)$id;
     }
 
-    // Mesmas colunas que o INSERT normal de contactos; as opcionais ficam a NULL
+    // Mesmas colunas que o INSERT normal de contactos
     $stmt = $pdo->prepare("
         INSERT INTO contact (name,email,contributor,address,po_box,country,city,company_id)
         VALUES (?,?,?,?,?,?,?,?)
@@ -33,10 +33,10 @@ function get_anonymous_contact_id(PDO $pdo, int $companyId): int
         ANON_CONTACT_NAME,
         ANON_CONTACT_EMAIL,
         null,
-        null,
-        null,
-        null,
-        null,
+        '', // address, po_box e city são NOT NULL na tabela contact
+        '',
+        'Angola',
+        '',
         $companyId
     ]);
 

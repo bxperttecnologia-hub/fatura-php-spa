@@ -364,7 +364,7 @@
               data-id="${receipt.id}"
             >
               <i class="fa fa-print me-1"></i>
-              Imprimir
+              Imprimir / Baixar PDF
             </button>
 
           </div>

@@ -449,6 +449,15 @@
         <a href="/agt" class="nav-item" data-spa data-tooltip="Faturação Eletrónica AGT">
             <span><i data-lucide="shield-check"></i> <span>Faturação AGT</span></span>
         </a>
+        <?php
+        $sidebarUser = Auth::user();
+        $sidebarCompanyId = Permission::requestCompanyId($sidebarUser);
+        if ($sidebarUser && Permission::canManageUsers($pdo, (int)$sidebarUser['id'], $sidebarCompanyId)):
+        ?>
+            <a href="/users?company_id=<?= $sidebarCompanyId ?>" class="nav-item" data-spa data-tooltip="Utilizadores">
+                <span><i data-lucide="shield-check"></i> <span>Utilizadores</span></span>
+            </a>
+        <?php endif; ?>
 
         <a href="/settings" class="nav-item" data-spa data-tooltip="Definições">
             <span><i data-lucide="settings"></i> <span>Definições</span></span>

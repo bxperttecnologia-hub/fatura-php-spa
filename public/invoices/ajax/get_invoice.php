@@ -41,6 +41,9 @@ try {
     $documentType  = $isProforma ? "'PF'" : 'd.document_type';
     $retentionValueColumn = $isProforma ? '0' : 'd.retention_value';
     $paidTotalColumn = $isProforma ? '0' : 'd.paid_total';
+    $creditNoteIdColumn = $isProforma
+        ? 'NULL'
+        : '(SELECT cn.id FROM credit_notes cn WHERE cn.invoice_id = d.id ORDER BY cn.id DESC LIMIT 1)';
 
     /*
     |--------------------------------------------------------------------------
@@ -74,6 +77,7 @@ try {
 
             d.contact_id,
             {$documentType} AS document_type,
+            {$creditNoteIdColumn} AS credit_note_id,
             d.observation,
             d.issue_date,
             d.due_date,

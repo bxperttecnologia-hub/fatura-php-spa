@@ -61,7 +61,7 @@ require_once '../app/views/layout_creation.php';
                             <div id="bxExportSelectedGroup" hidden>
                                 <div class="bx-menu__label" id="bxExportSelectedLabel">Selecionados</div>
                                 <button type="button" class="bx-menu__item" role="menuitem" data-export-action="selected-pdf">
-                                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Exportar seleção em PDF
+                                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Baixar PDFs selecionados
                                 </button>
                                 <button type="button" class="bx-menu__item" role="menuitem" data-export-action="selected-csv">
                                     <i class="bi bi-filetype-csv" aria-hidden="true"></i> Exportar selecionados (CSV)
@@ -70,7 +70,7 @@ require_once '../app/views/layout_creation.php';
                             </div>
                             <div class="bx-menu__label">Exportar lista</div>
                             <button type="button" class="bx-menu__item" role="menuitem" data-export-action="list-pdf">
-                                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Exportar PDF
+                                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Baixar PDF
                             </button>
                             <button type="button" class="bx-menu__item" role="menuitem" data-export-action="list-excel">
                                 <i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar Excel

@@ -104,6 +104,9 @@ $company_id = $_GET['company_id'] ?? $_SESSION['user']['company_id'] ?? 0;
                     Adicionar Colaborador <span class="material-icons-round ms-2" style="vertical-align: middle;">person_add</span>
                 </button>
             </div>
+            <div class="alert alert-light border">
+                Os perfis existentes continuam a definir a hierarquia. As permissões permitem limitar, por utilizador, o acesso a cada módulo.
+            </div>
 
             <!-- Modal 1: Verificar email -->
             <div class="modal fade" id="checkCollaboratorModal" tabindex="-1" aria-hidden="true">
@@ -300,6 +303,32 @@ $company_id = $_GET['company_id'] ?? $_SESSION['user']['company_id'] ?? 0;
             </div>
 
             <div id="usersTableControls"></div>
+            <div class="modal fade" id="userPermissionsModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
+                    <div class="modal-content">
+                        <form id="userPermissionsForm">
+                            <div class="modal-header">
+                                <div>
+                                    <h5 class="modal-title">Permissões do utilizador</h5>
+                                    <div class="text-muted small" id="userPermissionsName"></div>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <input type="hidden" name="user_id" id="permissionsUserId">
+                                <div class="alert alert-info">
+                                    Selecione os módulos a que este utilizador pode aceder. O proprietário tem sempre acesso total.
+                                </div>
+                                <div class="row g-2" id="userPermissionsList"></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" id="saveUserPermissionsBtn">Guardar permissões</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table id="usersTable" class="table table-hover align-middle bx-list-table">
                     <thead>
@@ -368,6 +397,7 @@ $company_id = $_GET['company_id'] ?? $_SESSION['user']['company_id'] ?? 0;
                         searchable: false,
                         render: (_, user) => `
                             <div class="text-nowrap">
+                                <button type="button" class="btn text-primary btn-sm js-user-permissions" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.name)}" aria-label="Gerir permissões" title="Gerir permissões"${user.role === 'owner' ? ' disabled' : ''}><i class="bi bi-shield-lock"></i></button>
                                 <button type="button" class="btn text-warning btn-sm js-change-role" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.name)}" data-user-email="${escapeHtml(user.email)}" data-current-role="${escapeHtml(user.role)}" aria-label="Alterar perfil" title="Alterar perfil"><i class="bi bi-person-gear"></i></button>
                                 <button type="button" class="btn text-danger btn-sm js-unlink-user" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.name)}" data-user-email="${escapeHtml(user.email)}" data-current-role="${escapeHtml(user.role)}" aria-label="Remover vínculo" title="Remover vínculo"><i class="bi bi-trash"></i></button>
                             </div>`
@@ -379,6 +409,7 @@ $company_id = $_GET['company_id'] ?? $_SESSION['user']['company_id'] ?? 0;
     </script>
 
     <script src="manage_users/manage_users.js?v=0.1"></script>
+    <script src="manage_users/permissions.js?v=1.0"></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

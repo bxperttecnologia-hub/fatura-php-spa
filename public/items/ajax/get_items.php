@@ -41,7 +41,6 @@ try {
             i.item_type,
             i.unit_measure,
             
-            i.retention,
             i.unit_price,
             i.tax,
             
@@ -131,16 +130,6 @@ try {
             2
         );
 
-        /*
-        =========================================
-        REGRA FISCAL (IVA + RETENÇÃO FUTURA)
-        =========================================
-        */
-
-        // $item['vat_applicable'] = ($item['tax'] !== 'exempt');
-
-        $item['retention_applicable'] =
-            ($item['retention'] === 'apply');
     }
 
     unset($item);

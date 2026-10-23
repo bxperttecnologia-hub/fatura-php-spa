@@ -1,6 +1,7 @@
 <?php
 ob_start();
 require_once '../../../app/config/db.php';
+require_once '../../../app/helpers/gosms.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -26,11 +27,21 @@ if (empty($_SESSION['csrf']) || !hash_equals((string) $_SESSION['csrf'], (string
 }
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
+$credentials = $_SESSION['registration_credentials'] ?? null;
 $name = trim((string) ($_POST['company_name'] ?? ''));
 $nif = strtoupper(trim((string) ($_POST['registration_number'] ?? '')));
 
 if ($userId <= 0) {
     responder_empresa(401, ['success' => false, 'message' => 'A verificação do telefone expirou. Inicie o registo novamente.']);
+}
+if (
+    !is_array($credentials)
+    || (int) ($credentials['user_id'] ?? 0) !== $userId
+    || empty($credentials['username'])
+    || empty($credentials['password'])
+    || empty($credentials['phone'])
+) {
+    responder_empresa(403, ['success' => false, 'message' => 'A sessão do registo expirou. Inicie o registo novamente.']);
 }
 if (mb_strlen($name) < 2 || mb_strlen($name) > 255) {
     responder_empresa(422, ['success' => false, 'message' => 'O nome da empresa deve ter entre 2 e 255 caracteres.']);
@@ -52,16 +63,28 @@ try {
 
     $membershipStmt = $pdo->prepare('SELECT 1 FROM company_has_user WHERE user_id = ? LIMIT 1');
     $membershipStmt->execute([$userId]);
-    if ($membershipStmt->fetchColumn()) {
-        $pdo->rollBack();
-        responder_empresa(409, ['success' => false, 'message' => 'Este utilizador já tem uma empresa associada.']);
-    }
+    $existingMembership = (bool) $membershipStmt->fetchColumn();
 
-    $duplicateStmt = $pdo->prepare('SELECT 1 FROM companies WHERE registration_number = ? LIMIT 1');
-    $duplicateStmt->execute([$nif]);
-    if ($duplicateStmt->fetchColumn()) {
-        $pdo->rollBack();
-        responder_empresa(409, ['success' => false, 'message' => 'Já existe uma empresa registada com este NIF.']);
+    if ($existingMembership) {
+        $existingCompanyStmt = $pdo->prepare(
+            'SELECT c.registration_number
+               FROM company_has_user chu
+               JOIN companies c ON c.id = chu.company_id
+              WHERE chu.user_id = ?
+              LIMIT 1'
+        );
+        $existingCompanyStmt->execute([$userId]);
+        if (strtoupper((string) $existingCompanyStmt->fetchColumn()) !== $nif) {
+            $pdo->rollBack();
+            responder_empresa(409, ['success' => false, 'message' => 'Este utilizador já tem uma empresa associada.']);
+        }
+    } else {
+        $duplicateStmt = $pdo->prepare('SELECT 1 FROM companies WHERE registration_number = ? LIMIT 1');
+        $duplicateStmt->execute([$nif]);
+        if ($duplicateStmt->fetchColumn()) {
+            $pdo->rollBack();
+            responder_empresa(409, ['success' => false, 'message' => 'Já existe uma empresa registada com este NIF.']);
+        }
     }
 
     $phone = (string) $user['phone'];
@@ -81,16 +104,47 @@ try {
     $now = date('Y-m-d H:i:s');
     $planStartedAt = date('Y-m-d');
     $planExpiresAt = date('Y-m-d', strtotime('+30 days'));
-    $pdo->prepare(
-        "INSERT INTO companies (name, registration_number, phone_ddi, phone, website, created_at, plan_code, plan_started_at, plan_expires_at, plan_status, is_active, blocked)
-         VALUES (?, ?, ?, ?, '', ?, 'BXPERT_BAZA', ?, ?, 'active', 1, 0)"
-    )->execute([$name, $nif, $phoneDdi, $phone, $now, $planStartedAt, $planExpiresAt]);
-    $companyId = (int) $pdo->lastInsertId();
+    if (!$existingMembership) {
+        $pdo->prepare(
+            "INSERT INTO companies (name, registration_number, phone_ddi, phone, website, created_at, plan_code, plan_started_at, plan_expires_at, plan_status, is_active, blocked)
+             VALUES (?, ?, ?, ?, '', ?, 'BXPERT_BAZA', ?, ?, 'active', 1, 0)"
+        )->execute([$name, $nif, $phoneDdi, $phone, $now, $planStartedAt, $planExpiresAt]);
+        $companyId = (int) $pdo->lastInsertId();
 
-    $pdo->prepare('INSERT INTO company_has_user (company_id, user_id, role, created_at) VALUES (?, ?, 3, ?)')->execute([$companyId, $userId, $now]);
+        $pdo->prepare('INSERT INTO company_has_user (company_id, user_id, role, created_at) VALUES (?, ?, 3, ?)')->execute([$companyId, $userId, $now]);
+    }
     $pdo->commit();
 
-    responder_empresa(200, ['success' => true]);
+    $message = "BXpert: conta criada.\nUtilizador: {$credentials['username']}\nSenha: {$credentials['password']}\nGuarde estas credenciais.";
+    $erroSms = null;
+    if (!enviarMensagemGoSms((string) $user['phone'], $message, $erroSms)) {
+        responder_empresa(502, [
+            'success' => false,
+            'company_created' => true,
+            'message' => 'A empresa foi criada, mas não foi possível enviar as credenciais por SMS.'
+                . ($erroSms ? ' GoSMS: ' . $erroSms : '')
+                . ' Tente novamente para reenviar.',
+        ]);
+    }
+
+    $pdo->prepare('UPDATE users SET must_change_password = 0 WHERE id = ?')->execute([$userId]);
+    unset($_SESSION['registration_credentials']);
+
+    try {
+        Auth::login((string) $credentials['username'], (string) $credentials['password']);
+        responder_empresa(200, [
+            'success' => true,
+            'authenticated' => true,
+            'message' => 'As credenciais de acesso foram enviadas por SMS.',
+        ]);
+    } catch (Throwable $e) {
+        error_log('register auto-login: ' . $e->getMessage());
+        responder_empresa(200, [
+            'success' => true,
+            'authenticated' => false,
+            'message' => 'As credenciais foram enviadas por SMS. Entre com o utilizador e a senha recebidos.',
+        ]);
+    }
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

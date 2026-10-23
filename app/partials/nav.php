@@ -342,6 +342,10 @@ $profileImage = basename($_SESSION['user']['image'] ?? '');
 if ($profileImage === '' || !preg_match('/^[\w.-]+\.(png|jpe?g|gif|webp)$/i', $profileImage)) {
     $profileImage = 'default.png';
 }
+$profileImagePath = __DIR__ . '/../../public/assets/img/profiles/' . $profileImage;
+if (!is_file($profileImagePath)) {
+    $profileImage = 'default.png';
+}
 
 $currentPlanCode = strtoupper((string)($_SESSION['user']['plan_code'] ?? ''));
 if ($currentCompany > 0 && $currentPlanCode === '') {
