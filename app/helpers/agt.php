@@ -46,6 +46,23 @@ function agt_environment(): string
     return defined('AGT_ENVIRONMENT') && AGT_ENVIRONMENT === 'production' ? 'production' : 'test';
 }
 
+/** O servidor da AGT não respondeu (rede/indisponibilidade). Não é uma recusa: nada deve ser alterado. */
+class AgtUnavailableException extends RuntimeException
+{
+}
+
+/** A API Node não conseguiu ligar-se à AGT (marca AGT_UNREACHABLE, ver agtUtils.httpPost). */
+function agt_unreachable(array $data): bool
+{
+    return str_starts_with((string) ($data['resultado']['error'] ?? ''), 'AGT_UNREACHABLE');
+}
+
+function agt_unavailable_message(): string
+{
+    return 'O servidor ' . (agt_environment() === 'test' ? 'de testes (HML) ' : '')
+        . 'da AGT não está a responder neste momento. Nada foi alterado; tente novamente dentro de alguns minutos.';
+}
+
 function agt_secret(): string
 {
     $secret = defined('AGT_KEY_SECRET') ? base64_decode((string) AGT_KEY_SECRET, true) : false;
@@ -168,6 +185,9 @@ function agt_api_post(string $path, array $body, int $timeout = 60): array
 /** Mensagem legível a partir da resposta da API Node (erros de validação ou da AGT). */
 function agt_error_message(array $data): string
 {
+    if (agt_unreachable($data)) {
+        return agt_unavailable_message();
+    }
     $resultado = $data['resultado'] ?? [];
     if (!empty($resultado['error'])) {
         return (string) $resultado['error'];
