@@ -133,3 +133,6 @@ desktop.ini
 backup/
 backups/
 *.local.txt
+
+# Chaves RSA locais (nunca versionar)
+app/keys/
