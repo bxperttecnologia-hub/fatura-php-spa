@@ -289,6 +289,5 @@ require_once '../app/partials/head.php';
     });
 </script>
 
-<script src="./assets/js/jsencrypt.min.js"></script>
-<script src="login/forgot.js?v=0.1"></script>
+<script src="login/forgot.js?v=0.2"></script>
 <?php require_once '../app/views/footer.php'; ?>

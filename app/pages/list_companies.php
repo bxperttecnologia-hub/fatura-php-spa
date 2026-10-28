@@ -129,9 +129,11 @@ require_once '../app/views/layout_creation.php';
             <div id="companies" class="row">
                 <div class="company-management-header">
                     <h2 class="mb-0">Gestão de Empresas</h2>
-                    <button type="button" class="btn btn-primary" id="btnAddCompany" data-bs-toggle="modal" data-bs-target="#addCompanyModal" disabled>
-                        <i class="bi bi-plus-lg me-1"></i> Adicionar empresa
-                    </button>
+                    <div class="d-flex flex-wrap gap-2 ms-auto">
+                        <button type="button" class="btn btn-primary" id="btnAddCompany" data-bs-toggle="modal" data-bs-target="#addCompanyModal" disabled>
+                            <i class="bi bi-plus-lg me-1"></i> Adicionar empresa
+                        </button>
+                    </div>
                     <div class="w-100 text-end small text-muted" id="companyPlanUsage" aria-live="polite"></div>
                 </div>
                 <div id="companies-list" class="row mt-4"></div>
@@ -173,6 +175,8 @@ require_once '../app/views/layout_creation.php';
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
             const publicPath = window.location.pathname.match(/^(.*\/public)(?:\/|$)/)?.[1] || '';
             const nifLookupUrl = `${publicPath}/contacts/ajax/consult_nif.php`;
+            let companiesCache = [];
+            let deletingCompanyId = null;
 
             function escapeHtml(value) {
                 return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -192,7 +196,7 @@ require_once '../app/views/layout_creation.php';
             }
 
             function loadCompanies() {
-                $.ajax({
+                return $.ajax({
                     url: `${publicPath}/assets/ajax/get_companies.php`,
                     method: "GET",
                     dataType: "json",
@@ -203,6 +207,7 @@ require_once '../app/views/layout_creation.php';
                             $("#btnAddCompany").prop('disabled', true);
                             return;
                         }
+                        companiesCache = response;
                         let companiesHtml = "";
                         if (response.length > 0) {
                             const companyLimit = response[0].company_limit;
@@ -224,7 +229,7 @@ require_once '../app/views/layout_creation.php';
                                     : "assets/img/companies/default.png";
 
                                 companiesHtml += `
-                                    <div class="col-md-4">
+                                    <div class="col-md-4" data-company-id="${escapeHtml(company.id)}">
                                     <div class="card company-card h-100 border-0 shadow-sm">
 
                                         <!-- HEADER / LOGO -->
@@ -276,6 +281,15 @@ require_once '../app/views/layout_creation.php';
                                                     <i class="material-icons">edit</i>
                                                 </button>
 
+                                                ${String(company.is_current) !== '1' && company.is_current !== true
+                                                    ? `<button type="button" class="action-btn btn-delete-company text-danger"
+                                                        data-id="${escapeHtml(company.id)}"
+                                                        aria-label="Eliminar ${escapeHtml(company.name)}"
+                                                        title="Eliminar ${escapeHtml(company.name)}">
+                                                        <i class="material-icons">delete</i>
+                                                    </button>`
+                                                    : ''}
+
                                             </div>
 
                                         </div>
@@ -299,6 +313,121 @@ require_once '../app/views/layout_creation.php';
             }
 
             loadCompanies();
+
+            $(document).on('click', '.btn-delete-company', async function() {
+                try {
+                if (deletingCompanyId !== null) return;
+                const companyId = String($(this).data('id'));
+                const selectedCompany = companiesCache.find(company => String(company.id) === companyId);
+                if (!selectedCompany) {
+                    await Swal.fire('Empresa não encontrada', 'Actualize a lista e tente novamente.', 'error');
+                    loadCompanies();
+                    return;
+                }
+                if (String(selectedCompany.is_current) === '1' || selectedCompany.is_current === true) {
+                    await Swal.fire('Acção não permitida', 'Não é possível eliminar a empresa activa.', 'warning');
+                    return;
+                }
+                if (!['3', 'owner'].includes(String(selectedCompany.role))) {
+                    await Swal.fire('Sem permissão', 'Apenas o proprietário pode eliminar esta empresa.', 'error');
+                    return;
+                }
+                const manageableCompanyCount = companiesCache.filter(company =>
+                    ['3', 'owner'].includes(String(company.role))
+                ).length;
+                if (manageableCompanyCount < 2) {
+                    await Swal.fire('Acção não permitida', 'Não é possível eliminar a única empresa que pode gerir.', 'warning');
+                    return;
+                }
+
+                const confirmation = await Swal.fire({
+                    title: 'Eliminar empresa permanentemente?',
+                    text: `Serão eliminados todos os dados exclusivos de "${selectedCompany.name}", incluindo documentos financeiros e fiscais, clientes, stock e registos associados. Esta acção é irreversível. As contas de utilizadores serão preservadas, mas perderão o acesso a esta empresa.`,
+                    icon: 'warning',
+                    input: 'text',
+                    inputLabel: `Escreva exactamente o nome da empresa para confirmar: ${selectedCompany.name}`,
+                    inputPlaceholder: selectedCompany.name,
+                    inputAttributes: {
+                        autocomplete: 'off',
+                        autocapitalize: 'off',
+                        spellcheck: 'false'
+                    },
+                    inputValidator: function(value) {
+                        return String(value || '').trim() === String(selectedCompany.name).trim()
+                            ? undefined
+                            : 'O nome introduzido não corresponde à empresa seleccionada.';
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'Eliminar permanentemente',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545',
+                    showLoaderOnConfirm: true,
+                    allowOutsideClick: () => !Swal.isLoading(),
+                    preConfirm: function() {
+                        deletingCompanyId = companyId;
+                        $('.btn-delete-company').prop('disabled', true);
+                        $(`.btn-delete-company[data-id="${companyId}"]`)
+                            .prop('disabled', true)
+                            .html('<span class="spinner-border spinner-border-sm" role="status" aria-label="A eliminar"></span>');
+                        return $.ajax({
+                            url: `${publicPath}/assets/ajax/delete_company.php`,
+                            method: 'POST',
+                            data: { company_id: selectedCompany.id },
+                            headers: { 'X-CSRF-Token': csrfToken },
+                            dataType: 'json'
+                        }).then(function(response) {
+                            if (!response.success) {
+                                throw new Error(response.message || 'Não foi possível eliminar a empresa.');
+                            }
+                            return response;
+                        }).catch(function(error) {
+                            const message = error.responseJSON?.message
+                                || error.message
+                                || 'Erro ao eliminar a empresa. Tente novamente.';
+                            Swal.showValidationMessage(message);
+                            deletingCompanyId = null;
+                            loadCompanies();
+                            return false;
+                        });
+                    }
+                });
+
+                if (!confirmation.isConfirmed) {
+                    deletingCompanyId = null;
+                    return;
+                }
+
+                const deletedCompanyId = Number(confirmation.value.company_id);
+                companiesCache = companiesCache.filter(company => Number(company.id) !== deletedCompanyId);
+                $(`#companies-list [data-company-id="${deletedCompanyId}"]`).remove();
+                if (!companiesCache.length) {
+                    $('#companies-list').html('<p class="text-center">Nenhuma empresa encontrada.</p>');
+                }
+                document.dispatchEvent(new Event('companies:updated'));
+                let companiesReloaded = true;
+                try {
+                    await loadCompanies();
+                } catch (refreshError) {
+                    companiesReloaded = false;
+                    console.error('Empresa eliminada, mas não foi possível actualizar a lista:', refreshError);
+                }
+                deletingCompanyId = null;
+
+                await Swal.fire({
+                    title: 'Empresa eliminada',
+                    text: companiesReloaded
+                        ? `Todos os dados exclusivos de "${selectedCompany.name}" foram eliminados. As contas de utilizadores foram preservadas.`
+                        : `"${selectedCompany.name}" foi eliminada, mas a lista não pôde ser actualizada. Actualize a página.`,
+                    icon: companiesReloaded ? 'success' : 'warning',
+                    confirmButtonText: 'OK'
+                });
+                } catch (error) {
+                    console.error('Falha inesperada ao eliminar empresa:', error);
+                    deletingCompanyId = null;
+                    await Swal.fire('Erro', 'Ocorreu um erro inesperado ao tentar eliminar a empresa.', 'error');
+                    loadCompanies();
+                }
+            });
 
             $('#btnLookupCompanyNif').on('click', function() {
                 const nif = $('#newCompanyNif').val().trim();

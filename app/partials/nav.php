@@ -248,6 +248,13 @@
         z-index: 999;
     }
 
+    #empresaDropdownMenu {
+        right: auto;
+        width: max-content;
+        max-width: min(90vw, 36rem);
+        box-sizing: border-box;
+    }
+
     .dropdown-menu-custom li {
         padding: 0;
     }
@@ -265,8 +272,21 @@
         cursor: pointer;
     }
 
+    #empresaDropdownMenu .dropdown-item {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
     .dropdown-menu-custom .dropdown-item:hover {
         background: #f5f5f5;
+    }
+
+    @media (max-width: 576px) {
+        #empresaDropdownMenu {
+            left: 0 !important;
+            right: auto !important;
+            max-width: calc(100vw - 1rem);
+        }
     }
 
     /* Animação */
@@ -335,6 +355,9 @@ $currentCompany = (int)($_SESSION['user']['company_id'] ?? 0);
 $nomeFormatado  = formatName(($_SESSION['user']['name'] ?? $_SESSION['user']['nome'] ?? ''));
 $userRole       = t($_SESSION['user']['role'] ?? '');
 $nameCompany    = $_SESSION['user']['name_company'] ?? 'Empresa';
+$displayCompany = mb_strlen($nameCompany) > 15
+    ? mb_substr($nameCompany, 0, 15) . '…'
+    : $nameCompany;
 $acronym        = strtoupper($_SESSION['user']['acronym'] ?? 'EMP');
 
 // Evita path traversal / XSS no <img src>: só aceita nome de ficheiro simples
@@ -381,10 +404,11 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             <!-- Empresa -->
             <div class="dropdown-custom position-relative">
                 <button class="btn nav-pill d-flex align-items-center gap-2"
-                    type="button" id="empresaDropdown" aria-haspopup="true" aria-expanded="false">
+                    type="button" id="empresaDropdown" aria-haspopup="true" aria-expanded="false"
+                    title="<?= htmlspecialchars($nameCompany, ENT_QUOTES) ?>">
 
                     <i data-lucide="building-2"></i>
-                    <span class="d-none d-sm-inline"><?= htmlspecialchars($nameCompany, ENT_QUOTES) ?></span>
+                    <span class="d-none d-sm-inline"><?= htmlspecialchars($displayCompany, ENT_QUOTES) ?></span>
                     <span class="d-inline d-sm-none text-uppercase"><?= htmlspecialchars($acronym, ENT_QUOTES) ?></span>
                     <i data-lucide="chevron-down"></i>
                 </button>

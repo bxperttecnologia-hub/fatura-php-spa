@@ -148,7 +148,8 @@ if ($registrationUserId > 0) {
     $verifiedStmt->execute([$registrationUserId]);
     $verifiedRegistration = (bool) $verifiedStmt->fetchColumn();
 }
-if (empty($_SESSION['user']) && !$verifiedRegistration) {
+$authenticatedUser = class_exists('Auth') && Auth::check();
+if (!$authenticatedUser && !$verifiedRegistration) {
     agt_respond(['status' => 'error', 'message' => 'Sessão expirada.'], 401);
 }
 

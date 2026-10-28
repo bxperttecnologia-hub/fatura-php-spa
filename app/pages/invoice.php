@@ -988,6 +988,6 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="invoices/invoice.js?v=5.7" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=5.8" data-spa-repeat></script>
 
 <?php require_once '../app/views/footer.php'; ?>

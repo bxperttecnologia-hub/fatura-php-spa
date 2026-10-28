@@ -1948,6 +1948,30 @@ $(function () {
           maximumFractionDigits: 2,
         });
 
+      // Lê números digitados em formato pt-PT ("20 000,00"), "20.000,00" ou "20000.50".
+      // Devolve NaN se o texto não for um número válido (nunca adivinha).
+      const parseMoney = (raw) => {
+        let s = String(raw ?? "").replace(/[\s\u00A0\u202F]/g, "");
+        if (s === "") return NaN;
+        const lastComma = s.lastIndexOf(",");
+        const lastDot = s.lastIndexOf(".");
+        if (lastComma !== -1 && lastDot !== -1) {
+          const dec = lastComma > lastDot ? "," : ".";
+          const thou = dec === "," ? "." : ",";
+          s = s.split(thou).join("").replace(dec, ".");
+        } else if (lastComma !== -1) {
+          s = s.split(",").length > 2 ? s.split(",").join("") : s.replace(",", ".");
+        } else if (lastDot !== -1 && s.split(".").length > 2) {
+          s = s.split(".").join("");
+        }
+        return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
+      };
+
+      // Taxas de IVA admitidas (Código do IVA, art. 19.º). Manter igual a
+      // bx_note_allowed_tax_rates() em app/helpers/note_totals.php.
+      const NOTE_TAX_RATES = [14, 7, 5, 1, 0];
+      let ndRecalc = () => {};
+
       // Formulário com linhas editáveis
       const form = await Swal.fire({
         title: "Emitir Nota de Débito",
@@ -1986,43 +2010,49 @@ $(function () {
         didOpen: () => {
           const body = document.getElementById("ndLines");
 
+          // Aritmética em cêntimos inteiros, com arredondamento meio-para-cima igual ao
+          // round() do PHP (create_debit_note.php / note_totals.php). Evita diferenças de
+          // 1 cêntimo entre o valor mostrado e o valor gravado (ex.: 9138.425 -> 9138.43).
+          const toCents = (x) => Math.round(Number((x * 100).toPrecision(15)));
+
           const recalc = () => {
-            let sub = 0;
-            let discount = 0;
-            let tax = 0;
+            let subC = 0;
+            let discountC = 0;
+            let taxC = 0;
             body.querySelectorAll("tr").forEach((tr) => {
-              const q = parseFloat(tr.querySelector(".nd-qty").value) || 0;
-              const p = parseFloat(tr.querySelector(".nd-price").value) || 0;
-              const d = parseFloat(tr.querySelector(".nd-discount").value) || 0;
-              const t = parseFloat(tr.querySelector(".nd-tax").value) || 0;
-              const base = Math.round(q * p * 100) / 100;
-              const discountVal = Math.round((base * d / 100 + Number.EPSILON) * 100) / 100;
-              const taxableBase = Math.round((base - discountVal + Number.EPSILON) * 100) / 100;
-              const taxVal = Math.round((taxableBase * t / 100 + Number.EPSILON) * 100) / 100;
-              tr.querySelector(".nd-line-total").textContent = fmt(taxableBase + taxVal);
-              sub += base;
-              discount += discountVal;
-              tax += taxVal;
+              const q = parseMoney(tr.querySelector(".nd-qty").value) || 0;
+              const p = parseMoney(tr.querySelector(".nd-price").value) || 0;
+              const d = parseMoney(tr.querySelector(".nd-discount").value) || 0;
+              const t = parseMoney(tr.querySelector(".nd-tax").value) || 0;
+              const baseC = toCents(q * p);
+              const lineDiscountC = toCents((baseC / 100) * d / 100);
+              const taxableC = baseC - lineDiscountC;
+              const lineTaxC = toCents((taxableC / 100) * t / 100);
+              tr.querySelector(".nd-line-total").textContent = fmt((taxableC + lineTaxC) / 100);
+              subC += baseC;
+              discountC += lineDiscountC;
+              taxC += lineTaxC;
             });
-            document.getElementById("ndSub").textContent = fmt(sub);
-            document.getElementById("ndDiscount").textContent = fmt(discount);
-            document.getElementById("ndNetSub").textContent = fmt(sub - discount);
-            document.getElementById("ndTax").textContent = fmt(tax);
-            document.getElementById("ndTotal").textContent = fmt(sub - discount + tax);
+            document.getElementById("ndSub").textContent = fmt(subC / 100);
+            document.getElementById("ndDiscount").textContent = fmt(discountC / 100);
+            document.getElementById("ndNetSub").textContent = fmt((subC - discountC) / 100);
+            document.getElementById("ndTax").textContent = fmt(taxC / 100);
+            document.getElementById("ndTotal").textContent = fmt((subC - discountC + taxC) / 100);
           };
 
           const addLine = () => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td><input type="text" class="form-control form-control-sm nd-desc" maxlength="500" placeholder="Descrição"></td>
-              <td><input type="number" class="form-control form-control-sm nd-qty" min="0" step="any" value="1"></td>
-              <td><input type="number" class="form-control form-control-sm nd-price" min="0" step="any" value=""></td>
-              <td><input type="number" class="form-control form-control-sm nd-discount" min="0" max="100" step="any" value="0"></td>
-              <td><input type="number" class="form-control form-control-sm nd-tax" min="0" max="100" step="any" value="14"></td>
+              <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm nd-qty" value="1"></td>
+              <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm nd-price" value=""></td>
+              <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm nd-discount" value="0"></td>
+              <td><select class="form-select form-select-sm nd-tax">${NOTE_TAX_RATES.map((r) => `<option value="${r}"${r === 14 ? " selected" : ""}>${r}%</option>`).join("")}</select></td>
               <td class="nd-line-total" style="text-align:right">0,00</td>
               <td><button type="button" class="btn btn-sm btn-link text-danger nd-del" title="Remover">&times;</button></td>
             `;
-            tr.addEventListener("input", recalc);
+            ["input", "change", "keyup"].forEach((ev) => tr.addEventListener(ev, recalc));
+            tr.addEventListener("focusout", () => setTimeout(recalc, 0));
             tr.querySelector(".nd-del").addEventListener("click", () => {
               if (body.querySelectorAll("tr").length > 1) {
                 tr.remove();
@@ -2033,9 +2063,11 @@ $(function () {
           };
 
           document.getElementById("ndAddLine").addEventListener("click", addLine);
+          ndRecalc = recalc;
           addLine();
         },
         preConfirm: () => {
+          ndRecalc();
           const reason = document.getElementById("ndReason").value.trim();
           if (!reason) {
             Swal.showValidationMessage("Indique o motivo da nota de débito.");
@@ -2047,10 +2079,11 @@ $(function () {
           for (let i = 0; i < rows.length; i++) {
             const tr = rows[i];
             const description = tr.querySelector(".nd-desc").value.trim();
-            const quantity = parseFloat(tr.querySelector(".nd-qty").value);
-            const unit_price = parseFloat(tr.querySelector(".nd-price").value);
-            const discount = parseFloat(tr.querySelector(".nd-discount").value);
-            const tax = parseFloat(tr.querySelector(".nd-tax").value);
+            const quantity = parseMoney(tr.querySelector(".nd-qty").value);
+            const unit_price = parseMoney(tr.querySelector(".nd-price").value);
+            const discountRaw = tr.querySelector(".nd-discount").value.trim();
+            const discount = discountRaw === "" ? 0 : parseMoney(discountRaw);
+            const tax = parseMoney(tr.querySelector(".nd-tax").value);
 
             if (!description) {
               Swal.showValidationMessage(`Linha ${i + 1}: indique a descrição.`);
@@ -2064,8 +2097,10 @@ $(function () {
               Swal.showValidationMessage(`Linha ${i + 1}: indique o preço unitário.`);
               return false;
             }
-            if (isNaN(tax) || tax < 0 || tax > 100) {
-              Swal.showValidationMessage(`Linha ${i + 1}: IVA deve estar entre 0 e 100.`);
+            if (!NOTE_TAX_RATES.includes(tax)) {
+              Swal.showValidationMessage(
+                `Linha ${i + 1}: IVA inválido (taxas admitidas: ${NOTE_TAX_RATES.join(", ")}%).`,
+              );
               return false;
             }
             if (isNaN(discount) || discount < 0 || discount > 100) {

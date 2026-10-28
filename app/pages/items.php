@@ -437,6 +437,8 @@
     }
 </style>
 
+<link rel="stylesheet" href="./items/item_drawer.css?v=0.1">
+
 <body>
     <main id="itemsPage" class="products-page">
         <div class="container-fluid px-lg-5 px-2 pt-5">
@@ -566,7 +568,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <script src="items/items.js?v=0.9" data-spa-repeat></script>
+    <script src="items/items.js?v=1.0" data-spa-repeat></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

@@ -19,6 +19,7 @@ try {
     $r->add('POST',   'auth/logout',    [AuthController::class, 'logout'], true);
     $r->add('GET',    'auth/me',        [AuthController::class, 'me']);
     $r->add('GET',    'documents/config', [DocumentApiController::class, 'config']);
+    $r->add('PATCH',  'profile',        [ProfileApiController::class, 'update']);
     $r->add('GET',    'clientes',       [ClienteController::class, 'index']);
     $r->add('POST',   'clientes',       [ClienteController::class, 'store']);
     $r->add('GET',    'clientes/{id}',  [ClienteController::class, 'show']);
@@ -29,6 +30,7 @@ try {
     $apiModule = match (explode('/', $path)[0] ?? '') {
         'clientes' => 'contacts',
         'documents' => 'invoices',
+        'profile' => 'profile',
         default => null,
     };
     if ($apiModule !== null) {

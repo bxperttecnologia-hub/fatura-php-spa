@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/note_totals.php';
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
@@ -69,17 +71,14 @@ foreach ($rawItems as $i => $r) {
     if ($discount < 0 || $discount > 100) {
         fail(422, "Linha $n: desconto deve estar entre 0 e 100.");
     }
-    if ($tax < 0 || $tax > 100) {
-        fail(422, "Linha $n: IVA deve estar entre 0 e 100.");
+    if (!in_array($tax, bx_note_allowed_tax_rates(), true)) {
+        fail(422, "Linha $n: IVA inválido (taxas admitidas: " . implode(', ', bx_note_allowed_tax_rates()) . "%).");
     }
 
-    $base = round($qty * $unit, 2);
-    $discountValue = round($base * $discount / 100, 2);
-    $taxableBase = round($base - $discountValue, 2);
-    $taxVal = round($taxableBase * $tax / 100, 2);
-    $subtotal += $taxableBase;
-    $totalDiscount += $discountValue;
-    $totalTax += $taxVal;
+    $calc = bx_note_line($qty, $unit, $discount, $tax);
+    $subtotal += $calc['taxable'];
+    $totalDiscount += $calc['discount'];
+    $totalTax += $calc['tax'];
 
     $lines[] = [
         'description' => $desc,

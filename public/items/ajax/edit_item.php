@@ -20,7 +20,7 @@ try {
     $item_type = $_POST['item_type'] ?? 'product';
     $unit_measure = $_POST['unit_measure'] ?? 'unit';
 
-    $currency = $_POST['currency'] ?? 'AOA';
+    $currency = 'AOA';
 
     // =========================
     // NORMALIZAÇÃO TAX

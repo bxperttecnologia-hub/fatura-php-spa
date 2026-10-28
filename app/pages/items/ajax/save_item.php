@@ -32,9 +32,7 @@ try {
   // =========================
   // INPUTS
   // =========================
-  $item_id = isset($_POST['product_id'])
-    ? (int)$_POST['product_id']
-    : 0;
+  $item_id = (int)($_POST['product_id'] ?? $_POST['item_id'] ?? $_POST['id'] ?? 0);
 
   $company_id = (int)($_POST['id_company'] ?? 0);
 
@@ -56,7 +54,7 @@ try {
     ? trim($_POST['subcategory'])
     : null;
 
-  $currency = trim($_POST['currency'] ?? 'AOA');
+  $currency = trim($_POST['currency'] ?? 'AOA') ?: 'AOA';
 
 
   // =========================
@@ -110,10 +108,7 @@ try {
   // =========================
   if ($item_id > 0) {
 
-    $sql = "CALL sp_update_item_with_stock(
-      ?,?,?,?,?,?,?,?,?,?,
-      ?,?,?,?,?,?,?,?
-    )";
+    $sql = "CALL sp_update_item_with_stock(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     $stmt = $pdo->prepare($sql);
 
@@ -146,10 +141,7 @@ try {
     // =========================
     // CREATE
     // =========================
-    $sql = "CALL sp_create_item_with_stock(
-      ?,?,?,?,?,?,?,?,?,?,
-      ?,?,?,?,?,?,?
-    )";
+    $sql = "CALL sp_create_item_with_stock(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     $stmt = $pdo->prepare($sql);
 

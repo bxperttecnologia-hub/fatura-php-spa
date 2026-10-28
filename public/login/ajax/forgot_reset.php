@@ -1,9 +1,11 @@
 <?php
-require_once '../../../app/config/db.php';
+require_once dirname(__DIR__, 3) . '/app/config/db.php';
 $pdo->exec("SET time_zone = '+00:00'");
 date_default_timezone_set('UTC');
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: application/json');
 
 function out(bool $ok, string $msg): void
@@ -15,10 +17,18 @@ function out(bool $ok, string $msg): void
 /** Descriptografa um valor enviado pelo JSEncrypt (mesma chave do login). */
 function rsaDecrypt(string $encrypted): ?string
 {
-    $privateKey = file_get_contents('../../../app/keys/private.key');
+    $privateKeyPath = dirname(__DIR__, 3) . '/app/keys/private.key';
+    $privateKey = file_get_contents($privateKeyPath);
+    $ciphertext = base64_decode($encrypted, true);
+    if ($privateKey === false || $ciphertext === false) {
+        error_log('[forgot_reset] Private key missing or invalid encrypted input.');
+        return null;
+    }
+
     $resource = openssl_pkey_get_private($privateKey);
     $plain = null;
-    if (!$resource || !openssl_private_decrypt(base64_decode($encrypted), $plain, $resource)) {
+    if (!$resource || !openssl_private_decrypt($ciphertext, $plain, $resource)) {
+        error_log('[forgot_reset] RSA password decryption failed.');
         return null;
     }
     return $plain ?: null;

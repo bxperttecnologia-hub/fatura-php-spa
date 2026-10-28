@@ -281,12 +281,6 @@ $(document).ready(function () {
     // =========================
     formData.append("tax_vat", $("#taxVat").val());
 
-    for (let pair of formData.entries()) {
-      console.log(pair[0], pair[1]);
-    }
-
-    console.log("tax:", formData.get("tax_vat"));
-
     // =========================
     // URL
     // =========================
@@ -300,10 +294,19 @@ $(document).ready(function () {
       contentType: false,
       dataType: "json",
       success: function (response) {
+        if (response.status !== "success") {
+          Swal.fire({
+            icon: "error",
+            title: "Não foi possível guardar",
+            text: response.message || "O servidor não conseguiu guardar o produto/serviço.",
+          });
+          return;
+        }
+
         Swal.fire({
-          icon: response.type || "info",
-          title: response.status || "",
-          text: response.message || "",
+          icon: "success",
+          title: "Guardado",
+          text: response.message || "Produto/serviço guardado com sucesso.",
         });
 
         const modalEl = document.getElementById("itemModal");
@@ -317,10 +320,12 @@ $(document).ready(function () {
 
         $(document).trigger("items:reload");
       },
-      error: function () {
+      error: function (xhr) {
+        const message = xhr.responseJSON?.message
+          || "Ocorreu um erro ao salvar o produto/serviço.";
         Swal.fire(
           "Erro!",
-          "Ocorreu um erro ao salvar o produto/serviço.",
+          message,
           "error",
         );
       },

@@ -1,5 +1,9 @@
 <?php
 require_once '../app/views/layout_creation.php';
+
+if (!function_exists('pe')) {
+    function pe($v): string { return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8'); }
+}
 ?>
 
 <style>
@@ -73,12 +77,12 @@ require_once '../app/views/layout_creation.php';
             <div class="col-lg-3 mb-4">
                 <div class="card shadow-sm border-0 text-center p-3">
 
-                    <img id="profileImage" src="assets/img/profiles/<?= $_SESSION['user']['image'] ?>?t=<?= time() ?>"
+                    <img id="profileImage" src="assets/img/profiles/<?= pe($_SESSION['user']['image'] ?? '') ?>?t=<?= time() ?>"
                         class="rounded-circle mx-auto mb-3"
                         style="width:100px;height:100px;object-fit:cover;">
 
-                    <h5 class="mb-0"><?= $_SESSION['user']['name'] ?></h5>
-                    <small class="text-muted"><?= $_SESSION['user']['email'] ?></small>
+                    <h5 class="mb-0"><?= pe($_SESSION['user']['name'] ?? '') ?></h5>
+                    <small class="text-muted"><?= pe($_SESSION['user']['email'] ?? '') ?></small>
 
                     <hr>
                     <input type="file" id="profileInput" class="d-none" accept="image/*">
@@ -153,25 +157,25 @@ require_once '../app/views/layout_creation.php';
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold opacity-50">Nome</label>
                                     <input type="text" class="form-control" name="name"
-                                        value="<?= $_SESSION['user']['name'] ?>">
+                                        value="<?= pe($_SESSION['user']['name'] ?? '') ?>">
                                 </div>
 
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold opacity-50">Usuário</label>
                                     <input type="text" class="form-control" name="username"
-                                        value="<?= $_SESSION['user']['username'] ?>">
+                                        value="<?= pe($_SESSION['user']['username'] ?? '') ?>">
                                 </div>
 
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold opacity-50">Telefone</label>
                                     <input type="text" class="form-control" name="phone"
-                                        value="<?= $_SESSION['user']['phone'] ?>">
+                                        value="<?= pe($_SESSION['user']['phone'] ?? '') ?>">
                                 </div>
 
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold opacity-50">E-mail</label>
                                     <input type="email" class="form-control" name="email"
-                                        value="<?= $_SESSION['user']['email'] ?>">
+                                        value="<?= pe($_SESSION['user']['email'] ?? '') ?>">
                                 </div>
 
                             </div>
@@ -196,7 +200,7 @@ require_once '../app/views/layout_creation.php';
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold opacity-50">Endereço</label>
                                     <input type="text" class="form-control" name="address"
-                                        value="<?= $_SESSION['user']['address'] ?>">
+                                        value="<?= pe($_SESSION['user']['address'] ?? '') ?>">
                                 </div>
 
                                 <div class="col-md-6">
@@ -235,10 +239,10 @@ require_once '../app/views/layout_creation.php';
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
 
-<script src="perfil/perfil.js?v=1.9"></script>
+<script src="perfil/perfil.js?v=1.18"></script>
 <script>
-    var selectedCountry = "<?php echo isset($_SESSION['user']['country']) ? $_SESSION['user']['country'] : ''; ?>";
-    var selectedCity = "<?php echo isset($_SESSION['user']['address_district']) ? $_SESSION['user']['address_district'] : ''; ?>";
-    selectCountry(selectedCountry, selectedCity);
+    var selectedCountry = <?= json_encode($_SESSION['user']['country'] ?? '', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+    var selectedCity = <?= json_encode($_SESSION['user']['address_district'] ?? '', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+    window.selectCountry(selectedCountry, selectedCity);
 </script>
 <?php require_once '../app/views/footer.php'; ?>
