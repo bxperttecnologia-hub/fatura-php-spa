@@ -29,12 +29,16 @@ function bx_generate_document_pdf(
         throw new RuntimeException('Não foi possível localizar os ficheiros públicos.');
     }
 
+    // Os modelos usam $pdo (de um require_once do db.php já feito) e caminhos relativos ao próprio ficheiro.
+    global $pdo;
     $previousGet = $_GET;
+    $previousCwd = getcwd();
     $previousBufferLevel = ob_get_level();
     $_GET['id'] = $documentId;
 
     ob_start();
     try {
+        chdir(dirname($templatePath));
         require $templatePath;
         $html = ob_get_clean();
     } catch (Throwable $error) {
@@ -42,9 +46,11 @@ function bx_generate_document_pdf(
             ob_end_clean();
         }
         $_GET = $previousGet;
+        chdir($previousCwd);
         throw $error;
     }
     $_GET = $previousGet;
+    chdir($previousCwd);
 
     if (!is_string($html) || $html === '') {
         throw new RuntimeException('Não foi possível preparar o documento para PDF.');

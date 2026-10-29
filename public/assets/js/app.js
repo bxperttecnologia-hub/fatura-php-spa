@@ -3,35 +3,6 @@ import { api } from './api.js';
 
 window.navigateSPA = navigate;
 
-const allowedModules = new Set(window.APP.permissions ?? []);
-const pageModules = window.APP.pageModules ?? {};
-const pages = window.APP.pages ?? {};
-const moduleForLink = href => {
-  const path = new URL(href, location.origin).pathname.replace(/\/+$/, '') || '/';
-  if (pageModules[path]) return pageModules[path];
-
-  const fileName = path.split('/').pop();
-  const route = Object.keys(pages).find(candidate => pages[candidate].file === fileName);
-  return route ? pageModules[route] : undefined;
-};
-
-document.querySelectorAll('#sidebar a[href]').forEach(link => {
-  const module = moduleForLink(link.getAttribute('href'));
-  if (module && !allowedModules.has(module)) {
-    link.hidden = true;
-    link.classList.add('d-none');
-  }
-});
-document.querySelectorAll('#sidebar button[data-submenu]').forEach(button => {
-  const submenu = document.querySelector(button.dataset.submenu);
-  if (submenu && ![...submenu.querySelectorAll('a[href]')].some(link => !link.hidden)) {
-    button.hidden = true;
-    submenu.hidden = true;
-    button.classList.add('d-none');
-    submenu.classList.add('d-none');
-  }
-});
-
 route('/login',    () => import('./pages/legacy.js').then(m => m.forRoute('/login')), { auth: false, title: 'Entrar' });
 route('/login.php', () => import('./pages/legacy.js').then(m => m.forRoute('/login')), { auth: false, title: 'Entrar' });
 route('/clientes', () => import('./pages/clientes.js'),  { title: 'Clientes (demo)' });

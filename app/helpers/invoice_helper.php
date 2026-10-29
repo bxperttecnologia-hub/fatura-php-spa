@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/agt.php';
 
 /**
  * ==================================================
@@ -71,6 +72,12 @@ function generate_document_number(
     int $companyId,
     string $documentType
 ): string {
+
+    // Faturação eletrónica: numeração da série atribuída pela AGT ("FT <série>/<n>").
+    $agtNumber = agt_issue_number($pdo, $companyId, $documentType);
+    if ($agtNumber !== null) {
+        return $agtNumber;
+    }
 
     $year = date('Y');
     $prefix = document_prefix($documentType);

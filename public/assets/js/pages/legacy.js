@@ -8,7 +8,7 @@ let active = null;           // página legada actualmente montada
 let patched = false;
 
 const isAbsolute = u => /^([a-z][a-z0-9+.-]*:|\/\/|\/|#)/i.test(u);
-// 'rh/ajax/x.php' ou '../app/y.php' -> '/rh/ajax/x.php' (as rotas SPA não têm profundidade fixa)
+// '/rh/ajax/x.php' ou '../app/y.php' -> '/rh/ajax/x.php' (as rotas SPA não têm profundidade fixa)
 const toAbs = u => (typeof u === 'string' && u && !isAbsolute(u)) ? '/' + u.replace(/^(\.{1,2}\/)+/, '') : u;
 
 // Instalado uma só vez: faz com que o código legado (URLs relativos, listeners globais) funcione numa SPA.

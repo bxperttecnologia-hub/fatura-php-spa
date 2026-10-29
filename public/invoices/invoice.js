@@ -21,7 +21,7 @@ function loadFaturaWithRetry(invoiceId, maxRetries = 5) {
     $container.hide();
 
     $container.load(
-      "invoices/ajax/invoice_public.php?id=" + invoiceId,
+      "/invoices/ajax/invoice_public.php?id=" + invoiceId,
       function (response, status) {
         if (status === "success") {
           $preloader.hide();
@@ -43,6 +43,7 @@ function loadFaturaWithRetry(invoiceId, maxRetries = 5) {
   tryLoad();
 }
 
+loadFaturaWithRetry(invoiceId, 5);
 // ───────── invoice.js ─────────
 $(function () {
   // id vindo da query‑string
@@ -57,7 +58,7 @@ $(function () {
 
   // O HTML da fatura já é carregado por loadFaturaWithRetry() acima.
   // ---------- carrega JSON da fatura ----------
-  $.getJSON("invoices/ajax/get_invoice.php", { id: invoiceId })
+  $.getJSON("/invoices/ajax/get_invoice.php", { id: invoiceId })
     .done((response) => {
       // Se os dados vêm dentro de response.data
       const inv = response.data;
@@ -67,64 +68,20 @@ $(function () {
       }
 
       currentInvoice = inv; // guarda para modal
-      const invoiceDisplayId =
-        inv.status_invoice === "Rascunho"
-          ? `${inv.series}/${inv.id}`
-          : inv.numero_validacao;
-      const creditNoteId = Number(inv.credit_note_id) || 0;
-
-      function showInvoicePreview() {
-        $("#invoice-document-label").text(
-          String(inv.document_type || "FT").toUpperCase() === "FR"
-            ? "Factura-Recibo"
-            : "Factura",
-        );
-        $("#invoice-document-meta").text("Original");
-        $("#fatura-id").text(invoiceDisplayId || "-");
-        $("#status-invoice")
-          .text(inv.status_invoice || "-")
-          .toggleClass("d-none", !inv.status_invoice || inv.status_invoice === "-")
-          .toggleClass("is-draft", inv.status_invoice === "Rascunho");
-        loadFaturaWithRetry(invoiceId, 5);
-      }
-
-      function showCreditNotePreview() {
-        if (!creditNoteId) return;
-
-        const frame = document.createElement("iframe");
-        frame.className = "credit-note-preview-frame";
-        frame.title = "Pré-visualização da nota de crédito";
-        frame.src = `/credit_notes/ajax/credit_note_public.php?id=${encodeURIComponent(creditNoteId)}`;
-
-        $("#preloader").hide();
-        $("#fatura-container").empty().append(frame).show();
-        $("#invoice-document-label").text("Nota de Crédito");
-        $("#invoice-document-meta").text("Documento associado");
-        $("#fatura-id").text(String(creditNoteId));
-        $("#status-invoice").addClass("d-none");
-        $("#btnToggleCreditNote").text("Ver factura original");
-      }
 
       // Esconde todos os botões antes
       $(
         "#btnFinalizar, #btnEditar, #btnCloneToInvoice, #btnNotaCredito, #btnNotaDebito, #btnNotaEntrega, #generatePdf, #btnEnviar, #btnDeleteInvoice, #btnRecibo",
       ).addClass("d-none");
-      $("#btnToggleCreditNote")
-        .toggleClass("d-none", !creditNoteId)
-        .off("click")
-        .on("click", function () {
-          if ($("#invoice-document-label").text() === "Nota de Crédito") {
-            showInvoicePreview();
-            $("#btnToggleCreditNote").text("Ver nota de crédito");
-          } else {
-            showCreditNotePreview();
-          }
-        });
 
       // Preenche formulário/UI
       $('#formPagamento [name="invoice_id"]').val(inv.id);
 
-      $("#fatura-id").text(invoiceDisplayId || "-");
+      $("#fatura-id").text(
+        inv.status_invoice === "Rascunho"
+          ? `${inv.series}/${inv.id}`
+          : inv.numero_validacao,
+      );
 
       const statusText = inv.status_invoice || "-";
       $("#status-invoice")
@@ -144,7 +101,7 @@ $(function () {
         $("#btnCloneToInvoice").removeClass("d-none");
         $("#btnDeleteInvoice").removeClass("d-none");
       } else if (normalizedStatus.startsWith("cancel")) {
-        $("#generatePdf, #btnEnviar").removeClass("d-none");
+        $("#generatePdf, #btnEnviar, #btnNotaCredito").removeClass("d-none");
       } else {
         $("#btnRecibo").removeClass("d-none");
         $("#btnCloneToInvoice").removeClass("d-none");
@@ -154,16 +111,9 @@ $(function () {
         $("#generatePdf").removeClass("d-none");
         $("#btnEnviar").removeClass("d-none");
       }
-
-      if (creditNoteId) {
-        showCreditNotePreview();
-      } else {
-        showInvoicePreview();
-      }
     })
     .fail((xhr) => {
       console.error("Erro AJAX:", xhr);
-      loadFaturaWithRetry(invoiceId, 5);
 
       Swal.fire({
         icon: "error",
@@ -197,7 +147,7 @@ $(function () {
         $btn.prop("disabled", true);
 
         $.ajax({
-          url: "invoices/ajax/delete_invoice.php",
+          url: "/invoices/ajax/delete_invoice.php",
           type: "POST",
           dataType: "json",
           data: {
@@ -263,7 +213,7 @@ $(function () {
     const $btn = $(this);
 
     $.ajax({
-      url: "invoices/ajax/get_last_receipt.php",
+      url: "/invoices/ajax/get_last_receipt.php",
       type: "GET",
       dataType: "json",
       data: {
@@ -316,6 +266,18 @@ $(function () {
 
   // ---------- 3) abrir recibo ou modal Pagamento ----------
   function showPaymentModal() {
+    const balance = Number(
+      currentInvoice?.saldo ??
+        (Number(currentInvoice?.final_total || 0) -
+          Number(currentInvoice?.paid_total || 0)),
+    );
+    if (balance <= 0.009) {
+      return Swal.fire({
+        icon: "info",
+        title: "Fatura sem saldo pendente",
+        text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
+      });
+    }
     bootstrap.Modal.getOrCreateInstance(
       document.getElementById("modalPagamento"),
     ).show();
@@ -386,11 +348,11 @@ $(function () {
             </a>
 
             <button
-              class="btn btn-outline-secondary btnPrintReceipt"
+              class="btn btn-sm btn-outline-secondary btnPrintReceipt"
               data-id="${receipt.id}"
             >
               <i class="fa fa-print me-1"></i>
-              Imprimir / Baixar PDF
+              Imprimir
             </button>
 
           </div>
@@ -438,15 +400,22 @@ $(function () {
   });
 
   // ---------- 4) abre modal Pagamento ----------
-  $("#modalPagamento").on("show.bs.modal", function () {
+  $("#modalPagamento").on("show.bs.modal", function (event) {
     if (!currentInvoice) return alert("Fatura ainda não carregada!");
-
-    console.log(currentInvoice);
 
     const total = Number(currentInvoice.final_total) || 0;
     const jaPago = Number(currentInvoice.paid_total) || 0;
     const retention = Number(currentInvoice.retention) || 0;
-    const saldo = total - jaPago;
+    const saldo = Math.max(0, total - jaPago);
+    if (saldo <= 0.009) {
+      event.preventDefault();
+      Swal.fire({
+        icon: "info",
+        title: "Fatura sem saldo pendente",
+        text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
+      });
+      return;
+    }
 
     $("#pg_valor")
       .val(saldo.toFixed(2))
@@ -478,7 +447,7 @@ $(function () {
       didOpen: () => Swal.showLoading(),
     });
 
-    $.post("invoices/ajax/registrar_pagamento.php", $form.serialize())
+    $.post("/invoices/ajax/registrar_pagamento.php", $form.serialize())
       .done(async (resp) => {
         Swal.close();
         bootstrap.Modal.getInstance(
@@ -1294,39 +1263,19 @@ $(function () {
   // Pede o PDF à API e devolve o Blob. Não descarrega nada: a pré-visualização
   // decide se mostra, imprime ou descarrega o mesmo ficheiro.
   async function fetchInvoicePdfBlob(invoiceData, copies = 2) {
-    const payload = {
-      ...invoiceData,
-      logo_url: invoiceData.logo_url || invoiceData.company?.logo_url || invoiceData.company?.logo || "",
-      copies: Number(copies) || 1,
-      document_url: new URL(
-        `invoices/ajax/invoice_public.php?id=${encodeURIComponent(invoiceData.id)}`,
-        window.location.href,
-      ).toString(),
-    };
-
-    console.debug("fetchInvoicePdfBlob payload:", payload);
-
-    const hostname = window.location.hostname;
-    const apiBaseUrl =
-      hostname === "api-crm.bxpert.co.ao" ||
-      hostname === "www.api-crm.bxpert.co.ao"
-        ? "https://api-crm.bxpert.co.ao"
-        : "http://localhost:3004";
+    // PDF gerado pela própria aplicação (public/document_pdf.php), com o mesmo modelo
+    // da pré-visualização e do envio por email. Já não depende do serviço Node na porta 3004.
+    const nCopies = Math.min(3, Math.max(1, Number(copies) || 1));
+    const url = `/api/documents/invoices/${encodeURIComponent(invoiceData.id)}/pdf?copies=${nCopies}`;
 
     let response;
     try {
-      response = await fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/pdf",
-        },
-        body: JSON.stringify(payload),
+      response = await fetch(url, {
+        credentials: "same-origin",
+        headers: { Accept: "application/pdf" },
       });
     } catch (_) {
-      throw new Error(
-        `Não foi possível conectar à API de PDF em ${apiBaseUrl}. Verifique se o bxintelligence-api-rest está em execução.`,
-      );
+      throw new Error("Não foi possível gerar o PDF da factura. Verifique a ligação ao servidor.");
     }
 
     const contentType = response.headers.get("content-type") || "";
@@ -1656,7 +1605,7 @@ $(function () {
 
   // ---------------------------------------------------------------------------
   // PRÉ-VISUALIZAR E IMPRIMIR
-  // O botão "Imprimir / Baixar" abre o modal #modalPrintPreview: o utilizador
+  // O botão "Imprimir / Baixar PDF" abre o modal #modalPrintPreview: o utilizador
   // escolhe o formato (A4 em PDF ou talão de 80mm), vê o documento e só depois
   // imprime ou descarrega.
   // ---------------------------------------------------------------------------
@@ -1831,7 +1780,7 @@ $(function () {
 
       // Verifica se já existe nota de crédito
       const verifyResponse = await $.ajax({
-        url: "invoices/ajax/credit_notes.php",
+        url: "/invoices/ajax/credit_notes.php",
         method: "GET",
         dataType: "json",
         data: {
@@ -1865,7 +1814,7 @@ $(function () {
 
       // Criar nota de crédito
       const res = await $.ajax({
-        url: "invoices/ajax/create_credit_note.php",
+        url: "/invoices/ajax/create_credit_note.php",
         method: "POST",
         dataType: "json",
         data: {
@@ -1912,7 +1861,7 @@ $(function () {
 
       // Notas de débito já emitidas para esta fatura
       const verify = await $.ajax({
-        url: "invoices/ajax/debit_notes.php",
+        url: "/invoices/ajax/debit_notes.php",
         method: "GET",
         dataType: "json",
         data: { invoice_id: currentInvoice.id },
@@ -1948,30 +1897,6 @@ $(function () {
           maximumFractionDigits: 2,
         });
 
-      // Lê números digitados em formato pt-PT ("20 000,00"), "20.000,00" ou "20000.50".
-      // Devolve NaN se o texto não for um número válido (nunca adivinha).
-      const parseMoney = (raw) => {
-        let s = String(raw ?? "").replace(/[\s\u00A0\u202F]/g, "");
-        if (s === "") return NaN;
-        const lastComma = s.lastIndexOf(",");
-        const lastDot = s.lastIndexOf(".");
-        if (lastComma !== -1 && lastDot !== -1) {
-          const dec = lastComma > lastDot ? "," : ".";
-          const thou = dec === "," ? "." : ",";
-          s = s.split(thou).join("").replace(dec, ".");
-        } else if (lastComma !== -1) {
-          s = s.split(",").length > 2 ? s.split(",").join("") : s.replace(",", ".");
-        } else if (lastDot !== -1 && s.split(".").length > 2) {
-          s = s.split(".").join("");
-        }
-        return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
-      };
-
-      // Taxas de IVA admitidas (Código do IVA, art. 19.º). Manter igual a
-      // bx_note_allowed_tax_rates() em app/helpers/note_totals.php.
-      const NOTE_TAX_RATES = [14, 7, 5, 1, 0];
-      let ndRecalc = () => {};
-
       // Formulário com linhas editáveis
       const form = await Swal.fire({
         title: "Emitir Nota de Débito",
@@ -1984,7 +1909,6 @@ $(function () {
                 <th style="text-align:left">Descrição</th>
                 <th style="width:80px">Qtd.</th>
                 <th style="width:120px">Preço unit.</th>
-                <th style="width:80px">Desconto %</th>
                 <th style="width:80px">IVA %</th>
                 <th style="width:110px;text-align:right">Total</th>
                 <th style="width:34px"></th>
@@ -1996,8 +1920,6 @@ $(function () {
             <button type="button" id="ndAddLine" class="swal2-styled" style="background:#6c757d;margin:0">+ Linha</button>
             <div style="text-align:right;font-size:.9rem">
               <div>Subtotal: <strong id="ndSub">0,00</strong></div>
-              <div>Desconto: <strong id="ndDiscount">0,00</strong></div>
-              <div>Subtotal c/ desconto: <strong id="ndNetSub">0,00</strong></div>
               <div>IVA: <strong id="ndTax">0,00</strong></div>
               <div style="font-size:1.05rem">Total: <strong id="ndTotal">0,00</strong></div>
             </div>
@@ -2010,49 +1932,35 @@ $(function () {
         didOpen: () => {
           const body = document.getElementById("ndLines");
 
-          // Aritmética em cêntimos inteiros, com arredondamento meio-para-cima igual ao
-          // round() do PHP (create_debit_note.php / note_totals.php). Evita diferenças de
-          // 1 cêntimo entre o valor mostrado e o valor gravado (ex.: 9138.425 -> 9138.43).
-          const toCents = (x) => Math.round(Number((x * 100).toPrecision(15)));
-
           const recalc = () => {
-            let subC = 0;
-            let discountC = 0;
-            let taxC = 0;
+            let sub = 0;
+            let tax = 0;
             body.querySelectorAll("tr").forEach((tr) => {
-              const q = parseMoney(tr.querySelector(".nd-qty").value) || 0;
-              const p = parseMoney(tr.querySelector(".nd-price").value) || 0;
-              const d = parseMoney(tr.querySelector(".nd-discount").value) || 0;
-              const t = parseMoney(tr.querySelector(".nd-tax").value) || 0;
-              const baseC = toCents(q * p);
-              const lineDiscountC = toCents((baseC / 100) * d / 100);
-              const taxableC = baseC - lineDiscountC;
-              const lineTaxC = toCents((taxableC / 100) * t / 100);
-              tr.querySelector(".nd-line-total").textContent = fmt((taxableC + lineTaxC) / 100);
-              subC += baseC;
-              discountC += lineDiscountC;
-              taxC += lineTaxC;
+              const q = parseFloat(tr.querySelector(".nd-qty").value) || 0;
+              const p = parseFloat(tr.querySelector(".nd-price").value) || 0;
+              const t = parseFloat(tr.querySelector(".nd-tax").value) || 0;
+              const base = Math.round(q * p * 100) / 100;
+              const taxVal = Math.round(base * t) / 100;
+              tr.querySelector(".nd-line-total").textContent = fmt(base);
+              sub += base;
+              tax += taxVal;
             });
-            document.getElementById("ndSub").textContent = fmt(subC / 100);
-            document.getElementById("ndDiscount").textContent = fmt(discountC / 100);
-            document.getElementById("ndNetSub").textContent = fmt((subC - discountC) / 100);
-            document.getElementById("ndTax").textContent = fmt(taxC / 100);
-            document.getElementById("ndTotal").textContent = fmt((subC - discountC + taxC) / 100);
+            document.getElementById("ndSub").textContent = fmt(sub);
+            document.getElementById("ndTax").textContent = fmt(tax);
+            document.getElementById("ndTotal").textContent = fmt(sub + tax);
           };
 
           const addLine = () => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td><input type="text" class="form-control form-control-sm nd-desc" maxlength="500" placeholder="Descrição"></td>
-              <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm nd-qty" value="1"></td>
-              <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm nd-price" value=""></td>
-              <td><input type="text" inputmode="decimal" autocomplete="off" class="form-control form-control-sm nd-discount" value="0"></td>
-              <td><select class="form-select form-select-sm nd-tax">${NOTE_TAX_RATES.map((r) => `<option value="${r}"${r === 14 ? " selected" : ""}>${r}%</option>`).join("")}</select></td>
+              <td><input type="number" class="form-control form-control-sm nd-qty" min="0" step="any" value="1"></td>
+              <td><input type="number" class="form-control form-control-sm nd-price" min="0" step="any" value=""></td>
+              <td><input type="number" class="form-control form-control-sm nd-tax" min="0" max="100" step="any" value="14"></td>
               <td class="nd-line-total" style="text-align:right">0,00</td>
               <td><button type="button" class="btn btn-sm btn-link text-danger nd-del" title="Remover">&times;</button></td>
             `;
-            ["input", "change", "keyup"].forEach((ev) => tr.addEventListener(ev, recalc));
-            tr.addEventListener("focusout", () => setTimeout(recalc, 0));
+            tr.addEventListener("input", recalc);
             tr.querySelector(".nd-del").addEventListener("click", () => {
               if (body.querySelectorAll("tr").length > 1) {
                 tr.remove();
@@ -2063,11 +1971,9 @@ $(function () {
           };
 
           document.getElementById("ndAddLine").addEventListener("click", addLine);
-          ndRecalc = recalc;
           addLine();
         },
         preConfirm: () => {
-          ndRecalc();
           const reason = document.getElementById("ndReason").value.trim();
           if (!reason) {
             Swal.showValidationMessage("Indique o motivo da nota de débito.");
@@ -2079,11 +1985,9 @@ $(function () {
           for (let i = 0; i < rows.length; i++) {
             const tr = rows[i];
             const description = tr.querySelector(".nd-desc").value.trim();
-            const quantity = parseMoney(tr.querySelector(".nd-qty").value);
-            const unit_price = parseMoney(tr.querySelector(".nd-price").value);
-            const discountRaw = tr.querySelector(".nd-discount").value.trim();
-            const discount = discountRaw === "" ? 0 : parseMoney(discountRaw);
-            const tax = parseMoney(tr.querySelector(".nd-tax").value);
+            const quantity = parseFloat(tr.querySelector(".nd-qty").value);
+            const unit_price = parseFloat(tr.querySelector(".nd-price").value);
+            const tax = parseFloat(tr.querySelector(".nd-tax").value);
 
             if (!description) {
               Swal.showValidationMessage(`Linha ${i + 1}: indique a descrição.`);
@@ -2097,19 +2001,11 @@ $(function () {
               Swal.showValidationMessage(`Linha ${i + 1}: indique o preço unitário.`);
               return false;
             }
-            if (!NOTE_TAX_RATES.includes(tax)) {
-              Swal.showValidationMessage(
-                `Linha ${i + 1}: IVA inválido (taxas admitidas: ${NOTE_TAX_RATES.join(", ")}%).`,
-              );
+            if (isNaN(tax) || tax < 0 || tax > 100) {
+              Swal.showValidationMessage(`Linha ${i + 1}: IVA deve estar entre 0 e 100.`);
               return false;
             }
-            if (isNaN(discount) || discount < 0 || discount > 100) {
-              Swal.showValidationMessage(
-                `Linha ${i + 1}: desconto deve estar entre 0 e 100%.`,
-              );
-              return false;
-            }
-            items.push({ description, quantity, unit_price, discount, tax });
+            items.push({ description, quantity, unit_price, tax });
           }
 
           return { reason, items };
@@ -2119,7 +2015,7 @@ $(function () {
       if (!form.isConfirmed) return;
 
       const res = await $.ajax({
-        url: "invoices/ajax/create_debit_note.php",
+        url: "/invoices/ajax/create_debit_note.php",
         method: "POST",
         dataType: "json",
         data: {
@@ -2166,7 +2062,7 @@ $(function () {
 
       // Notas já emitidas + se ainda há itens por entregar
       const verify = await $.ajax({
-        url: "invoices/ajax/delivery_notes.php",
+        url: "/invoices/ajax/delivery_notes.php",
         method: "GET",
         dataType: "json",
         data: { invoice_id: currentInvoice.id },
@@ -2225,7 +2121,7 @@ $(function () {
       if (!form.isConfirmed) return;
 
       const res = await $.ajax({
-        url: "invoices/ajax/create_delivery_note.php",
+        url: "/invoices/ajax/create_delivery_note.php",
         method: "POST",
         dataType: "json",
         data: {
@@ -2518,7 +2414,7 @@ $(function () {
 
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("invoices/ajax/send_invoice.php", $(this).serialize(), null, "json")
+    $.post("/invoices/ajax/send_invoice.php", $(this).serialize(), null, "json")
       .done(() => {
         bootstrap.Modal.getOrCreateInstance(
           document.getElementById("modalEnviarEmail"),
@@ -2549,7 +2445,7 @@ $(function () {
     }).then((result) => {
       if (result.isConfirmed) {
         $.post(
-          "invoices/ajax/update_status.php",
+          "/invoices/ajax/update_status.php",
           {
             invoice_id: currentInvoice.id,
             new_status: "Finalizada",
@@ -2624,7 +2520,7 @@ $(function () {
       // AJAX
       // ==========================================
       $.ajax({
-        url: "invoices/ajax/clone_invoice.php",
+        url: "/invoices/ajax/clone_invoice.php",
 
         type: "POST",
 
@@ -2718,7 +2614,7 @@ $(document).ready(function () {
   }
 
   $.ajax({
-    url: "invoices/ajax/get_invoice.php",
+    url: "/invoices/ajax/get_invoice.php",
     type: "GET",
     data: { id: invoiceId },
     dataType: "json",

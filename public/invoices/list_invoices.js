@@ -400,7 +400,7 @@ $(document).ready(function () {
 
   function loadInvoices() {
     $.ajax({
-      url: "invoices/ajax/fetch_invoices.php",
+      url: "/invoices/ajax/fetch_invoices.php",
       type: "GET",
       dataType: "json",
 
@@ -436,7 +436,7 @@ $(document).ready(function () {
   // Listar recibos
   function loadReceipts() {
     $.ajax({
-      url: "invoices/ajax/fetch_receipts.php",
+      url: "/invoices/ajax/fetch_receipts.php",
       type: "GET",
       dataType: "json",
 
@@ -472,7 +472,7 @@ $(document).ready(function () {
   // Listar notas de crédito
   function loadCreditNotes() {
     $.ajax({
-      url: "invoices/ajax/fetch_credit_notes.php",
+      url: "/invoices/ajax/fetch_credit_notes.php",
       type: "GET",
       dataType: "json",
 
@@ -506,7 +506,7 @@ $(document).ready(function () {
   // Listar notas de entrega
   function loadDeliveryNotes() {
     $.ajax({
-      url: "invoices/ajax/fetch_delivery_notes.php",
+      url: "/invoices/ajax/fetch_delivery_notes.php",
       type: "GET",
       dataType: "json",
 
@@ -532,7 +532,7 @@ $(document).ready(function () {
   // Listar notas de débito
   function loadDebitNotes() {
     $.ajax({
-      url: "invoices/ajax/fetch_debit_notes.php",
+      url: "/invoices/ajax/fetch_debit_notes.php",
       type: "GET",
       dataType: "json",
 
@@ -1474,32 +1474,32 @@ $(document).ready(function () {
   // fetch/blob com feedback real. O endpoint ?status=1 continua a existir, mas já não é usado.
   const EXPORT_CONFIG = {
     invoices: {
-      url: "invoices/ajax/faturas_export.php",
+      url: "/invoices/ajax/faturas_export.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     invoices_paid: {
-      url: "invoices/ajax/faturas_export.php",
+      url: "/invoices/ajax/faturas_export.php",
       // "situacao" (não "status") para não colidir com o "status=1" de progresso
       buildParams: (format) => ({ formato: format || "excel", situacao: "pago" }),
     },
     invoices_pending: {
-      url: "invoices/ajax/faturas_export.php",
+      url: "/invoices/ajax/faturas_export.php",
       buildParams: (format) => ({ formato: format || "excel", situacao: "pendente" }),
     },
     credit_notes: {
-      url: "index/ajax/export_credit_notes.php",
+      url: "/index/ajax/export_credit_notes.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     receipts: {
-      url: "index/ajax/export_receipts.php",
+      url: "/index/ajax/export_receipts.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     debit_notes: {
-      url: "index/ajax/export_debit_notes.php",
+      url: "/index/ajax/export_debit_notes.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     sales_report: {
-      url: "index/ajax/export_sales_report.php",
+      url: "/index/ajax/export_sales_report.php",
       buildParams: () => ({}),
     },
   };
@@ -1719,7 +1719,7 @@ function downloadPDF(invoiceId, opts = {}) {
     reject(new Error(msg || "Erro ao gerar o PDF."));
   };
   $.ajax({
-    url: "invoices/ajax/get_invoice.php",
+    url: "/invoices/ajax/get_invoice.php",
     type: "GET",
     data: { id: invoiceId },
     dataType: "json",
@@ -2068,7 +2068,7 @@ $("#confirmDelete")
     if (!invoiceToDelete) return;
 
     $.ajax({
-      url: "invoices/ajax/delete_invoice.php",
+      url: "/invoices/ajax/delete_invoice.php",
       type: "POST",
       data: { invoice_id: invoiceToDelete, company_id: invoice_companyId },
 

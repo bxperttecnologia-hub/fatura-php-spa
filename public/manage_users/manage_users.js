@@ -25,7 +25,7 @@ $(document).ready(function () {
     formData.append("company_id", company_id);
 
     return $.ajax({
-      url: "manage_users/ajax/create_collaborator.php",
+      url: "/manage_users/ajax/create_collaborator.php",
       type: "POST",
       data: formData,
       contentType: false,
@@ -67,7 +67,7 @@ $(document).ready(function () {
     // loading removido a pedido
 
     $.ajax({
-      url: "manage_users/ajax/check_user.php",
+      url: "/manage_users/ajax/check_user.php",
       type: "GET",
       dataType: "json",
       data: { company_id, email },
@@ -262,7 +262,7 @@ $(document).ready(function () {
     $btn.prop("disabled", true).text("Salvando...");
 
     $.ajax({
-      url: "manage_users/ajax/update_role.php",
+      url: "/manage_users/ajax/update_role.php",
       type: "POST",
       dataType: "json",
       data: {
@@ -296,7 +296,7 @@ $(document).ready(function () {
     $btn.prop("disabled", true).text("Removendo...");
 
     $.ajax({
-      url: "manage_users/ajax/unlink_user.php",
+      url: "/manage_users/ajax/unlink_user.php",
       type: "POST",
       dataType: "json",
       data: {

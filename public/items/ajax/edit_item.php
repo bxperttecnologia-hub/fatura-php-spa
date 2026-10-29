@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json; charset=utf-8');
 
@@ -11,8 +12,10 @@ try {
     // =========================
     // INPUTS
     // =========================
-    $id = (int)($_POST['id'] || $_POST['item_id'] || $_POST['product_id'] ?? 0);
-    $id_company = (int)($_POST['id_company'] ?? 0);
+    // Antes: ($_POST['id'] || ...) é um OU lógico -> true -> (int) 1, ou seja, editava sempre o item 1.
+    $id = (int)($_POST['id'] ?? $_POST['item_id'] ?? $_POST['product_id'] ?? 0);
+    // A empresa vem da sessão; o id_company do formulário não é de confiança.
+    $id_company = session_company_id();
 
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['descricao'] ?? '');
@@ -66,6 +69,20 @@ try {
     // =========================
     // REGRA: código NÃO editável
     // =========================
+    $owned = $pdo->prepare("SELECT 1 FROM items WHERE id = ? AND company_id = ?");
+    $owned->execute([$id, $id_company]);
+    if (!$owned->fetchColumn()) {
+        throw new Exception("Item não encontrado.");
+    }
+
+    if ($stock_id !== null) {
+        $ownedStock = $pdo->prepare("SELECT 1 FROM stocks WHERE id = ? AND company_id = ?");
+        $ownedStock->execute([$stock_id, $id_company]);
+        if (!$ownedStock->fetchColumn()) {
+            throw new Exception("Armazém inválido.");
+        }
+    }
+
     if ($item_type === 'product') {
 
         $checkCode = $pdo->prepare("SELECT code FROM items WHERE id = ?");
@@ -81,7 +98,6 @@ try {
     // UPDATE ITEM
     // =========================
     $sql = "UPDATE items SET
-        id_company = :id_company,
         name = :name,
         description = :description,
         item_type = :item_type,
@@ -92,7 +108,7 @@ try {
         cost_price = :cost_price,
         sale_price = :sale_price,
         pvp = :pvp
-        WHERE id = :id";
+        WHERE id = :id AND company_id = :id_company";
 
     $stmt = $pdo->prepare($sql);
 

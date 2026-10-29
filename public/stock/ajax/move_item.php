@@ -6,6 +6,7 @@ session_start();
 $item_id = (int)($_POST['item_id'] ?? 0);
 $from_stock = (int)($_POST['from_stock'] ?? 0);
 $to_stock = (int)($_POST['to_stock'] ?? 0);
+require_owned('stocks', $from_stock); require_owned('stocks', $to_stock);
 $qtd = (int)($_POST['quantidade'] ?? 0);
 $company_id = $_SESSION['user']['company_id'] ?? null;
 

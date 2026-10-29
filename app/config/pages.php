@@ -40,4 +40,5 @@ return [
     '/vacations'            => ['vacations.php',            'Férias'],
     '/avaliacoes'           => ['avaliacoes.php',           'Avaliações'],
     '/settings'             => ['list_companies.php',       'Definições'],
+    '/agt'                  => ['agt.php',                  'Faturação Eletrónica AGT']
 ];

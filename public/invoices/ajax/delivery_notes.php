@@ -1,9 +1,10 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 $invoiceId = filter_input(INPUT_GET, 'invoice_id', FILTER_VALIDATE_INT);
 

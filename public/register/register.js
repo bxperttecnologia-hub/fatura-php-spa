@@ -89,7 +89,7 @@ $(document).ready(function () {
     $btn.prop("disabled", true).text("A processar...");
 
     $.ajax({
-      url: "register/ajax/process_register.php",
+      url: "/register/ajax/process_register.php",
       type: "POST",
       data: formData,
       dataType: "json",
@@ -221,7 +221,7 @@ $(document).ready(function () {
     // Só dispara o pedido 400ms depois do utilizador parar de escrever
     usernameTimer = setTimeout(function () {
       usernameXhr = $.post(
-        "register/ajax/verifica_username.php",
+        "/register/ajax/verifica_username.php",
         { username: username },
         null,
         "json",

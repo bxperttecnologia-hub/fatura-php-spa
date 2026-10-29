@@ -1,0 +1,28 @@
+<div class="modal fade" id="modalDepartment" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formDepartment">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="departamento">Departamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label data-i18n="nome-do-departamento">Nome do Departamento</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label data-i18n="departamento-pai-opcional">Departamento-pai (opcional)</label>
+                        <select name="parent_department_id" class="form-control" id="selectParentDepartment">
+                            <option value="" data-i18n="nenhum-topo-da-hierarquia">— Nenhum (topo da hierarquia) —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="salvar">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

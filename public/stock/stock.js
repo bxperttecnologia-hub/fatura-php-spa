@@ -318,7 +318,7 @@ $(document).ready(function () {
       if (result.isConfirmed) {
         const data = result.value;
         $.post(
-          "stock/ajax/stock_controller.php",
+          "/stock/ajax/stock_controller.php",
           {
             action: "create",
             name: $("#stockName").val().trim(),
@@ -377,7 +377,7 @@ let barChartInstance = null;
 
 function carregarEstoques() {
   $.get(
-    "stock/ajax/stock_controller.php",
+    "/stock/ajax/stock_controller.php",
     { action: "list" },
     function (res) {
       const container = $("#estoquesContainer");
@@ -553,7 +553,7 @@ function abrirEstoque(id) {
 
 function editarEstoque(id) {
   $.get(
-    "stock/ajax/stock_controller.php",
+    "/stock/ajax/stock_controller.php",
     { action: "get", id },
     function (res) {
       if (!res.success) {
@@ -609,7 +609,7 @@ function editarEstoque(id) {
         }
 
         $.post(
-          "stock/ajax/stock_controller.php",
+          "/stock/ajax/stock_controller.php",
           {
             action: "update",
             id,
@@ -655,7 +655,7 @@ function verMapa(lat, lng, nome) {
 
 function deletarEstoque(stockId) {
   $.get(
-    "stock/ajax/stock_controller.php",
+    "/stock/ajax/stock_controller.php",
     { action: "verificar_vazio", stock_id: stockId },
     function (res) {
       if (res.success) {
@@ -670,7 +670,7 @@ function deletarEstoque(stockId) {
           }).then((result) => {
             if (result.isConfirmed) {
               $.post(
-                "stock/ajax/stock_controller.php",
+                "/stock/ajax/stock_controller.php",
                 {
                   action: "delete",
                   stock_id: stockId,
@@ -763,7 +763,7 @@ async function exportGeneralStocks(type) {
     // Busca logo da empresa (server-side -> dataURL)
     let logoDataUrl = null;
     try {
-      const resp = await fetch("stock/ajax/company_logo.php");
+      const resp = await fetch("/stock/ajax/company_logo.php");
       const j = await resp.json();
       logoDataUrl = j?.dataUrl || null;
     } catch (e) {}

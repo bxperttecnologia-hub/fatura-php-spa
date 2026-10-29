@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 require_once '../../../app/config/db.php';
 
 header('Content-Type: application/json');
@@ -8,7 +9,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+
 $invoiceId = $_POST['invoice_id'] ?? null;
+require_owned('invoices', $invoiceId);
 $newStatusName = $_POST['new_status'] ?? 'Pendente';
 
 if (!$invoiceId) {

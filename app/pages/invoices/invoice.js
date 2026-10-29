@@ -116,7 +116,7 @@
           $("#btnCloneToInvoice").removeClass("d-none");
           $("#btnDeleteInvoice").removeClass("d-none");
         } else if (normalizedStatus.startsWith("cancel")) {
-          $("#generatePdf, #btnEnviar").removeClass("d-none");
+          $("#generatePdf, #btnEnviar, #btnNotaCredito").removeClass("d-none");
         } else {
           $("#btnRecibo").removeClass("d-none");
           $("#btnCloneToInvoice").removeClass("d-none");
@@ -278,6 +278,18 @@
 
     // ---------- 3) abrir recibo ou modal Pagamento ----------
     function showPaymentModal() {
+      const balance = Number(
+        currentInvoice?.saldo ??
+          (Number(currentInvoice?.final_total || 0) -
+            Number(currentInvoice?.paid_total || 0)),
+      );
+      if (balance <= 0.009) {
+        return Swal.fire({
+          icon: "info",
+          title: "Fatura sem saldo pendente",
+          text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
+        });
+      }
       bootstrap.Modal.getOrCreateInstance(
         document.getElementById("modalPagamento"),
       ).show();
@@ -402,15 +414,22 @@
     });
 
     // ---------- 4) abre modal Pagamento ----------
-    $("#modalPagamento").on("show.bs.modal", function () {
+    $("#modalPagamento").on("show.bs.modal", function (event) {
       if (!currentInvoice) return alert("Factura ainda não carregada!");
-
-      console.log(currentInvoice);
 
       const total = Number(currentInvoice.final_total) || 0;
       const jaPago = Number(currentInvoice.paid_total) || 0;
       const retention = Number(currentInvoice.retention) || 0;
-      const saldo = total - jaPago;
+      const saldo = Math.max(0, total - jaPago);
+      if (saldo <= 0.009) {
+        event.preventDefault();
+        Swal.fire({
+          icon: "info",
+          title: "Fatura sem saldo pendente",
+          text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
+        });
+        return;
+      }
 
       $("#pg_valor")
         .val(saldo.toFixed(2))
@@ -1638,7 +1657,7 @@
 
     // ---------------------------------------------------------------------------
     // PRÉ-VISUALIZAR E IMPRIMIR
-    // O botão "Imprimir / Baixar" abre o modal #modalPrintPreview: o utilizador
+    // O botão "Imprimir / Baixar PDF" abre o modal #modalPrintPreview: o utilizador
     // escolhe o formato (A4 em PDF ou talão de 80mm), vê o documento e só depois
     // imprime ou descarrega.
     // ---------------------------------------------------------------------------

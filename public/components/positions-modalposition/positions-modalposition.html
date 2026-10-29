@@ -1,0 +1,58 @@
+<div class="modal fade" id="modalPosition" tabindex="-1" aria-labelledby="modalPositionLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formPosition">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalPositionLabel" data-i18n="cadastrar-cargo">Cadastrar Cargo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label data-i18n="nome-do-cargo">Nome do Cargo</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label data-i18n="departamento-opcional">Departamento (opcional)</label>
+                        <select name="department_id" class="form-control" id="selectPositionDepartment">
+                            <option value="" data-i18n="sem-departamento">— Sem departamento —</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label data-i18n="salario-sugerido">Salário Sugerido</label>
+                        <input type="number" step="0.01" name="suggested_salary" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label data-i18n="subsidio-de-alimentacao">Subsídio de alimentação</label>
+                        <input type="number" step="0.01" name="food_allowance" class="form-control" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label data-i18n="subsidio-de-transporte">Subsídio de transporte</label>
+                        <input type="number" step="0.01" name="transport_allowance" class="form-control" value="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label data-i18n="subsidio-de-ferias">Subsídio de férias</label>
+                        <select name="vacation_subsidy_pct" class="form-control">
+                            <option value="0" data-i18n="0">0%</option>
+                            <option value="50" data-i18n="50">50%</option>
+                            <option value="100" data-i18n="100">100%</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label data-i18n="subsidio-de-13">Subsídio de 13º</label>
+                        <select name="thirteenth_subsidy_pct" class="form-control">
+                            <option value="0" data-i18n="0">0%</option>
+                            <option value="50" data-i18n="50">50%</option>
+                            <option value="100" data-i18n="100">100%</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="salvar">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

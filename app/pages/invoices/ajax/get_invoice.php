@@ -50,6 +50,7 @@ try {
     $statusAlias   = $isProforma ? 'ps' : 'ivs';
     $documentType  = $isProforma ? "'PF'" : 'd.document_type';
     $retentionValue = $isProforma ? '0' : 'd.retention_value';
+    $paidTotalColumn = $isProforma ? '0' : 'd.paid_total';
 
     /*
     |--------------------------------------------------------------------------
@@ -89,6 +90,7 @@ try {
             d.series,
             d.total_sum,
             d.final_total,
+            {$paidTotalColumn} AS recorded_paid_total,
             d.total_discount,
             d.retention,
             {$retentionValue} AS retention_value,
@@ -237,12 +239,13 @@ try {
 
         $stmtPaid->execute([$documentId]);
 
-        $paid = (float)$stmtPaid->fetchColumn();
+        $receiptPaid = (float)$stmtPaid->fetchColumn();
+        $paid = max($receiptPaid, (float)($document['recorded_paid_total'] ?? 0));
 
         $document['paid_total'] = $paid;
 
         $document['saldo'] =
-            (float)$document['final_total'] - $paid;
+            max(0, (float)$document['final_total'] - $paid);
 
         $document['pay_status'] =
             $paid <= 0

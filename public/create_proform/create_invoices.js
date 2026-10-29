@@ -140,7 +140,7 @@ $(document).ready(function () {
 
     if (contatoId) {
       $.ajax({
-        url: "contacts/ajax/get_contact.php",
+        url: "/contacts/ajax/get_contact.php",
         type: "POST",
         data: { id: contatoId },
         dataType: "json",
@@ -715,7 +715,7 @@ $(document).ready(function () {
     if (!document.getElementById("item_select")) return;
 
     $.ajax({
-      url: "create_invoices/ajax/get_items.php",
+      url: "/create_invoices/ajax/get_items.php",
       dataType: "json",
       cache: false,
       success: function (data) {
@@ -794,7 +794,7 @@ $(document).ready(function () {
         .html('<option value="">Carregando contatos...</option>');
 
       const response = await $.ajax({
-        url: "contacts/ajax/fetch_contacts.php",
+        url: "/contacts/ajax/fetch_contacts.php",
         type: "GET",
         dataType: "json",
       });
@@ -957,6 +957,8 @@ $(document).ready(function () {
     // Dados do item
     const description = item?.name || item?.description || "";
     const code = item?.code || item?.codigo || "";
+    const retention = item?.retention || 0;
+
     // IVA
     const itemTax = Number(item?.tax ?? 0);
     const taxValue = effectiveRate(itemTax);
@@ -1002,6 +1004,7 @@ $(document).ready(function () {
                     value="${escapeAttr(code)}" readonly tabindex="-1">
                 ${isService ? '<span class="inv-tag">Serviço</span>' : ""}
             </div>
+            <input type="hidden" class="field_retention" value="${retention}">
         </div>
 
         <div class="inv-cell" data-label="Qtd">
@@ -1115,7 +1118,7 @@ $(document).ready(function () {
   // porque em Angola a moeda padrão do sistema deve ser Kwanza.
   function fetchCurrencySymbol(selectedIso = "AOA") {
     $.ajax({
-      url: "assets/ajax/get_currency.php",
+      url: "/assets/ajax/get_currency.php",
       type: "GET",
       dataType: "json",
       success: function (data) {
@@ -1235,6 +1238,7 @@ $(document).ready(function () {
       const qtd = toNumber($row.find(".field_qtd").val());
       const discountPercent = toNumber($row.find(".field_desc").val());
       const taxNum = effectiveRate(toNumber($row.find(".field_tax").val()));
+      const retentionRate = toNumber($row.find(".field_retention").val());
 
       const lineTotal = price * qtd;
 
@@ -1256,11 +1260,14 @@ $(document).ready(function () {
       // ==================================================
       // RETENÇÃO
       // ==================================================
+      const retentionValue = (lineSubtotal * retentionRate) / 100;
+
+      totalRetention += retentionValue;
 
       // ==================================================
       // TOTAL DA LINHA
       // ==================================================
-      const net = lineSubtotal + ivaValue;
+      const net = lineSubtotal + ivaValue - retentionValue;
 
       // ==================================================
       // INCIDÊNCIA IVA
@@ -1290,35 +1297,20 @@ $(document).ready(function () {
 
       grouped[groupTax].base += lineSubtotal;
       grouped[groupTax].iva += ivaValue;
+      grouped[groupTax].retention += retentionValue;
       grouped[groupTax].net += net;
     });
 
     totalSum = +totalSum.toFixed(2);
     totalDiscount = +totalDiscount.toFixed(2);
     totalTax = +totalTax.toFixed(2);
+    totalRetention = +totalRetention.toFixed(2);
+
     const subtotalWithoutTax = +(totalSum - totalDiscount).toFixed(2);
-    const retentionRate = parseFloat($("#retention").val()) || 0;
-    totalRetention = +(
-      ((subtotalWithoutTax + totalTax) * retentionRate) /
-      100
-    ).toFixed(2);
 
-    const taxableTotal = subtotalWithoutTax + totalTax;
-    let allocatedRetention = 0;
-    const taxGroups = Object.values(grouped);
-    taxGroups.forEach((group, index) => {
-      const groupTotal = group.base + group.iva;
-      const share = taxableTotal > 0
-        ? index === taxGroups.length - 1
-          ? totalRetention - allocatedRetention
-          : (totalRetention * groupTotal) / taxableTotal
-        : 0;
-      allocatedRetention += share;
-      group.retention = share;
-      group.net = groupTotal - share;
-    });
-
-    let finalTotal = +(taxableTotal - totalRetention).toFixed(2);
+    let finalTotal = +(subtotalWithoutTax + totalTax - totalRetention).toFixed(
+      2,
+    );
 
     if (finalTotal < 0) {
       finalTotal = 0;
@@ -1395,17 +1387,34 @@ $(document).ready(function () {
     updateRetention(subtotalWithoutTax, totalTax, totalRetention);
   }
 
-  function updateRetention(subtotal, totalTax, retentionTotal) {
-    const final = Math.max(subtotal + totalTax - retentionTotal, 0);
-    $("input[name='retention_value']").val(retentionTotal.toFixed(2));
-    $("input[name='final_total']").val(final.toFixed(2));
+  function updateRetention(subtotal, totalTax, totalRetentionItems) {
+    let perc = parseFloat($("#retention").val()) || 0;
 
-    if (retentionTotal > 0) {
+    // base já calculada corretamente
+    let base = subtotal + totalTax - totalRetentionItems;
+
+    let extraRetention = 0;
+
+    // retenção adicional global (opcional)
+    if (perc > 0) {
+      extraRetention = (base * perc) / 100;
+    }
+
+    let final = base - extraRetention;
+
+    // O que é gravado tem de coincidir com o que o ecrã mostra
+    $("input[name='retention_value']").val(
+      (totalRetentionItems + extraRetention).toFixed(2),
+    );
+    $("input[name='final_total']").val(Math.max(final, 0).toFixed(2));
+
+    // UI
+    if (extraRetention > 0 || totalRetentionItems > 0) {
       $("#retention_sumary").removeClass("d-none");
 
       $("#retention_value").text(
         formatCurrency(
-          retentionTotal,
+          totalRetentionItems + extraRetention,
           currencySymbol,
           currencyPosition,
         ),
@@ -1742,7 +1751,7 @@ $(document).ready(function () {
 
     $.ajax({
       // Criar e editar passam pelo mesmo endpoint: o servidor distingue pelo edit_invoice_id
-      url: "create_proform/ajax/save_invoices.php",
+      url: "/create_proform/ajax/save_invoices.php",
       method: "POST",
       dataType: "json",
       data: {
@@ -1849,7 +1858,7 @@ $(document).ready(function () {
       return;
     }
 
-    $.getJSON("proform/ajax/get_proform.php", { id: id }, function (response) {
+    $.getJSON("/proform/ajax/get_proform.php", { id: id }, function (response) {
       if (response.error) {
         Swal.fire("Erro", response.error, "error");
         return;

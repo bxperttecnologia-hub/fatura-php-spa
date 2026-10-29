@@ -1,0 +1,89 @@
+{
+  "shared": {
+    "css": [],
+    "js": ["/assets/js/app-context.js"]
+  },
+  "contacts": {
+    "css": ["/assets/contacts/contacts.css"],
+    "js": [
+      "/assets/contacts/contacts.js",
+      "/assets/contacts/register_contact.js"
+    ]
+  },
+  "create_invoices": {
+    "css": ["/assets/create_invoices/create_invoices.css"],
+    "js": ["/assets/create_invoices/create_invoices.js"]
+  },
+  "create_proform": {
+    "css": ["/assets/create_proform/create_invoices.css"],
+    "js": ["/assets/create_proform/create_invoices.js"]
+  },
+  "edit_company": {
+    "css": [],
+    "js": ["/assets/edit_company/edit_company.js"]
+  },
+  "guides": {
+    "css": [
+      "/assets/guides/guides.css",
+      "/assets/guides/guides_public.css"
+    ],
+    "js": [
+      "/assets/guides/guides.js",
+      "/assets/guides/view_guides.js"
+    ]
+  },
+  "invoices": {
+    "css": [
+      "/assets/invoices/list_invoices.css",
+      "/assets/invoices/invoice.css",
+      "/assets/invoices/invoice_footer.css"
+    ],
+    "js": [
+      "/assets/invoices/list_invoices.js",
+      "/assets/invoices/invoice.js"
+    ]
+  },
+  "items": {
+    "css": ["/assets/items/item_drawer.css"],
+    "js": [
+      "/assets/items/items.js",
+      "/assets/items/item_drawer.js"
+    ]
+  },
+  "login": {
+    "css": [],
+    "js": [
+      "/assets/login/login.js",
+      "/assets/login/forgot.js"
+    ]
+  },
+  "manage_users": {
+    "css": [],
+    "js": ["/assets/manage_users/manage_users.js"]
+  },
+  "perfil": {
+    "css": [],
+    "js": ["/assets/perfil/perfil.js"]
+  },
+  "proform": {
+    "css": [
+      "/assets/proform/invoice.css",
+      "/assets/proform/invoice_footer.css"
+    ],
+    "js": [
+      "/assets/proform/list_proforms.js",
+      "/assets/proform/invoice.js"
+    ]
+  },
+  "register": {
+    "css": [],
+    "js": ["/assets/register/register.js"]
+  },
+  "stock": {
+    "css": ["/assets/stock/style.css"],
+    "js": [
+      "/assets/stock/stock.js",
+      "/assets/stock/view.js"
+    ]
+  }
+}

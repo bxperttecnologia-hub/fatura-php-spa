@@ -1,0 +1,153 @@
+<div class="modal fade" id="modalEmployee" tabindex="-1" aria-labelledby="modalEmployeeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formEmployee" enctype="multipart/form-data">
+
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" data-i18n="cadastrar-funcionario">Cadastrar Funcionário</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <!-- STEPS -->
+                    <div class="steps mb-4">
+                        <div class="step active">1</div>
+                        <div class="step">2</div>
+                        <div class="step">3</div>
+                    </div>
+
+                    <!-- STEP 1 -->
+                    <div class="step-content active">
+                        <div class="card p-3 border-0 shadow-sm">
+                            <h6 class="mb-3" data-i18n="dados-pessoais">Dados Pessoais</h6>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label data-i18n="nome-completo">Nome Completo</label>
+                                    <input type="text" name="name" class="form-control">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label data-i18n="data-de-nascimento">Data de Nascimento</label>
+                                    <input type="date" name="birth_date" class="form-control">
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="tipo-de-documento">Tipo de documento</label>
+                                    <select name="document_type" class="form-select">
+                                        <option data-i18n="bi">BI</option>
+                                        <option data-i18n="passaporte">Passaporte</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="n-do-bi-passaporte">Nº do BI/Passaporte</label>
+                                    <input type="text" name="bi" class="form-control">
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="estado-civil">Estado civil</label>
+                                    <select name="marital_status" class="form-select">
+                                        <option data-i18n="selecione">Selecione...</option>
+                                        <option data-i18n="solteiro-a">Solteiro(a)</option>
+                                        <option data-i18n="casado-a">Casado(a)</option>
+                                        <option data-i18n="divorciado-a">Divorciado(a)</option>
+                                    </select>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2 -->
+                    <div class="step-content">
+                        <div class="card p-3 border-0 shadow-sm">
+                            <h6 class="mb-3" data-i18n="dados-profissionais">Dados Profissionais</h6>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label data-i18n="cargo">Cargo</label>
+                                    <select name="position" id="positionSelect" class="form-select"></select>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label data-i18n="salario">Salário</label>
+                                    <input type="number" name="salary" class="form-control">
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="status">Status</label>
+                                    <select name="status" class="form-select">
+                                        <option data-i18n="ativo">Ativo</option>
+                                        <option data-i18n="inativo">Inativo</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="tipo-de-vinculo">Tipo de vínculo</label>
+                                    <select type="text" name="contract_type" class="form-select">
+                                        <option selected data-i18n="selecione-o-tipo">Selecione o tipo</option>
+                                        <option value="efetivo" data-i18n="efetivo">Efetivo</option>
+                                        <option value="atermo" data-i18n="a-termo">A Termo</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="data-de-admissao">Data de Admissão</label>
+                                    <input type="date" name="admission_date" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3 -->
+                    <div class="step-content">
+                        <div class="card p-3 border-0 shadow-sm">
+                            <h6 class="mb-3" data-i18n="outros-uploads">Outros & Uploads</h6>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label data-i18n="iban">IBAN</label>
+                                    <input type="text" name="iban" class="form-control">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label data-i18n="nivel-academico">Nível acadêmico</label>
+                                    <select name="academic_level" class="form-control">
+                                        <option data-i18n="selecione">Selecione...</option>
+                                        <option data-i18n="ensino-medio">Ensino médio</option>
+                                        <option data-i18n="superior">Superior</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="foto">Foto</label>
+                                    <input type="file" name="photo" class="form-control">
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="documento-1">Documento 1</label>
+                                    <input type="file" name="doc1" class="form-control">
+                                </div>
+
+                                <div class="col-md-6 mt-3">
+                                    <label data-i18n="documento-2">Documento 2</label>
+                                    <input type="file" name="doc2" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" id="prevBtn" data-i18n="voltar">Voltar</button>
+                    <button type="button" class="btn btn-primary" id="nextBtn" data-i18n="proximo">Próximo</button>
+                    <button type="submit" class="btn btn-success d-none" id="submitBtn" data-i18n="salvar">Salvar</button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>

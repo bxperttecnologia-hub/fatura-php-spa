@@ -1,7 +1,7 @@
 <?php
 require_once '../../../app/config/db.php';
 require '../../../vendor/autoload.php'; // Autoload do PhpSpreadsheet
-require_once __DIR__ . '/export_helpers.php';
+require_once __DIR__ . '/../../index/ajax/export_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

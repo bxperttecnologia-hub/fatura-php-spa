@@ -35,13 +35,13 @@ $(function () {
   // ---------------------------------------------------------------
   // Constantes
   // ---------------------------------------------------------------
-  const URL_FETCH = "contacts/ajax/fetch_contacts.php";
-  const URL_STATUS = "contacts/ajax/change_status.php";
-  const URL_DELETE = "contacts/ajax/delete_contact.php";
-  const URL_DETAILS = "contacts/ajax/details_contact.php";
-  const URL_GET = "contacts/ajax/get_contact.php";
-  const URL_SAVE = "contacts/ajax/save_contact.php";
-  const URL_EXPORT = "contacts/ajax/export_contacts.php";
+  const URL_FETCH = "/contacts/ajax/fetch_contacts.php";
+  const URL_STATUS = "/contacts/ajax/change_status.php";
+  const URL_DELETE = "/contacts/ajax/delete_contact.php";
+  const URL_DETAILS = "/contacts/ajax/details_contact.php";
+  const URL_GET = "/contacts/ajax/get_contact.php";
+  const URL_SAVE = "/contacts/ajax/save_contact.php";
+  const URL_EXPORT = "/contacts/ajax/export_contacts.php";
 
   const PAGE_SIZES = [10, 25, 50, 100];
   const EXPORTS = {

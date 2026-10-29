@@ -1,0 +1,49 @@
+<div class="modal fade" id="modalNovoItem" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" data-i18n="novo-produto-servico">Novo Produto/Serviço</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNovoItem">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="codigo">Código</label>
+              <input type="text" class="form-control" name="code" placeholder="Código do produto">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="nome">Nome</label>
+              <input type="text" class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="categoria">Categoria</label>
+              <input type="text" class="form-control" name="category">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="quantidade">Quantidade</label>
+              <input type="number" class="form-control" name="quantity" value="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="stock-minimo-alerta">Stock mínimo (alerta)</label>
+              <input type="number" class="form-control" name="min_quantity" value="1" min="0">
+              <small class="text-muted" data-i18n="quando-a-quantidade-ficar-le-este-valor-aparece-alerta-no-painel-de-stocks">Quando a quantidade ficar &le; este valor, aparece alerta no painel de stocks.</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="preco-unitario">Preço Unitário</label>
+              <input type="number" class="form-control" name="unit_price" value="0" step="0.01">
+            </div>
+            <!-- <div class="col-md-4">
+              <label class="form-label" data-i18n="moeda">Moeda</label>
+              <select class="form-select" name="currency" id="selectMoeda"></select>
+            </div> -->
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+        <button class="btn btn-primary" id="btnSalvarItem" data-i18n="salvar-produto-servico">Salvar Produto/Serviço</button>
+      </div>
+    </div>
+  </div>
+</div>

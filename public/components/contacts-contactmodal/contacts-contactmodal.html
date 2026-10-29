@@ -1,0 +1,140 @@
+<div class="modal fade" id="contactModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center gap-2">
+                        <i class="bi bi-person-vcard"></i><span data-i18n="detalhes-do-contato">
+                        Detalhes do Contato
+                    </span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="container-fluid">
+                        <div class="row g-4">
+
+                            <!-- ESQUERDA -->
+                            <div class="col-lg-6">
+
+                                <!-- Empresa -->
+                                <div class="card-clean mb-3">
+                                    <div class="section-title-modal">
+                                        <i class="bi bi-building"></i><span data-i18n="empresa">
+                                        Empresa
+                                    </span></div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="nome">Nome</span></div>
+                                        <div class="value" id="contactName"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="tipo">Tipo</span></div>
+                                        <div class="value" id="contactType"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="nif">NIF</span></div>
+                                        <div class="value" id="contactContributor"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="email">Email</span></div>
+                                        <div class="value" id="contactEmail"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Contatos -->
+                                <div class="card-clean mb-3">
+                                    <div class="section-title-modal">
+                                        <i class="bi bi-telephone"></i><span data-i18n="contatos">
+                                        Contatos
+                                    </span></div>
+
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <div class="phone-badge">
+                                            <i class="bi bi-telephone"></i>
+                                            <span id="contactTelephone"></span>
+                                        </div>
+
+                                        <div class="phone-badge">
+                                            <i class="bi bi-phone"></i>
+                                            <span id="contactCellphone"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Localização -->
+                                <div class="card-clean">
+                                    <div class="section-title-modal">
+                                        <i class="bi bi-geo-alt"></i><span data-i18n="localizacao">
+                                        Localização
+                                    </span></div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="endereco">Endereço</span></div>
+                                        <div class="value" id="contactAddress"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="cidade">Cidade</span></div>
+                                        <div class="value" id="contactLocation"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- DIREITA -->
+                            <div class="col-lg-6">
+
+                                <!-- Contato principal -->
+                                <div class="card-clean mb-3">
+                                    <div class="section-title-modal">
+                                        <i class="bi bi-person"></i><span data-i18n="contato-principal">
+                                        Contato Principal
+                                    </span></div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="nome">Nome</span></div>
+                                        <div class="value" id="contactPrefName"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="email">Email</span></div>
+                                        <div class="value" id="contactPrefEmail"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Configurações -->
+                                <div class="card-clean">
+                                    <div class="section-title-modal">
+                                        <i class="bi bi-gear"></i><span data-i18n="configuracoes">
+                                        Configurações
+                                    </span></div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="pagamento">Pagamento</span></div>
+                                        <div class="value" id="contactPaymentMethod"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="moeda">Moeda</span></div>
+                                        <div class="value" id="contactCurrency"></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <div class="label"><span data-i18n="atualizado">Atualizado</span></div>
+                                        <div class="value" id="contactUpdatedAt"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>

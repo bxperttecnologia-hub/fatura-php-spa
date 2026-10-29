@@ -250,7 +250,7 @@ $(document).ready(function () {
   let companyId = new URLSearchParams(window.location.search).get("id");
   if (companyId) {
     $.get(
-      "assets/ajax/get_company.php",
+      "/assets/ajax/get_company.php",
       { id: companyId },
       function (response) {
         if (!response.success) {
@@ -526,7 +526,7 @@ $(document).ready(function () {
   }
 
   function loadDDI(selectedDDIs = {}) {
-    fetch("assets/ajax/get_countries.php")
+    fetch("/assets/ajax/get_countries.php")
       .then((response) => response.json())
       .then((data) => {
         const ddiOptions = data

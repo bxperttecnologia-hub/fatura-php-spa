@@ -45,7 +45,7 @@ $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' :
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $baseUrl = $host ? ($scheme.'://'.$host) : '';
 
-$logo = company_logo_src($d['logo_url'] ?? '', $baseUrl);
+$logo = company_logo_pdf_src($d['logo_url'] ?? '');
 
 $html = '<!doctype html><html><head><meta charset="utf-8">
 <style>

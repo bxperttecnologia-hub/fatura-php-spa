@@ -1,0 +1,43 @@
+<div class="modal fade" id="modalPonto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formPonto">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="novo-registro-de-ponto">Novo Registro de Ponto</h5>
+                    <button style="color: #fff !important;" type="button" class="btn-close text-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3 bg-white p-3 gap-2 rounded border-0 mb-3">
+                        <label class="mb-2" data-i18n="funcionario">Funcionário</label><br>
+                        <select name="employee_id" class="form-control" required></select>
+                    </div>
+
+                    <div class="col-12 bg-white p-3 gap-2 rounded border-0 d-flex mb-3">
+                        <div class="mb-3 col-12 col-md-6">
+                            <label class="mb-2" data-i18n="data">Data</label>
+                            <input type="date" name="date" class="form-control" required>
+                        </div>
+                        <div class="mb-3 col-12 col-md-6">
+                            <label class="mb-2" data-i18n="tipo">Tipo</label>
+                            <select name="type" class="form-control">
+                                <option value="presença" data-i18n="presenca">Presença</option>
+                                <option value="falta" data-i18n="falta">Falta</option>
+                                <option value="atestado" data-i18n="atestado">Atestado</option>
+                                <option value="folga" data-i18n="folga">Folga</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 bg-white p-3 gap-2 rounded border-0 mb-3">
+                        <label class="mb-2" data-i18n="justificativa-opcional">Justificativa (opcional)</label>
+                        <textarea name="justification" class="form-control"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="salvar">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

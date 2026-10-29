@@ -1,0 +1,14 @@
+.card-custom {
+    border-radius: 12px;
+    transition: 0.3s;
+}
+.card-custom:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+.icon-box {
+    background: rgba(13,110,253,0.1);
+    padding: 5px;
+    border-radius:10px;
+    font-weight: bolder;
+}

@@ -27,6 +27,7 @@ try {
     $r->add('DELETE', 'clientes/{id}',  [ClienteController::class, 'destroy']);
     $r->add('GET', 'files/companies/{company}/{name}', [FileController::class, 'show'], true);
 
+
     $apiModule = match (explode('/', $path)[0] ?? '') {
         'clientes' => 'contacts',
         'documents' => 'invoices',
@@ -41,7 +42,6 @@ try {
             throw new HttpException(403, 'Não tem permissão para aceder a este módulo.');
         }
     }
-
     echo json_encode($r->dispatch($method, $path, $input));
 } catch (HttpException $e) {
     http_response_code($e->status);

@@ -18,7 +18,7 @@ $(function () {
   // 2. CARREGAR DADOS JSON
   // =========================
   function loadInvoice() {
-    $.get("proform/ajax/get_proform.php", { id: invoiceId })
+    $.get("/proform/ajax/get_proform.php", { id: invoiceId })
       .done((inv) => {
         currentInvoice = inv?.data;
 
@@ -51,34 +51,100 @@ $(function () {
   // 3. CARREGAR HTML VISUAL
   // =========================
   $("#fatura-container").load(
-    `proform/ajax/proform_public.php?id=${invoiceId}`,
+    `/proform/ajax/proform_public.php?id=${invoiceId}`,
   );
 
   // =========================
   // 4. BOTÕES CONDICIONAIS
   // =========================
   function setupButtons(inv) {
-    if (inv.status_invoice === "Rascunho") {
+    const normalizedStatus = String(inv.status_invoice || "")
+      .trim()
+      .toLowerCase();
+    if (normalizedStatus === "rascunho") {
       $("#btnFinalizar, #btnEditar").removeClass("d-none");
     }
 
     $("#btnPdf, #generatePdf, #btnEnviar").removeClass("d-none");
-    $("#btnNotaCredito").removeClass("d-none");
+    if (normalizedStatus.startsWith("cancel")) {
+      $("#btnNotaCredito").removeClass("d-none");
+    }
   }
+
+  $("#btnNotaCredito").on("click", function () {
+    if (currentInvoice?.converted_invoice_id) {
+      const invoiceUrl = `/invoices/view?id=${encodeURIComponent(currentInvoice.converted_invoice_id)}`;
+      if (typeof window.navigateSPA === "function") {
+        window.navigateSPA(invoiceUrl);
+      } else {
+        window.location.assign(invoiceUrl);
+      }
+      return;
+    }
+
+    Swal.fire({
+      icon: "info",
+      title: "Nota de crédito indisponível",
+      text: "A nota de crédito é emitida sobre uma fatura. Esta proforma ainda não está associada a uma fatura convertida.",
+    });
+  });
 
   // =========================
   // 5. GERAR PDF PROFORMA
   // =========================
+  function createProformaPage(element, items, viaLabel) {
+    const clone = element.cloneNode(true);
+    const itemsGrid = clone.querySelector(".items-grid");
+    if (itemsGrid) {
+      const header = itemsGrid.querySelector(".items-head")?.cloneNode(true);
+      itemsGrid.innerHTML = "";
+      if (header) itemsGrid.appendChild(header);
+      items.forEach((item) => itemsGrid.appendChild(item.cloneNode(true)));
+    }
+    const via = clone.querySelector(".inv-meta > div > span");
+    if (via) via.textContent = viaLabel;
+    clone.style.width = "190mm";
+    clone.style.maxWidth = "190mm";
+    clone.style.margin = "0";
+    return clone;
+  }
+
+  function splitProformaItems(element, items, viaLabel) {
+    const pages = [];
+    const maxHeight = 1080;
+    let cursor = 0;
+
+    while (cursor < items.length || !pages.length) {
+      let end = cursor;
+      let accepted = null;
+
+      while (end < items.length) {
+        const candidate = createProformaPage(element, items.slice(cursor, end + 1), viaLabel);
+        document.body.appendChild(candidate);
+        const height = candidate.getBoundingClientRect().height;
+        candidate.remove();
+        if (height > maxHeight && end > cursor) break;
+        accepted = candidate;
+        end += 1;
+        if (height > maxHeight) break;
+      }
+
+      if (!accepted) {
+        accepted = createProformaPage(element, items.slice(cursor, cursor + 1), viaLabel);
+        end = cursor + 1;
+      }
+      pages.push(accepted);
+      cursor = end;
+    }
+    return pages;
+  }
+
   function gerarPdfProforma() {
     if (!currentInvoice) return;
 
     const button = document.getElementById("generatePdf");
     const element = document.querySelector("#fatura-container .invoice-page");
     if (!element || button?.disabled) return;
-    if (!window.BXDocumentTax?.summarize) {
-      alert("Não foi possível calcular os totais da proforma.");
-      return;
-    }
 
     const originalHtml = button?.innerHTML;
     if (button) {
@@ -86,51 +152,32 @@ $(function () {
       button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Preparando PDF...';
     }
 
-    const hostname = window.location.hostname;
-    const apiBaseUrl = hostname === "api-crm.bxpert.co.ao" || hostname === "www.api-crm.bxpert.co.ao"
-      ? "https://api-crm.bxpert.co.ao"
-      : "http://localhost:3004";
-
-    const taxSummary = window.BXDocumentTax.summarize(
-      currentInvoice.items || [],
-      currentInvoice.vat_regime,
-      Number(currentInvoice.retention_value) || 0,
-    );
-
-    fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/pdf" },
-      body: JSON.stringify({
-        ...currentInvoice,
-        total_sum: taxSummary.totalSum,
-        total_discount: taxSummary.totalDiscount,
-        subtotal_without_tax: taxSummary.subtotal,
-        total_tax: taxSummary.totalTax,
-        retention_value: taxSummary.retention,
-        final_total: taxSummary.finalTotal,
-        tax_details: taxSummary.rows.map((row) => ({
-          tax_rate: row.rate,
-          tax_base: row.base,
-          tax_value: row.iva,
-          retention_rate: Number(currentInvoice.retention) || 0,
-          retention_value: row.retention,
-          total_sum: taxSummary.totalSum,
-          symbol: currentInvoice.company_symbol || "",
-          position: currentInvoice.company_position || "right",
-        })),
-        logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
-        document_type: "PF",
-        document_url: new URL(
-          `proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
-          window.location.href,
-        ).toString(),
-      }),
+    // PDF gerado pela própria aplicação (public/document_pdf.php); já não depende do serviço Node.
+    fetch(`/api/documents/proformas/${encodeURIComponent(currentInvoice.id)}/pdf`, {
+      credentials: "same-origin",
+      headers: { Accept: "application/pdf" },
     })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      .then(async (response) => {
+        if (!response.ok) {
+          let details = "";
+          try {
+            const error = await response.clone().json();
+            details = error.message || error.error || "";
+          } catch (_) {
+            details = (await response.text()).slice(0, 240);
+          }
+          throw new Error(details || `HTTP ${response.status}`);
+        }
         return response.blob();
       })
       .then((blob) => {
+        if (
+          !blob.size ||
+          (blob.type &&
+            !/^application\/(pdf|octet-stream)$/i.test(blob.type))
+        ) {
+          throw new Error("O serviço não devolveu um ficheiro PDF válido.");
+        }
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -138,11 +185,15 @@ $(function () {
         document.body.appendChild(link);
         link.click();
         link.remove();
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
       })
       .catch((error) => {
         console.error("Erro ao gerar PDF da proforma:", error);
-        alert("Não foi possível gerar o PDF da proforma.");
+        Swal.fire({
+          icon: "error",
+          title: "Erro ao imprimir a proforma",
+          text: error.message || "Não foi possível gerar o PDF da proforma.",
+        });
       })
       .finally(() => {
         if (button) {
@@ -193,7 +244,7 @@ $(function () {
       }
 
       $.ajax({
-        url: "proform/ajax/convert_proforma.php",
+        url: "/proform/ajax/convert_proforma.php",
         type: "POST",
         dataType: "json",
         data: {
@@ -351,7 +402,7 @@ $(function () {
     // passa o HTML do Quill para <textarea hidden>
     $("#body-hidden").val(quill.root.innerHTML);
 
-    $.post("proform/ajax/send_invoice.php", $(this).serialize())
+    $.post("/proform/ajax/send_invoice.php", $(this).serialize())
       .done(() => {
         bootstrap.Modal.getInstance(
           document.getElementById("modalEnviarEmail"),

@@ -1,0 +1,53 @@
+<div class="modal fade" id="linkCollaboratorModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" data-i18n="vincular-colaborador">Vincular colaborador</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form id="linkCollaboratorForm">
+                            <div class="modal-body">
+                                <div class="alert alert-info mb-3" id="linkUserInfo"><span data-i18n="este-colaborador-ja-possui-conta-vamos-apenas-vincular-a-empresa">
+                                    Este colaborador já possui conta. Vamos apenas vincular à empresa.
+                                </span></div>
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" data-i18n="nome">Nome</label>
+                                        <input type="text" class="form-control" name="name" required>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" data-i18n="email">Email</label>
+                                        <input type="email" class="form-control" name="email" readonly required>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" data-i18n="username">Username</label>
+                                        <input type="text" class="form-control" name="username" placeholder="Opcional (se vazio, geramos automaticamente)">
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" data-i18n="perfil-hierarquia">Perfil (hierarquia)</label>
+                                        <select class="form-select" name="role" required>
+                                            <option value="employee" data-i18n="funcionario">Funcionário</option>
+                                            <option value="viewer" data-i18n="visualizador">Visualizador</option>
+                                            <option value="admin" data-i18n="administrador">Administrador</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label" data-i18n="status">Status</label>
+                                        <select class="form-select" name="is_active" required>
+                                            <option value="1" selected data-i18n="ativo">Ativo</option>
+                                            <option value="0" data-i18n="inativo">Inativo</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-text mt-2"><span data-i18n="um-email-sera-enviado-ao-colaborador-com-um-link-para-definir-a-propria-senha-de-acesso">
+                                    Um email será enviado ao colaborador com um link para definir a própria senha de acesso.
+                                </span></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" data-i18n="vincular">Vincular</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>

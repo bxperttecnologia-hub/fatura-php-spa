@@ -6,12 +6,12 @@ if (!guideId) {
 }
 
 // Carrega o HTML da guia
-$('#guide-container').load(`guides/ajax/guide_public.php?id=${guideId}`);
+$('#guide-container').load(`/guides/ajax/guide_public.php?id=${guideId}`);
 
 // Carrega dados para autofill do e-mail
 let currentGuide = null;
 function loadCurrentGuide(){
-  return $.getJSON(`guides/ajax/get_guide.php?id=${guideId}`)
+  return $.getJSON(`/guides/ajax/get_guide.php?id=${guideId}`)
     .then(res => {
       if(res && res.success){
         currentGuide = res.data;
@@ -113,7 +113,7 @@ $('#formSendGuide').on('submit', function(e){
     $('#body-hidden').val(q.root.innerHTML);
   }
 
-  $.post('guides/ajax/send_guide.php', {
+  $.post('/guides/ajax/send_guide.php', {
     to: $(this).find('[name="to"]').val(),
     cc: $(this).find('[name="cc"]').val(),
     subject: $(this).find('[name="subject"]').val(),

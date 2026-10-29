@@ -115,6 +115,20 @@ if (!function_exists('upload_company_logo_to_api')) {
             throw new RuntimeException('Formato de logótipo inválido.', 400);
         }
 
+        // Guardado localmente (o serviço Node de logótipos não faz parte desta instalação).
+        // Defina COMPANY_LOGO_STORAGE=api para voltar a usar a API externa.
+        if (strtolower(trim((string) getenv('COMPANY_LOGO_STORAGE'))) !== 'api') {
+            $dir = __DIR__ . '/../../public/assets/img/companies';
+            if (!is_dir($dir) && !mkdir($dir, 0775, true)) {
+                throw new RuntimeException('Não foi possível criar a pasta dos logótipos.', 500);
+            }
+            $name = 'company-logo-' . $companyId . '-' . bin2hex(random_bytes(16)) . '.' . $extensionByMime[$mimeType];
+            if (!move_uploaded_file($filePath, $dir . '/' . $name)) {
+                throw new RuntimeException('Não foi possível guardar o logótipo.', 500);
+            }
+            return $name;
+        }
+
         $timestamp = (string) time();
         $nonce = bin2hex(random_bytes(16));
         $fileHash = hash_file('sha256', $filePath);
@@ -174,5 +188,28 @@ if (!function_exists('upload_company_logo_to_api')) {
         }
 
         return $apiBaseUrl . $logoPath;
+    }
+}
+
+if (!function_exists('company_logo_pdf_src')) {
+    /**
+     * Logótipo para PDFs (Dompdf): lido do disco e embutido como data URI.
+     * Antes os PDFs pediam o logótipo por HTTP ao próprio servidor, o que bloqueava
+     * (servidor single-thread) ou falhava com o caminho fixo de localhost.
+     */
+    function company_logo_pdf_src($logoUrl): string
+    {
+        $logoUrl = trim((string) ($logoUrl ?? ''));
+        if ($logoUrl === '' || preg_match('~^https?://~i', $logoUrl)) {
+            return '';
+        }
+        $filename = basename((string) parse_url($logoUrl, PHP_URL_PATH));
+        $path = __DIR__ . '/../../public/assets/img/companies/' . $filename;
+        if ($filename === '' || !is_file($path)) {
+            return '';
+        }
+        $data = (string) file_get_contents($path);
+        $mime = company_logo_mime_type(substr($data, 0, 16));
+        return $mime ? 'data:' . $mime . ';base64,' . base64_encode($data) : '';
     }
 }

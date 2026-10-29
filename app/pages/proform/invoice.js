@@ -130,13 +130,36 @@ $(function () {
   // 4. BOTÕES CONDICIONAIS
   // =========================
   function setupButtons(inv) {
-    if (inv.status_invoice === "Rascunho") {
+    const normalizedStatus = String(inv.status_invoice || "")
+      .trim()
+      .toLowerCase();
+    if (normalizedStatus === "rascunho") {
       $("#btnFinalizar, #btnEditar").removeClass("d-none");
     }
 
     $("#btnPdf, #generatePdf, #btnEnviar").removeClass("d-none");
-    $("#btnNotaCredito").removeClass("d-none");
+    if (normalizedStatus.startsWith("cancel")) {
+      $("#btnNotaCredito").removeClass("d-none");
+    }
   }
+
+  $("#btnNotaCredito").on("click", function () {
+    if (currentInvoice?.converted_invoice_id) {
+      const invoiceUrl = `/invoices/view?id=${encodeURIComponent(currentInvoice.converted_invoice_id)}`;
+      if (typeof window.navigateSPA === "function") {
+        window.navigateSPA(invoiceUrl);
+      } else {
+        window.location.assign(invoiceUrl);
+      }
+      return;
+    }
+
+    Swal.fire({
+      icon: "info",
+      title: "Nota de crédito indisponível",
+      text: "A nota de crédito é emitida sobre uma fatura. Esta proforma ainda não está associada a uma fatura convertida.",
+    });
+  });
 
   // =========================
   // 5. GERAR PDF PROFORMA
@@ -188,7 +211,7 @@ $(function () {
     return pages;
   }
 
-  function gerarPdfProforma() {
+  async function gerarPdfProforma() {
     if (!currentInvoice) return;
 
     const button = document.getElementById("generatePdf");
@@ -201,11 +224,6 @@ $(function () {
       button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Preparando PDF...';
     }
 
-    const hostname = window.location.hostname;
-    const apiBaseUrl = hostname === "api-crm.bxpert.co.ao" || hostname === "www.api-crm.bxpert.co.ao"
-      ? "https://api-crm.bxpert.co.ao"
-      : "http://localhost:3004";
-
     const payload = {
       ...currentInvoice,
       logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
@@ -215,38 +233,29 @@ $(function () {
         window.location.href,
       ).toString(),
     };
-    console.log("Payload enviado à API de PDF:", payload);
+    try {
+      if (!window.BXDocumentApi?.openPdf) {
+        throw new Error("O serviço de documentos não está disponível. Atualize a página e tente novamente.");
+      }
 
-    fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/pdf" },
-      body: JSON.stringify(payload),
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.blob();
-      })
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${currentInvoice.reference || "proforma"}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      })
-      .catch((error) => {
-        console.error("Erro ao gerar PDF da proforma:", error);
-        alert("Não foi possível gerar o PDF da proforma.");
-      })
-      .finally(() => {
-        staging.remove();
-        if (button) {
-          button.disabled = false;
-          button.innerHTML = originalHtml;
-        }
+      await window.BXDocumentApi.openPdf("/api/invoices/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+    } catch (error) {
+      console.error("Erro ao gerar PDF da proforma:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro ao imprimir a proforma",
+        text: error.message || "Não foi possível gerar o PDF da proforma.",
+      });
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+      }
+    }
   }
 
   $("#btnPdf, #generatePdf").on("click", gerarPdfProforma);

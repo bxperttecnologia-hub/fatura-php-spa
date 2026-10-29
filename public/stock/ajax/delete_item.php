@@ -5,6 +5,7 @@ session_start();
 
 $stock_id = (int)($_POST['stock_id'] ?? 0);
 $id = (int)($_POST['id'] ?? 0);
+require_owned('stocks', $stock_id);
 
 if (!$stock_id || !$id) {
   echo json_encode(['success' => false, 'message' => 'ID inválido']);

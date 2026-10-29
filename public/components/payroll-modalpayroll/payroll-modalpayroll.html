@@ -1,0 +1,155 @@
+<div class="modal fade" id="modalPayroll" tabindex="-1" aria-labelledby="modalPayrollLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+
+            <form id="formPayroll">
+
+                <!-- HEADER -->
+                <div class="modal-header bg-gradient-primary text-white py-3">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="modalPayrollLabel">
+                            <i class="bi bi-cash-stack"></i><span data-i18n="registrar-pagamento"> Registrar Pagamento
+                        </span></h5>
+                        <small class="opacity-75" data-i18n="preencha-os-dados-do-processamento-salarial">Preencha os dados do processamento salarial</small>
+                    </div>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <!-- BODY -->
+                <div class="modal-body p-4 bg-light">
+
+                    <div class="row g-3">
+
+                        <!-- Employee -->
+                        <div class="col-md-12">
+                            <div class="form-floating shadow-sm col-12">
+                                <select name="employee_id" id="employee_id_payroll" class="form-select border-0 col-12"></select>
+                                <label><i class="bi bi-person"></i><span data-i18n="funcionario"> Funcionário</span></label>
+                            </div>
+                        </div>
+
+                        <!-- Month -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="month" name="reference_month" class="form-control border-0" required>
+                                <label><i class="bi bi-calendar2"></i><span data-i18n="referente-a"> Referente a</span></label>
+                            </div>
+                        </div>
+
+                        <!-- Base Salary -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="base_salary" step="0.01" class="form-control border-0" required>
+                                <label><i class="bi bi-cash"></i><span data-i18n="salario-base"> Salário Base</span></label>
+                            </div>
+                        </div>
+
+                        <!-- Bonuses -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="bonuses" step="0.01" class="form-control border-0" value="0">
+                                <label data-i18n="bonus"> Bônus</label>
+                            </div>
+                        </div>
+
+                        <!-- Allowances -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="food_allowance" step="0.01" class="form-control border-0" value="0">
+                                <label data-i18n="subs-alimentacao"> Subs. alimentação</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="transport_allowance" step="0.01" class="form-control border-0" value="0">
+                                <label><i class="bi bi-car"></i><span data-i18n="subs-transporte"> Subs. transporte</span></label>
+                            </div>
+                        </div>
+
+                        <!-- Percent Selects -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <select name="vacation_subsidy_pct" class="form-select border-0">
+                                    <option value="0" data-i18n="0">0%</option>
+                                    <option value="50" data-i18n="50">50%</option>
+                                    <option value="100" data-i18n="100">100%</option>
+                                </select>
+                                <label data-i18n="ferias"> Férias</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <select name="thirteenth_subsidy_pct" class="form-select border-0">
+                                    <option value="0" data-i18n="0">0%</option>
+                                    <option value="50" data-i18n="50">50%</option>
+                                    <option value="100" data-i18n="100">100%</option>
+                                </select>
+                                <label data-i18n="13-subsidio"> 13º Subsídio</label>
+                            </div>
+                        </div>
+
+                        <!-- Sales / Commission -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="commissions" step="0.01" class="form-control border-0" value="0">
+                                <label data-i18n="comissoes"> Comissões</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="sales" step="0.01" class="form-control border-0" value="0">
+                                <label data-i18n="vendas"> Vendas</label>
+                            </div>
+                        </div>
+
+                        <!-- Discounts -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="number" name="discounts" step="0.01" class="form-control border-0" value="0">
+                                <label><i class="bi bi-percent"></i><span data-i18n="descontos"> Descontos</span></label>
+                            </div>
+                        </div>
+
+                        <!-- Date -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <input type="date" name="payment_date" class="form-control border-0">
+                                <label><i class="bi bi-calendar2"></i><span data-i18n="data-pagamento"> Data Pagamento</span></label>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="col-md-4">
+                            <div class="form-floating shadow-sm">
+                                <select name="status" class="form-select border-0">
+                                    <option value="Pendente" data-i18n="pendente">🟡 Pendente</option>
+                                    <option value="Pago" data-i18n="pago">🟢 Pago</option>
+                                </select>
+                                <label data-i18n="status">Status</label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="modal-footer bg-white border-0 px-4 py-3">
+
+                    <button type="button" class="btn btn-light px-4 rounded-pill" data-bs-dismiss="modal" data-i18n="cancelar">
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary px-5 rounded-pill shadow-sm fw-bold" data-i18n="salvar-pagamento">
+                        Salvar Pagamento →
+                    </button>
+
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>

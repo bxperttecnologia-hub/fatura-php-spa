@@ -8,6 +8,9 @@ RewriteEngine On
 # Scripts de migração (CLI): nunca por HTTP
 RewriteRule ^rh/migrations(/|$) - [F,L]
 
+# PDFs de documentos: /api/documents/receipts/5/pdf -> document_pdf.php?path=receipts/5/pdf
+RewriteRule ^api/documents/(.*)$ document_pdf.php?path=$1 [L,QSA]
+
 # API: /api/clientes/5 -> api.php?r=clientes/5
 RewriteRule ^api/(.*)$ api.php?r=$1 [L,QSA]
 

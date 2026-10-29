@@ -1,0 +1,138 @@
+{
+  "pages": {
+    "avaliacoes": [
+      "avaliacoes-modalscore",
+      "avaliacoes-modalgenerate",
+      "avaliacoes-modalcycle",
+      "avaliacoes-modaltemplate"
+    ],
+    "contacts": [
+      "contacts-contactmodal",
+      "contact-form"
+    ],
+    "departments": [
+      "departments-modaldepartment"
+    ],
+    "edit_company": [
+      "edit-company-logocropmodal"
+    ],
+    "employees": [
+      "employees-modalemployee"
+    ],
+    "invoice": [
+      "invoice-modalprintpreview",
+      "invoice-modalenviaremail",
+      "invoice-modalnotes",
+      "invoice-modalreceipts",
+      "invoice-modalpagamento"
+    ],
+    "list_invoices": [
+      "list-invoices-deletemodal"
+    ],
+    "list_proforms": [
+      "list-proforms-deletemodal"
+    ],
+    "manage_users": [
+      "manage-users-unlinkusermodal",
+      "manage-users-changerolemodal",
+      "manage-users-createcollaboratormodal",
+      "manage-users-linkcollaboratormodal",
+      "manage-users-checkcollaboratormodal"
+    ],
+    "payroll": [
+      "payroll-modalpayroll"
+    ],
+    "perfil": [
+      "perfil-cropmodal"
+    ],
+    "ponto": [
+      "ponto-modalponto"
+    ],
+    "positions": [
+      "positions-modalposition"
+    ],
+    "proform": [
+      "proform-modalenviaremail",
+      "proform-modalnotes",
+      "proform-modalreceipts",
+      "proform-modalpagamento"
+    ],
+    "stock": [
+      "stock-modaldelete",
+      "stock-modaleditar",
+      "stock-modalinsights",
+      "stock-modalver"
+    ],
+    "stock_view": [
+      "stock-view-modalnovoitem"
+    ],
+    "subscription": [
+      "subscription-modalpaymethod",
+      "subscription-modalplans"
+    ],
+    "vacations": [
+      "vacations-modalvacation"
+    ],
+    "view_guide": [
+      "view-guide-modalsendguide",
+      "view-guide-modalrecebimento"
+    ],
+    "items": [
+      "modal-item",
+      "modal-edit-item"
+    ],
+    "create_invoices": [
+      "modal-contacts",
+      "modal-item"
+    ],
+    "create_proform": [
+      "modal-contacts",
+      "modal-item"
+    ]
+  },
+  "components": [
+    "avaliacoes-modalcycle",
+    "avaliacoes-modalgenerate",
+    "avaliacoes-modalscore",
+    "avaliacoes-modaltemplate",
+    "contact-form",
+    "contacts-contactmodal",
+    "departments-modaldepartment",
+    "edit-company-logocropmodal",
+    "employees-modalemployee",
+    "invoice-modalenviaremail",
+    "invoice-modalnotes",
+    "invoice-modalpagamento",
+    "invoice-modalprintpreview",
+    "invoice-modalreceipts",
+    "list-invoices-deletemodal",
+    "list-proforms-deletemodal",
+    "manage-users-changerolemodal",
+    "manage-users-checkcollaboratormodal",
+    "manage-users-createcollaboratormodal",
+    "manage-users-linkcollaboratormodal",
+    "manage-users-unlinkusermodal",
+    "modal-contacts",
+    "modal-edit-item",
+    "modal-item",
+    "modal-position",
+    "payroll-modalpayroll",
+    "perfil-cropmodal",
+    "ponto-modalponto",
+    "positions-modalposition",
+    "proform-modalenviaremail",
+    "proform-modalnotes",
+    "proform-modalpagamento",
+    "proform-modalreceipts",
+    "stock-modaldelete",
+    "stock-modaleditar",
+    "stock-modalinsights",
+    "stock-modalver",
+    "stock-view-modalnovoitem",
+    "subscription-modalpaymethod",
+    "subscription-modalplans",
+    "vacations-modalvacation",
+    "view-guide-modalrecebimento",
+    "view-guide-modalsendguide"
+  ]
+}

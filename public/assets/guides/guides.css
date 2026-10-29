@@ -1,0 +1,199 @@
+/* ========== guides.php (CSS ESPECÍFICO) ========== */
+
+/* Container do formulário de guia */
+.guide-container {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 5px 28px -10px rgba(70,100,180,0.13), 0 1.5px 5px rgba(0,0,0,0.06);
+    padding: 2.1rem 2rem 1.3rem 2rem;
+    margin-top: 2.3rem;
+    max-width: 100%;
+}
+
+/* Card Dados do Cliente */
+.guide-client-card {
+    border-radius: 13px;
+    box-shadow: 0 1.5px 9px -5px rgba(90,110,160,0.11);
+    background: #f8fafc;
+    border: 1.5px solid #e5ebf7;
+}
+
+.guide-client-card .card-body {
+    padding: 1.3rem 1.7rem 1rem 1.7rem;
+}
+
+.guide-client-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #2c3954;
+}
+
+.guide-icon-add {
+    font-size: 1.4rem !important;
+    color: #3e7bd7;
+    background: #e7f1ff;
+    border-radius: 6px;
+    margin-left: 10px;
+    padding: 6px 10px 6px 10px;
+    cursor: pointer;
+    border: 1.5px solid #c4d5f3;
+    transition: background .12s, color .14s;
+}
+
+.guide-icon-add:hover {
+    background: #bad8fb;
+    color: #184f8a;
+}
+
+/* Labels e campos */
+.guide-label {
+    font-weight: 600;
+    color: #35415c;
+    font-size: 0.99rem;
+    letter-spacing: 0.01em;
+    margin-bottom: 3px;
+}
+
+.guide-input, .guide-select, .guide-textarea {
+    border-radius: 9px;
+    border: 1.5px solid #d2d7e6;
+    font-size: 1rem;
+    background: #fcfcfe;
+    color: #232944;
+    padding: 0.47rem 0.83rem;
+    transition: border 0.16s;
+}
+
+.guide-input:focus, .guide-select:focus, .guide-textarea:focus {
+    border-color: #5a7bfc;
+    box-shadow: 0 0 0 2px rgba(90,123,252,0.07);
+    background: #f4f7ff;
+}
+
+/* Select2 custom só pro guia */
+.guide-container .select2-container--default .select2-selection--single {
+    border-radius: 9px !important;
+    border: 1.5px solid #d2d7e6 !important;
+    height: 41px !important;
+    background: #fcfcfe !important;
+    font-size: 1rem;
+    color: #232944 !important;
+    padding: 6px 10px;
+    display: flex !important;
+    align-items: center;
+}
+
+/* Botões */
+.guide-btn-success, .guide-btn-cancel {
+    border-radius: 9px !important;
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    padding: 0.49rem 1.5rem;
+    box-shadow: 0 1.5px 6px rgba(81,187,142,0.10);
+}
+
+.guide-btn-success {
+    background: linear-gradient(90deg, #52c234 0%, #06beb6 100%);
+    border: none;
+    color: #fff !important;
+    transition: background 0.18s;
+}
+
+.guide-btn-success:hover {
+    background: linear-gradient(90deg, #37ad4a 0%, #14a693 100%);
+    color: #fff !important;
+}
+
+.guide-btn-cancel {
+    border: 1.5px solid #b3bacf !important;
+    color: #4a4e6b !important;
+    background: #fff;
+}
+
+.guide-btn-cancel:hover {
+    background: #eef1f6 !important;
+    color: #343a54 !important;
+}
+
+/* Blocos de dados, inputs, selects só do guide */
+.guide-block {
+    background: #f6f8fc;
+    border-radius: 10px;
+    border: 1px solid #e8eaf0;
+    box-shadow: 0 1.5px 8px rgba(50,60,110,0.05);
+    padding: 1.1rem 1.1rem 0.7rem 1.1rem;
+    margin-bottom: 1.4rem;
+}
+
+/* Tabela de Itens só pro guide */
+.guide-items-table th, .guide-items-table td {
+    padding: 0.42rem 0.6rem;
+    vertical-align: middle;
+    border-top: none;
+    font-size: 0.97rem;
+}
+
+.guide-items-table th {
+    background: #f0f4fb !important;
+    font-weight: 600;
+    color: #3c415d;
+}
+
+.guide-items-list .item-box {
+    border-bottom: 1px dashed #e1e5f0;
+    padding: 10px 0 2px 0;
+    background: transparent;
+}
+
+.guide-items-list .remove-item {
+    color: #d54c4c;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background 0.13s, color 0.13s;
+    padding: 2px 8px;
+}
+
+.guide-items-list .remove-item:hover {
+    background: #ffe2e2;
+    color: #ad2323;
+}
+
+/* Resumo financeiro só pro guide */
+.guide-summary-table td {
+    font-size: 1.02rem;
+    color: #2b2f45;
+    padding: 0.18rem 0.45rem 0.18rem 0;
+}
+
+.guide-summary-table tr.fw-bold td {
+    font-weight: 700;
+    color: #46a268;
+    font-size: 1.11rem;
+    border-top: 1px solid #e5e9f1;
+}
+
+.guide-date-info {
+    font-size: 0.96rem;
+    color: #888fa7;
+}
+
+/* Responsivo só pra guides */
+@media (max-width: 900px) {
+    .guide-container { padding: 1rem 0.4rem; }
+    .guide-client-card .card-body { padding: 1.1rem 0.8rem 0.6rem 0.8rem; }
+    .guide-block { padding: 0.9rem 0.8rem 0.5rem 0.8rem; }
+}
+
+@media (max-width: 600px) {
+    .guide-container { padding: 0.45rem; }
+    .guide-client-card { border-radius: 8px !important; }
+    .guide-block { border-radius: 8px; }
+    .guide-client-title { font-size: 1.08rem !important; }
+}
+
+::-webkit-input-placeholder { color: #bbc3dd !important; }
+::-moz-placeholder { color: #bbc3dd !important; }
+:-ms-input-placeholder { color: #bbc3dd !important; }
+::placeholder { color: #bbc3dd !important; }

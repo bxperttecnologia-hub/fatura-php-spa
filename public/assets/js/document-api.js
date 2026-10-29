@@ -33,12 +33,14 @@
     const config = await getApiConfig();
     const url = new URL(`${config.apiBaseUrl}${path}`);
     url.searchParams.set('company_id', config.companyId);
+    const { accept, ...requestOptions } = options;
     const response = await fetch(url, {
-      ...options,
-      credentials: 'omit',
+      ...requestOptions,
+      // Mesmo domínio (PDFs gerados pela própria app): envia o cookie de sessão. Domínio externo: nunca.
+      credentials: url.origin === window.location.origin ? 'same-origin' : 'omit',
       headers: {
-        Accept: options.accept || 'application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
-        ...(options.headers || {}),
+        Accept: accept || 'application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
+        ...(requestOptions.headers || {}),
       },
     });
 
@@ -70,11 +72,15 @@
     saveBlob(blob, match?.[1] || filename || 'documento');
   }
 
-  async function openPdf(path) {
+
+  async function openPdf(path, options = {}) {
     const popup = window.open('', '_blank');
     if (!popup) throw new Error('O navegador bloqueou a nova janela do documento.');
     try {
-      const { blob, response } = await request(path, { accept: 'application/pdf, application/json' });
+      const { blob, response } = await request(path, {
+        ...options,
+        accept: 'application/pdf, application/json',
+      });
       if (!(response.headers.get('Content-Type') || '').includes('application/pdf')) {
         throw new Error('A API não devolveu um PDF.');
       }

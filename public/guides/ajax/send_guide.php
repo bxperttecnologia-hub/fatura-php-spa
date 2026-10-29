@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 // guides/ajax/send_guide.php
 //---------------------------------------------------------------
 require_once '../../../app/config/db.php';   // $pdo

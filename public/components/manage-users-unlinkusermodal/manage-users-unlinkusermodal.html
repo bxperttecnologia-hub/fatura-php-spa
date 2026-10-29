@@ -1,0 +1,25 @@
+<div class="modal fade" id="unlinkUserModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" data-i18n="remover-colaborador">Remover colaborador</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form id="unlinkUserForm">
+                            <div class="modal-body">
+                                <input type="hidden" name="user_id" id="unlinkUserId">
+                                <p class="mb-2" data-i18n="voce-tem-certeza-que-deseja-remover-o-colaborador-abaixo-desta-empresa">Você tem certeza que deseja remover o colaborador abaixo desta empresa?</p>
+                                <div class="p-3 border rounded bg-light">
+                                    <div><b id="unlinkUserName"></b></div>
+                                    <div class="text-muted small" id="unlinkUserEmail"></div>
+                                </div>
+                                <div class="form-text mt-2"><span data-i18n="isso-apenas-remove-o-vinculo-com-esta-empresa-nao-apaga-a-conta-do-usuario">Isso apenas remove o vínculo com esta empresa (não apaga a conta do usuário).</span></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                                <button type="submit" class="btn btn-danger" data-i18n="remover">Remover</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>

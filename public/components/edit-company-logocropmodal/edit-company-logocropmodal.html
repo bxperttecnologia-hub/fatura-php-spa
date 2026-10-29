@@ -1,0 +1,26 @@
+<div class="modal fade" id="logoCropModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" data-i18n="ajustar-logo">Ajustar logo</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <style>
+                                    #logoCropStage {
+                                        height: 65vh;
+                                        min-height: 320px;
+                                    }
+                                </style>
+                                <div id="logoCropStage">
+                                    <img id="logoCropImage" alt="Cortar logo" style="max-width:100%; display:block;" />
+                                </div>
+                                <div class="small text-muted mt-2"><span data-i18n="arraste-para-reenquadrar-e-use-scroll-pinch-para-zoom-o-corte-e-livre-sem-proporcao-fixa">Arraste para reenquadrar e use scroll/pinch para zoom. O corte é livre (sem proporção fixa).</span></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                                <button type="button" id="saveLogoCropBtn" class="btn btn-primary" data-i18n="usar-este-corte">Usar este corte</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>

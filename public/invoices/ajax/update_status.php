@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 ob_start();
 
 ini_set('display_errors', 1);
@@ -27,7 +28,9 @@ try {
         throw new Exception("Método inválido");
     }
 
+
     $invoiceId = $_POST['invoice_id'] ?? null;
+    require_owned('invoices', (int)$invoiceId);
     $newStatusName = $_POST['new_status'] ?? 'Pendente';
     $documentType = $_POST['document_type'] ?? 'FT';
 
@@ -147,12 +150,16 @@ try {
 
     $pdo->commit();
 
+    // Faturação eletrónica: envia à AGT depois de emitida (não bloqueia a emissão se falhar).
+    $agt = stripos($newStatusName, 'cancel') === 0 ? null : agt_submit_invoice($pdo, (int)$invoiceId);
+
     $output = ob_get_clean();
 
     echo json_encode([
         'success' => true,
         'reference' => $newReference,
         'hash' => $hash,
+        'agt' => $agt,
         'debug' => $output
     ]);
 } catch (Throwable $e) {

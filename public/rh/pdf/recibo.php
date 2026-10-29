@@ -143,7 +143,7 @@ if (!empty($_SERVER['HTTP_HOST'])) {
 
 $logoSrc = '';
 
-$logoSrc = company_logo_src($dados['logo_url'] ?? '', $baseUrl);
+$logoSrc = company_logo_pdf_src($dados['logo_url'] ?? '');
 
 /*
 |--------------------------------------------------------------------------

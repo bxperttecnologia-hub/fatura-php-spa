@@ -1,0 +1,48 @@
+<div class="modal fade" id="modalVacation" tabindex="-1" aria-labelledby="modalVacationLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formVacation">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalVacationLabel" data-i18n="registrar-periodo">Registrar Período</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row p-3">
+                        <div class="col-md-12 mb-3 card border-0 p-3">
+                            <label class="fw-bold" style="margin-bottom: -10px;" data-i18n="funcionario">Funcionário</label><br>
+                            <select name="employee_id" id="employee_id" class="form-control"></select>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 bg-white border-0 p-3">
+                            <div class="col-md-12">
+                                <label class="fw-bold" data-i18n="tipo">Tipo</label>
+                                <select name="type" class="form-control">
+                                    <option value="Férias" data-i18n="ferias">Férias</option>
+                                    <option value="Licença Médica" data-i18n="licenca-medica">Licença Médica</option>
+                                    <option value="Licença Maternidade" data-i18n="licenca-maternidade">Licença Maternidade</option>
+                                    <option value="Outros" data-i18n="outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="fw-bold" data-i18n="inicio">Início</label>
+                                <input type="date" name="start_date" class="form-control" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="fw-bold" data-i18n="fim">Fim</label>
+                                <input type="date" name="end_date" class="form-control" required>
+                            </div>
+                            <div class="col-md-12">
+                                <labe class="fw-bold"><span data-i18n="motivo">Motivo</span></label>
+                                    <textarea name="reason" class="form-control"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="salvar">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
