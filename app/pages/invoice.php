@@ -516,7 +516,7 @@ require_once '../app/views/layout_creation.php';
                 <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
                     data-bs-toggle="modal" data-bs-target="#modalEnviarEmail" aria-label="Enviar factura por e-mail">
                     <i class="bi bi-send" aria-hidden="true"></i>
-                    Enviar factura
+                    <span class="action-label">Enviar factura</span>
                 </button>
             </div>
 
@@ -525,7 +525,7 @@ require_once '../app/views/layout_creation.php';
 
                 <button type="button" class="dropdown-item d-none" id="btnCloneToInvoice" aria-label="Clonar factura">
                     <i class="bi bi-copy" aria-hidden="true"></i>
-                    Clonar factura
+                    <span class="action-label">Clonar factura</span>
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaCredito" aria-label="Emitir nota de crédito">
@@ -545,17 +545,17 @@ require_once '../app/views/layout_creation.php';
 
                 <button type="button" class="dropdown-item d-none" id="btnEditar" aria-label="Editar factura">
                     <i class="bi bi-pencil" aria-hidden="true"></i>
-                    Editar
+                    <span class="action-label">Editar</span>
                 </button>
 
-                <button type="button" class="dropdown-item d-none" id="btnFinalizar" aria-label="Finalizar factura">
-                    <i class="bi bi-check-circle" aria-hidden="true"></i>
-                    Finalizar
+                <button type="button" class="dropdown-item d-none" id="btnFinalizar" aria-label="Emitir factura">
+                    <i class="bi bi-send-check" aria-hidden="true"></i>
+                    <span class="action-label">Emitir factura</span>
                 </button>
 
                 <button type="button" class="dropdown-item danger d-none" id="btnDeleteInvoice" aria-label="Apagar factura">
                     <i class="bi bi-trash" aria-hidden="true"></i>
-                    Apagar
+                    <span class="action-label">Apagar</span>
                 </button>
             </div>
         </aside>
@@ -1059,7 +1059,7 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="invoices/invoice.js?v=6.1" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=6.4" data-spa-repeat></script>
 
 <script>
 // Estado da fatura na AGT (faturação eletrónica, ambiente HML).

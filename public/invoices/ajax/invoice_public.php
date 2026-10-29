@@ -12,6 +12,7 @@ use chillerlan\QRCode\{QRCode, QROptions};
 
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../app/helpers/document_tax.php';
+require_once __DIR__ . '/../../../app/helpers/agt.php';
 
 // ---------- configuração (igual ao PDF) ----------
 const AGT_CERTIFICATE = 'FE/344/AGT/2026';
@@ -146,6 +147,10 @@ $inv['final_total'] = $taxSummary['final_total'];
 $inv['retention_value'] = $taxSummary['retention'];
 
 // ---------- QR ----------
+// Documento com numeração AGT: QR da faturação eletrónica vindo do gerador externo.
+// Rascunhos, numeração interna ou gerador indisponível mantêm o link público do BXpert.
+$agtSettings = agt_settings($pdo, (int) $inv['company_id']);
+$agtQrImage = agt_fetch_qr_image((string) ($agtSettings['tax_id'] ?? $inv['registration_number'] ?? ''), $inv['reference'] ?? null);
 $qrData = "https://bxpert.co.ao/sistema/invoice_public.php?id={$inv['id']}";
 $opts = new QROptions([
   'outputType'   => QRCode::OUTPUT_IMAGE_PNG,
@@ -154,7 +159,7 @@ $opts = new QROptions([
   'addQuietzone' => false,
   'imageBase64'  => true,
 ]);
-$qrSrc = (new QRCode($opts))->render($qrData);
+$qrSrc = $agtQrImage ?? (new QRCode($opts))->render($qrData);
 
 // ---------- dados preparados para o layout ----------
 $symbol = (string)$inv['moneySymbol'];
@@ -162,6 +167,8 @@ $pos    = (string)$inv['moneyPos'];
 $money  = fn($v) => formatCurrency((float)$v, $symbol, $pos);
 
 $issueBr = dateBr($inv['issue_date']);
+// FR é paga no acto: não mostra vencimento.
+$isFR = strtoupper((string)($inv['document_type'] ?? '')) === 'FR';
 $dueDays = (int)$inv['due_date'];
 $dueBr = $inv['issue_date']
   ? dateBr((new DateTime($inv['issue_date']))->modify("+{$dueDays} days")->format('Y-m-d'))
@@ -661,8 +668,10 @@ $pageCount = count($pages);
         <div class="drow r2">
           <span class="x1">Contribuinte:</span>
           <span class="x2"><?= e($clientNif) ?></span>
+          <?php if (!$isFR): ?>
           <span class="x3">Vencimento:</span>
           <span class="x4"><?= e($dueBr) ?></span>
+          <?php endif; ?>
         </div>
         <div class="drow r3">
           <span class="x1">Endereço:</span>

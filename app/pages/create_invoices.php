@@ -1,5 +1,10 @@
 <?php
+require_once '../app/config/db.php';
+require_once '../app/helpers/agt.php';
 require_once '../app/views/layout_creation.php';
+
+// Séries AGT (só FT/FR) que se podem escolher; vazio = numeração interna pelo ano.
+$agtSeriesOptions = agt_invoice_series_options($pdo, (int) ($_SESSION['user']['company_id'] ?? 0));
 
 /*
  * Ajusta aqui as rotas e o tema do ecrã.
@@ -951,8 +956,8 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                         <?= t('Cancelar') ?>
                     </button>
                     <button type="button" id="saveInvoiceBtn" class="inv-btn inv-btn-primary">
-                        <i class="bi bi-check2-circle" aria-hidden="true"></i>
-                        <span class="btn-label"><?= t('Emitir Factura') ?></span>
+                        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                        <span class="btn-label"><?= t('Criar Rascunho') ?></span>
                     </button>
                 </div>
             </div><!-- /inv-top -->
@@ -969,12 +974,24 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                             <?= t('Série') ?> *
                         </label>
 
-                        <input
-                            type="text"
-                            class="inv-input"
-                            id="series"
-                            name="series"
-                            readonly>
+                        <?php if ($agtSeriesOptions): ?>
+                            <select class="inv-select" id="series" name="series" required>
+                                <?php foreach ($agtSeriesOptions as $s): ?>
+                                    <option
+                                        value="<?= htmlspecialchars($s['series_code']) ?>"
+                                        data-doc-type="<?= htmlspecialchars($s['document_type']) ?>">
+                                        <?= (int) $s['series_year'] ?> — <?= htmlspecialchars($s['series_code']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php else: ?>
+                            <input
+                                type="text"
+                                class="inv-input"
+                                id="series"
+                                name="series"
+                                readonly>
+                        <?php endif; ?>
                     </div>
 
                     <div class="inv-field">
@@ -1055,8 +1072,8 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                     </div>
 
 
-                    <!-- DATA DE VENCIMENTO -->
-                    <div class="inv-field">
+                    <!-- DATA DE VENCIMENTO (não se aplica à FR) -->
+                    <div class="inv-field" id="due_date_field">
 
                         <label class="inv-label" for="due_date_picker">
                             <?= t('Data de Vencimento') ?> *
@@ -1361,12 +1378,48 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
     /* ===== SÉRIE ===== */
     const seriesField = document.getElementById("series");
 
-    if (seriesField) {
+    if (seriesField && seriesField.tagName === "SELECT") {
+        // Séries AGT: só as do tipo de documento escolhido, a por omissão primeiro.
+        const docTypeField = document.getElementById("document_type");
+
+        const filterSeries = () => {
+            const docType = docTypeField.value;
+            let firstVisible = null;
+            Array.from(seriesField.options).forEach(opt => {
+                const visible = opt.dataset.docType === docType;
+                opt.hidden = !visible;
+                opt.disabled = !visible;
+                if (visible && !firstVisible) firstVisible = opt;
+            });
+            const current = seriesField.selectedOptions[0];
+            if (!current || current.disabled) {
+                seriesField.value = firstVisible ? firstVisible.value : "";
+            }
+        };
+
+        docTypeField.addEventListener("change", filterSeries);
+        filterSeries();
+    } else if (seriesField) {
         seriesField.value = new Date().getFullYear();
 
         ["keydown", "paste", "drop"].forEach(evt =>
             seriesField.addEventListener(evt, e => e.preventDefault())
         );
+    }
+
+    // FR (factura-recibo) é paga no acto: sem data de vencimento nem prazo.
+    const docTypeSelect = document.getElementById("document_type");
+    if (docTypeSelect) {
+        const toggleDueDate = () => {
+            const isFR = docTypeSelect.value === "FR";
+            ["due_date_field", "due_chips"].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = isFR ? "none" : "";
+            });
+            if (isFR) document.getElementById("due_date").value = "0";
+        };
+        docTypeSelect.addEventListener("change", toggleDueDate);
+        toggleDueDate();
     }
 
     /* ===== EMPRESA ===== */
@@ -1394,4 +1447,4 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_invoices/create_invoices.js?v=2.8" data-spa-repeat></script>
+<script src="create_invoices/create_invoices.js?v=3.0" data-spa-repeat></script>

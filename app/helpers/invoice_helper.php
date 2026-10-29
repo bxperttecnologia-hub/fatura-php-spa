@@ -70,11 +70,12 @@ function reference_exists(PDO $pdo, string $reference): bool
 function generate_document_number(
     PDO $pdo,
     int $companyId,
-    string $documentType
+    string $documentType,
+    ?string $seriesCode = null
 ): string {
 
     // Faturação eletrónica: numeração da série atribuída pela AGT ("FT <série>/<n>").
-    $agtNumber = agt_issue_number($pdo, $companyId, $documentType);
+    $agtNumber = agt_issue_number($pdo, $companyId, $documentType, $seriesCode);
     if ($agtNumber !== null) {
         return $agtNumber;
     }
@@ -119,7 +120,8 @@ function apply_invoice_number_rules(
     int $companyId,
     string $status,
     ?string $currentReference,
-    string $documentType
+    string $documentType,
+    ?string $seriesCode = null
 ): array {
 
     $documentType = strtoupper(trim($documentType));
@@ -145,7 +147,8 @@ function apply_invoice_number_rules(
         $reference = generate_document_number(
             $pdo,
             $companyId,
-            $documentType
+            $documentType,
+            $seriesCode
         );
 
         return [

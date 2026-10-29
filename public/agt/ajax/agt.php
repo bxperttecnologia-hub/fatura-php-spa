@@ -224,7 +224,8 @@ try {
                     [$syncError],
                     array_map(static fn ($c) => $c['message'] ?? null, $created)
                 ))));
-                $signatureRejected = $errors !== [] && count(array_filter($errors, static fn ($m) => str_contains($m, 'E40'))) === count($errors);
+                // E40 = a jwsSignature não confere: a chave não é a registada na AGT para este NIF.
+                $signatureRejected = count(array_filter($errors, static fn ($m) => str_contains($m, 'E40'))) > 0;
                 agt_respond(422, [
                     'success' => false,
                     'message' => $signatureRejected

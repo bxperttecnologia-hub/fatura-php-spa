@@ -136,7 +136,31 @@ $(function () {
 
       // Mostrar botões conforme status
       const normalizedStatus = statusText.trim().toLowerCase();
-      if (inv.status_invoice === "Rascunho") {
+      const isDraft = inv.status_invoice === "Rascunho";
+      const actionLabels = isDraft
+        ? {
+            btnEnviar: "Enviar rascunho",
+            btnCloneToInvoice: "Clonar rascunho",
+            btnEditar: "Editar rascunho",
+            btnFinalizar: "Finalizar e emitir",
+            btnDeleteInvoice: "Apagar rascunho",
+          }
+        : {
+            btnEnviar: "Enviar factura",
+            btnCloneToInvoice: "Clonar factura",
+            btnEditar: "Editar",
+            btnFinalizar: "Finalizar e emitir",
+            btnDeleteInvoice: "Apagar",
+          };
+      Object.entries(actionLabels).forEach(([id, label]) => {
+        $(`#${id} .action-label`).text(label);
+        $(`#${id}`).attr("aria-label", label);
+      });
+      $("#emailModalTitle").text(
+        isDraft ? "Enviar rascunho por e-mail" : "Enviar fatura por e-mail",
+      );
+
+      if (isDraft) {
         $("#btnFinalizar").removeClass("d-none");
         $("#btnEditar").removeClass("d-none");
         $("#generatePdf").removeClass("d-none");
@@ -967,9 +991,12 @@ $(function () {
     doc.text(dateBr(issue_date), rightValueX, ry);
     ry += rowGap;
 
-    doc.text("Vencimento:", rightLabelX, ry);
-    doc.text(dateBr(due_date), rightValueX, ry);
-    ry += rowGap;
+    // FR é paga no acto: não tem vencimento.
+    if (String(document_type || "").toUpperCase() !== "FR") {
+      doc.text("Vencimento:", rightLabelX, ry);
+      doc.text(dateBr(due_date), rightValueX, ry);
+      ry += rowGap;
+    }
 
     doc.text("Observações:", rightLabelX, ry);
     const obsWidth = CONTENT_RIGHT - rightValueX;
@@ -2503,15 +2530,16 @@ $(function () {
   // ---------- 6) Finalizar Fatura (Rascunho -> Pendente) ----------
   $("#btnFinalizar").on("click", function () {
     Swal.fire({
-      title: "Finalizar Fatura?",
-      text: "A fatura deixará de ser rascunho e passará para Pendente.",
+      title: "Emitir Fatura?",
+      text: "A fatura recebe o número da série e é comunicada à AGT. Depois de emitida já não pode ser alterada.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
       cancelButtonColor: "#d33",
-      confirmButtonText: "Sim, finalizar",
-    }).then((result) => {
-      if (result.isConfirmed) {
+      confirmButtonText: "Sim, emitir",
+      showLoaderOnConfirm: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      preConfirm: () =>
         $.post(
           "/invoices/ajax/update_status.php",
           {
@@ -2519,23 +2547,34 @@ $(function () {
             new_status: "Finalizada",
             document_type: document_type,
           },
-          function (res) {
-            if (res.success) {
-              Swal.fire(
-                "Sucesso",
-                "Fatura finalizada com sucesso!",
-                "success",
-              ).then(() => location.reload());
-            } else {
-              Swal.fire(
-                "Erro",
-                res.error || "Erro ao atualizar status",
-                "error",
-              );
-            }
-          },
+          null,
           "json",
-        );
+        ).catch(() => ({ success: false, error: "Sem resposta do servidor." })),
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const res = result.value || {};
+        if (res.success) {
+          const agt = res.agt;
+          const numero = res.reference ? `Nº ${res.reference}` : "";
+          let icon = "success";
+          let title = "Fatura emitida";
+          let html = escapeHtml(numero);
+
+          if (agt && agt.status === "sent") {
+            title = "Fatura emitida e comunicada à AGT";
+            html += `<br>A AGT recebeu o pedido ${escapeHtml(agt.request_id || "")} e está a validar.`;
+          } else if (agt && agt.status === "valid") {
+            title = "Fatura emitida e validada pela AGT";
+          } else if (agt) {
+            icon = "warning";
+            title = "Fatura emitida, mas não foi comunicada à AGT";
+            html += `<br>${escapeHtml((agt.errors || []).join(" ") || agt.label || "")}`;
+          }
+
+          Swal.fire({ icon, title, html }).then(() => location.reload());
+        } else {
+          Swal.fire("Erro", res.error || "Erro ao emitir a fatura", "error");
+        }
       }
     });
   });
@@ -2570,10 +2609,15 @@ $(function () {
     // ==========================================
     // CONFIRMAR
     // ==========================================
+    const cloneLabel = $("#btnCloneToInvoice .action-label").text() || "Clonar factura";
+    const cloningDraft = currentInvoice.status_invoice === "Rascunho";
+
     Swal.fire({
       icon: "question",
-      title: "Clonar Factura",
-      text: "Deseja clonar esta Factura Recibo?",
+      title: cloneLabel,
+      text: cloningDraft
+        ? "Deseja clonar este rascunho? A cópia também fica como rascunho."
+        : "Deseja clonar esta factura? A cópia fica como rascunho.",
       showCancelButton: true,
       confirmButtonText: "Clonar",
       cancelButtonText: "Cancelar",
@@ -2625,7 +2669,9 @@ $(function () {
           Swal.fire({
             icon: "success",
             title: "Sucesso",
-            text: "Factura clonada com sucesso!",
+            text: cloningDraft
+              ? "Rascunho clonado com sucesso!"
+              : "Factura clonada com sucesso! A cópia está em rascunho.",
             timer: 1800,
             showConfirmButton: false,
           });
@@ -2662,10 +2708,8 @@ $(function () {
         // ==========================================
         complete: function () {
           $("#btnCloneToInvoice").prop("disabled", false).html(`
-            <span class="material-icons-outlined">
-              content_copy
-            </span>
-            Clonar Factura
+            <i class="bi bi-copy" aria-hidden="true"></i>
+            <span class="action-label">${escapeHtml(cloneLabel)}</span>
           `);
         },
       });

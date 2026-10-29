@@ -106,7 +106,8 @@ try {
         'company_id' => $companyIdSession,
         'user_id' => $userIdSession,
         'issue_date' => $fatura['issue_date'],
-        'due_date' => (int)$fatura['due_date'],
+        // FR é paga no acto: não tem vencimento.
+        'due_date' => strtoupper((string)($fatura['document_type'] ?? '')) === 'FR' ? 0 : (int)$fatura['due_date'],
         'reference' => $fatura['reference'] ?? null,
         'observation' => $fatura['observation'] ?? null,
         'series' => $fatura['series'] ?? null,

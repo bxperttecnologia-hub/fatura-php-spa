@@ -137,6 +137,11 @@ try {
         throw new Exception('Documento não encontrado.');
     }
 
+    // Cliente sem NIF = Consumidor final (é o NIF que segue para a AGT), já no rascunho.
+    if (trim((string) ($document['client_contributor'] ?? '')) === '') {
+        $document['client_contributor'] = '999999999';
+    }
+
     /*
     |--------------------------------------------------------------------------
     | TEXTO PADRÃO AGT

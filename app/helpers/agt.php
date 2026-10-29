@@ -38,7 +38,8 @@ function agt_document_types(): array
 /** Séries criadas automaticamente quando o cliente carrega a chave: os documentos que o BXpert emite. */
 function agt_default_document_types(): array
 {
-    return ['FT', 'FR', 'NC', 'ND', 'RG'];
+    // NC/ND/RG ficam de fora enquanto a certificação em uso (C_134) não os autorizar na AGT (E39).
+    return ['FT', 'FR'];
 }
 
 function agt_environment(): string
@@ -304,17 +305,54 @@ function agt_default_series(PDO $pdo, int $companyId, string $docType, int $year
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+/** Série aberta da empresa com este código, desde que seja do tipo de documento pedido. */
+function agt_find_series(PDO $pdo, int $companyId, string $docType, string $seriesCode): ?array
+{
+    $stmt = $pdo->prepare("
+        SELECT * FROM agt_series
+        WHERE company_id = ? AND environment = ? AND document_type = ? AND series_code = ?
+          AND (status IS NULL OR status <> 'F')
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId, agt_environment(), strtoupper($docType), $seriesCode]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+/**
+ * Séries abertas do ano corrente que se podem escolher ao emitir faturas (só FT/FR),
+ * a por omissão primeiro. Vazio se a empresa não usar a AGT.
+ */
+function agt_invoice_series_options(PDO $pdo, int $companyId): array
+{
+    if (!agt_enabled($pdo, $companyId)) {
+        return [];
+    }
+    $types = agt_invoice_document_types();
+    $stmt = $pdo->prepare("
+        SELECT document_type, series_code, series_year, is_default
+        FROM agt_series
+        WHERE company_id = ? AND environment = ? AND series_year = ?
+          AND contingency = 'N' AND (status IS NULL OR status <> 'F')
+          AND document_type IN (" . implode(',', array_fill(0, count($types), '?')) . ")
+        ORDER BY document_type, is_default DESC, id
+    ");
+    $stmt->execute(array_merge([$companyId, agt_environment(), (int) date('Y')], $types));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 /**
  * Número do documento no formato SAF-T(AO) exigido pela AGT: "<tipo> <série>/<sequência>"
- * (ex.: "FT FT7826S1N/1"). Devolve null se a empresa não usar a AGT ou não tiver série.
+ * (ex.: "FT FT7826S1N/1"). Usa a série escolhida na fatura ($seriesCode) se for válida
+ * para o tipo; senão a série por omissão. Devolve null se a empresa não usar a AGT ou não tiver série.
  */
-function agt_issue_number(PDO $pdo, int $companyId, string $docType): ?string
+function agt_issue_number(PDO $pdo, int $companyId, string $docType, ?string $seriesCode = null): ?string
 {
     $docType = strtoupper($docType);
     if (!in_array($docType, agt_invoice_document_types(), true) || !agt_enabled($pdo, $companyId)) {
         return null;
     }
-    $series = agt_default_series($pdo, $companyId, $docType, (int) date('Y'));
+    $series = $seriesCode ? agt_find_series($pdo, $companyId, $docType, $seriesCode) : null;
+    $series = $series ?: agt_default_series($pdo, $companyId, $docType, (int) date('Y'));
     if (!$series) {
         return null;
     }
@@ -332,6 +370,37 @@ function agt_issue_number(PDO $pdo, int $companyId, string $docType): ?string
         throw new RuntimeException('A série ' . $series['series_code'] . ' esgotou a numeração autorizada pela AGT. Crie uma nova série.');
     }
     return $prefix . $next;
+}
+
+/**
+ * QR code da faturação eletrónica (consulta do documento no portal da AGT), obtido no
+ * gerador externo e devolvido como data URI PNG. Null se o documento não tiver numeração
+ * AGT (ex.: rascunho) ou se o gerador não responder.
+ */
+function agt_fetch_qr_image(string $issuerNif, ?string $reference): ?string
+{
+    if (agt_parse_document_no($reference) === null || trim($issuerNif) === '') {
+        return null;
+    }
+    $url = 'https://fe.silicaerp.com/api/qrcode?nif=' . rawurlencode(trim($issuerNif))
+        . '&documento=' . rawurlencode((string) $reference);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 6,
+    ]);
+    $png = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+
+    if ($png === false || $status !== 200 || stripos($type, 'image/png') !== 0) {
+        error_log("QR AGT: gerador sem resposta válida para {$reference} (HTTP {$status}).");
+        return null;
+    }
+    return 'data:image/png;base64,' . base64_encode($png);
 }
 
 /** "FT FT7826S1N/12" → ['FT', 'FT7826S1N', 12]; null se não for numeração AGT. */
