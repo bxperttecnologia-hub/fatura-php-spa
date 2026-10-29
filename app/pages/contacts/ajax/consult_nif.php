@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../helpers/env.php';
 // Este endpoint responde SEMPRE em JSON: erros/avisos PHP nunca são impressos como HTML.
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
@@ -86,8 +87,8 @@ function agt_load_env_file()
                 // comentário no fim da linha:  VALOR # comentário
                 $value = trim(preg_replace('/\s+#.*$/', '', $value));
             }
-            if ($name !== '' && getenv($name) === false && !isset($_ENV[$name])) {
-                putenv("$name=$value");
+            if ($name !== '' && bx_env($name) === false && !isset($_ENV[$name])) {
+                bx_putenv("$name=$value");
                 $_ENV[$name] = $value;
             }
         }
@@ -103,7 +104,7 @@ function agt_env_value(array $names, $default = null)
             return constant($name);
         }
         // 2) variável de ambiente / .env
-        $v = getenv($name);
+        $v = bx_env($name);
         if ($v === false || $v === '') {
             $v = $_ENV[$name] ?? $_SERVER[$name] ?? false;
         }

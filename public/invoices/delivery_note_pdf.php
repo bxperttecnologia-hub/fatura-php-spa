@@ -108,7 +108,7 @@ $isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
 $basePath = $isLocalhost ? '/projects/bxpert/fatura/public' : '';
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 
-$logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
+$logo = company_logo_pdf_src($d['logo_url'] ?? '');
 
 /* ---------------- HTML ---------------- */
 

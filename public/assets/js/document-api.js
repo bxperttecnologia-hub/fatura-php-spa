@@ -72,7 +72,6 @@
     saveBlob(blob, match?.[1] || filename || 'documento');
   }
 
-
   async function openPdf(path, options = {}) {
     const popup = window.open('', '_blank');
     if (!popup) throw new Error('O navegador bloqueou a nova janela do documento.');

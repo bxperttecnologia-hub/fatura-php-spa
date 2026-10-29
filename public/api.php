@@ -19,7 +19,6 @@ try {
     $r->add('POST',   'auth/logout',    [AuthController::class, 'logout'], true);
     $r->add('GET',    'auth/me',        [AuthController::class, 'me']);
     $r->add('GET',    'documents/config', [DocumentApiController::class, 'config']);
-    $r->add('PATCH',  'profile',        [ProfileApiController::class, 'update']);
     $r->add('GET',    'clientes',       [ClienteController::class, 'index']);
     $r->add('POST',   'clientes',       [ClienteController::class, 'store']);
     $r->add('GET',    'clientes/{id}',  [ClienteController::class, 'show']);
@@ -27,11 +26,9 @@ try {
     $r->add('DELETE', 'clientes/{id}',  [ClienteController::class, 'destroy']);
     $r->add('GET', 'files/companies/{company}/{name}', [FileController::class, 'show'], true);
 
-
     $apiModule = match (explode('/', $path)[0] ?? '') {
         'clientes' => 'contacts',
         'documents' => 'invoices',
-        'profile' => 'profile',
         default => null,
     };
     if ($apiModule !== null) {
@@ -42,6 +39,7 @@ try {
             throw new HttpException(403, 'Não tem permissão para aceder a este módulo.');
         }
     }
+
     echo json_encode($r->dispatch($method, $path, $input));
 } catch (HttpException $e) {
     http_response_code($e->status);

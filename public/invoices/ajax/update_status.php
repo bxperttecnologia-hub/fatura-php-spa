@@ -80,7 +80,8 @@ try {
         (int)$invoice['company_id'],
         $newStatusName,
         $invoice['reference'],
-        $docType
+        $docType,
+        $invoice['series'] ?? null
     );
 
     $newReference = $result['reference'];

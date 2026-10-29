@@ -162,21 +162,10 @@ require_once '../app/views/layout_creation.php';
         color: #334155;
     }
 
-    .agt-invoice-panel__badge.is-sent {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .agt-invoice-panel__badge.is-valid {
-        background: #dcfce7;
-        color: #166534;
-    }
-
+    .agt-invoice-panel__badge.is-sent { background: #fef3c7; color: #92400e; }
+    .agt-invoice-panel__badge.is-valid { background: #dcfce7; color: #166534; }
     .agt-invoice-panel__badge.is-invalid,
-    .agt-invoice-panel__badge.is-error {
-        background: #fee2e2;
-        color: #991b1b;
-    }
+    .agt-invoice-panel__badge.is-error { background: #fee2e2; color: #991b1b; }
 
     .agt-invoice-panel__meta {
         margin-top: .35rem;
@@ -507,37 +496,28 @@ require_once '../app/views/layout_creation.php';
             </div>
 
             <div class="invoice-toolbar" aria-label="Ações principais">
-                <<<<<<< HEAD
-                    <button type="button" class="btn-invoice btn-invoice--secondary d-none" id="btnToggleCreditNote">
+                <button type="button" class="bx-btn-secondary d-none" id="btnToggleCreditNote">
                     Ver nota de crédito
+                </button>
+
+                <button type="button" class="bx-btn-primary d-none" id="btnRecibo" aria-label="Pagamento e recibo">
+                    <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                    Pagamento / Recibo
+                </button>
+
+                <div class="d-none" id="generatePdf">
+                    <button class="bx-btn-secondary" type="button" id="btnFormatoImpressao"
+                        data-bs-toggle="modal" data-bs-target="#modalPrintPreview" aria-label="Imprimir ou baixar a factura">
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        Imprimir / Baixar PDF
                     </button>
+                </div>
 
-                    <button type="button" class="btn btn-success d-none" id="btnRecibo" aria-label="Pagamento e recibo">
-                        =======
-                        <button type="button" class="bx-btn-primary d-none" id="btnRecibo" aria-label="Pagamento e recibo">
-                            >>>>>>> origin/integracao/melhorias-locais
-                            <i class="bi bi-cash-coin" aria-hidden="true"></i>
-                            Pagamento / Recibo
-                        </button>
-
-                        <div class="d-none" id="generatePdf">
-                            <<<<<<< HEAD
-                                <button class="btn bx-btn-primary" type="button" id="btnFormatoImpressao"
-                                data-bs-toggle="modal" data-bs-target="#modalPrintPreview" aria-label="Imprimir factura">
-                                =======
-                                <button class="bx-btn-secondary" type="button" id="btnFormatoImpressao"
-                                    data-bs-toggle="modal" data-bs-target="#modalPrintPreview" aria-label="Imprimir ou baixar a factura">
-                                    >>>>>>> origin/integracao/melhorias-locais
-                                    <i class="bi bi-printer" aria-hidden="true"></i>
-                                    Imprimir / Baixar PDF
-                                </button>
-                        </div>
-
-                        <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
-                            data-bs-toggle="modal" data-bs-target="#modalEnviarEmail" aria-label="Enviar factura por e-mail">
-                            <i class="bi bi-send" aria-hidden="true"></i>
-                            Enviar factura
-                        </button>
+                <button type="button" class="bx-btn-secondary d-none" id="btnEnviar"
+                    data-bs-toggle="modal" data-bs-target="#modalEnviarEmail" aria-label="Enviar factura por e-mail">
+                    <i class="bi bi-send" aria-hidden="true"></i>
+                    <span class="action-label">Enviar factura</span>
+                </button>
             </div>
 
             <div class="invoice-actions" id="moreActionsDropdown">
@@ -545,7 +525,7 @@ require_once '../app/views/layout_creation.php';
 
                 <button type="button" class="dropdown-item d-none" id="btnCloneToInvoice" aria-label="Clonar factura">
                     <i class="bi bi-copy" aria-hidden="true"></i>
-                    Clonar factura
+                    <span class="action-label">Clonar factura</span>
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnNotaCredito" aria-label="Emitir nota de crédito">
@@ -565,17 +545,17 @@ require_once '../app/views/layout_creation.php';
 
                 <button type="button" class="dropdown-item d-none" id="btnEditar" aria-label="Editar factura">
                     <i class="bi bi-pencil" aria-hidden="true"></i>
-                    Editar
+                    <span class="action-label">Editar</span>
                 </button>
 
-                <button type="button" class="dropdown-item d-none" id="btnFinalizar" aria-label="Finalizar factura">
-                    <i class="bi bi-check-circle" aria-hidden="true"></i>
-                    Finalizar
+                <button type="button" class="dropdown-item d-none" id="btnFinalizar" aria-label="Emitir factura">
+                    <i class="bi bi-send-check" aria-hidden="true"></i>
+                    <span class="action-label">Emitir factura</span>
                 </button>
 
                 <button type="button" class="dropdown-item danger d-none" id="btnDeleteInvoice" aria-label="Apagar factura">
                     <i class="bi bi-trash" aria-hidden="true"></i>
-                    Apagar
+                    <span class="action-label">Apagar</span>
                 </button>
             </div>
         </aside>
@@ -891,7 +871,6 @@ require_once '../app/views/layout_creation.php';
         }
 
         @media (max-width: 575.98px) {
-
             #modalEnviarEmail .modal-body,
             #modalEnviarEmail .modal-header,
             #modalEnviarEmail .modal-footer {
@@ -1070,8 +1049,7 @@ require_once '../app/views/layout_creation.php';
                     </button>
                     <button type="button" class="btn btn-primary" id="ppPrint" disabled>
                         <i class="bi bi-printer align-middle" aria-hidden="true"></i>
-                        <<<<<<< HEAD
-                            Imprimir / Baixar PDF=======Imprimir>>>>>>> origin/integracao/melhorias-locais
+                        Imprimir
                     </button>
                 </div>
             </div>
@@ -1081,96 +1059,79 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="invoices/invoice.js?v=6.0" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=6.4" data-spa-repeat></script>
 
 <script>
-    // Estado da fatura na AGT (faturação eletrónica, ambiente HML).
-    (function() {
-        const panel = document.getElementById('agtInvoicePanel');
-        const invoiceId = new URLSearchParams(location.search).get('id');
-        if (!panel || !invoiceId) return;
+// Estado da fatura na AGT (faturação eletrónica, ambiente HML).
+(function () {
+    const panel = document.getElementById('agtInvoicePanel');
+    const invoiceId = new URLSearchParams(location.search).get('id');
+    if (!panel || !invoiceId) return;
 
-        const endpoint = '/agt/ajax/agt.php';
-        const badge = document.getElementById('agtInvoiceBadge');
-        const meta = document.getElementById('agtInvoiceMeta');
-        const errors = document.getElementById('agtInvoiceErrors');
-        const refreshBtn = document.getElementById('agtInvoiceRefresh');
-        const sendBtn = document.getElementById('agtInvoiceSend');
-        const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        } [c]));
-        const fmt = (value) => value ? new Date(String(value).replace(' ', 'T')).toLocaleString('pt-PT') : '';
-        let timer = null;
+    const endpoint = '/agt/ajax/agt.php';
+    const badge = document.getElementById('agtInvoiceBadge');
+    const meta = document.getElementById('agtInvoiceMeta');
+    const errors = document.getElementById('agtInvoiceErrors');
+    const refreshBtn = document.getElementById('agtInvoiceRefresh');
+    const sendBtn = document.getElementById('agtInvoiceSend');
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = (value) => value ? new Date(String(value).replace(' ', 'T')).toLocaleString('pt-PT') : '';
+    let timer = null;
 
-        function render(agt) {
-            if (!agt) {
-                panel.classList.add('d-none');
-                return;
-            }
-            panel.classList.remove('d-none');
-            badge.className = `agt-invoice-panel__badge is-${agt.status || 'none'}`;
-            badge.textContent = agt.label;
-            const parts = [];
-            if (agt.request_id) parts.push(`Pedido AGT nº ${esc(agt.request_id)}`);
-            if (agt.sent_at) parts.push(`enviada em ${esc(fmt(agt.sent_at))}`);
-            if (agt.checked_at) parts.push(`última consulta ${esc(fmt(agt.checked_at))}`);
-            meta.innerHTML = parts.join(' · ');
-            errors.innerHTML = (agt.errors || []).map((e) => `<li>${esc(e)}</li>`).join('');
-            errors.classList.toggle('d-none', !(agt.errors || []).length);
-            refreshBtn.classList.toggle('d-none', agt.status !== 'sent');
-            sendBtn.classList.toggle('d-none', !(agt.status === 'error' || !agt.status));
-
-            clearTimeout(timer);
-            // A AGT valida de forma assíncrona: volta a perguntar enquanto estiver pendente.
-            if (agt.status === 'sent' && document.body.contains(panel)) {
-                timer = setTimeout(() => load(), 25000);
-            }
+    function render(agt) {
+        if (!agt) {
+            panel.classList.add('d-none');
+            return;
         }
+        panel.classList.remove('d-none');
+        badge.className = `agt-invoice-panel__badge is-${agt.status || 'none'}`;
+        badge.textContent = agt.label;
+        const parts = [];
+        if (agt.request_id) parts.push(`Pedido AGT nº ${esc(agt.request_id)}`);
+        if (agt.sent_at) parts.push(`enviada em ${esc(fmt(agt.sent_at))}`);
+        if (agt.checked_at) parts.push(`última consulta ${esc(fmt(agt.checked_at))}`);
+        meta.innerHTML = parts.join(' · ');
+        errors.innerHTML = (agt.errors || []).map((e) => `<li>${esc(e)}</li>`).join('');
+        errors.classList.toggle('d-none', !(agt.errors || []).length);
+        refreshBtn.classList.toggle('d-none', agt.status !== 'sent');
+        sendBtn.classList.toggle('d-none', !(agt.status === 'error' || !agt.status));
 
-        async function load(action = 'invoice', method = 'GET') {
-            const url = `${endpoint}?action=${action}&id=${encodeURIComponent(invoiceId)}`;
-            const options = method === 'POST' ?
-                {
-                    method,
-                    credentials: 'same-origin',
-                    headers: {
-                        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                    },
-                    body: new URLSearchParams({
-                        id: invoiceId
-                    })
-                } :
-                {
-                    credentials: 'same-origin'
-                };
-            const res = await fetch(url, options);
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.success) throw new Error(data.message || 'Não foi possível consultar a AGT.');
-            render(data.agt);
+        clearTimeout(timer);
+        // A AGT valida de forma assíncrona: volta a perguntar enquanto estiver pendente.
+        if (agt.status === 'sent' && document.body.contains(panel)) {
+            timer = setTimeout(() => load(), 25000);
         }
+    }
 
-        async function withButton(button, fn) {
-            const label = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Aguarde…';
-            try {
-                await fn();
-            } catch (e) {
-                Swal.fire('Faturação eletrónica', e.message, 'error');
-            } finally {
-                button.disabled = false;
-                button.textContent = label;
-            }
+    async function load(action = 'invoice', method = 'GET') {
+        const url = `${endpoint}?action=${action}&id=${encodeURIComponent(invoiceId)}`;
+        const options = method === 'POST'
+            ? { method, credentials: 'same-origin', headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: new URLSearchParams({ id: invoiceId }) }
+            : { credentials: 'same-origin' };
+        const res = await fetch(url, options);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.message || 'Não foi possível consultar a AGT.');
+        render(data.agt);
+    }
+
+    async function withButton(button, fn) {
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Aguarde…';
+        try {
+            await fn();
+        } catch (e) {
+            Swal.fire('Faturação eletrónica', e.message, 'error');
+        } finally {
+            button.disabled = false;
+            button.textContent = label;
         }
+    }
 
-        refreshBtn.addEventListener('click', () => withButton(refreshBtn, () => load('invoice')));
-        sendBtn.addEventListener('click', () => withButton(sendBtn, () => load('invoice_send', 'POST')));
-        load().catch(() => panel.classList.add('d-none'));
-    })();
+    refreshBtn.addEventListener('click', () => withButton(refreshBtn, () => load('invoice')));
+    sendBtn.addEventListener('click', () => withButton(sendBtn, () => load('invoice_send', 'POST')));
+    load().catch(() => panel.classList.add('d-none'));
+})();
 </script>
 
 <?php require_once '../app/views/footer.php'; ?>

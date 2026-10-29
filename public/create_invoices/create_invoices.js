@@ -1845,10 +1845,10 @@ $(document).ready(function () {
         Swal.fire({
           icon: "success",
           title: invoiceId
-            ? "Factura atualizada com sucesso!"
-            : "Factura criada com sucesso!",
-          text: "Clique abaixo para visualizar.",
-          confirmButtonText: "Ver factura",
+            ? "Rascunho atualizado com sucesso!"
+            : "Rascunho criado com sucesso!",
+          text: "A factura só é emitida e enviada à AGT quando a finalizar.",
+          confirmButtonText: "Ver rascunho",
           confirmButtonColor: "#007abd",
         }).then((result) => {
           if (result.isConfirmed) {
@@ -1915,7 +1915,7 @@ $(document).ready(function () {
 
         $("#reference").val(data.reference || "");
         $("#observation").val(data.observation || "");
-        $("#document_type").val(data.document_type || "FT");
+        $("#document_type").val(data.document_type || "FT").trigger("change");
 
         if ($("#series option[value='" + data.series + "']").length === 0) {
           $("#series").append(new Option(data.series, data.series));

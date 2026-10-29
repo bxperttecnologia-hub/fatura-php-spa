@@ -1,10 +1,11 @@
 <?php
 
 declare(strict_types=1);
+require_once __DIR__ . '/../helpers/env.php';
 
 function appypay_env(string $name, string $default = ''): string
 {
-    $value = getenv($name);
+    $value = bx_env($name);
     return $value === false ? $default : trim((string)$value);
 }
 
@@ -22,12 +23,12 @@ function appypay_load_local_env(): void
         }
 
         [$key, $value] = array_map('trim', explode('=', $line, 2));
-        if (!preg_match('/^[A-Z][A-Z0-9_]*$/', $key) || getenv($key) !== false) {
+        if (!preg_match('/^[A-Z][A-Z0-9_]*$/', $key) || bx_env($key) !== false) {
             continue;
         }
 
         $value = trim($value, " \t\n\r\0\x0B\"'");
-        putenv($key . '=' . $value);
+        bx_putenv($key . '=' . $value);
     }
 }
 

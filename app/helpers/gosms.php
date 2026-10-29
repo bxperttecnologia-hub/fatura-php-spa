@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/env.php';
 
 function gosmsLoadConfig(): void
 {
@@ -12,20 +13,20 @@ function gosmsLoadConfig(): void
 
             [$key, $value] = explode('=', $line, 2);
             $key = trim($key);
-            if (!in_array($key, ['GOSMS_TOKEN', 'GOSMS_TOKEN_API', 'GOSMS_FROM', 'GOSMS_CA_BUNDLE'], true) || getenv($key) !== false) {
+            if (!in_array($key, ['GOSMS_TOKEN', 'GOSMS_TOKEN_API', 'GOSMS_FROM', 'GOSMS_CA_BUNDLE'], true) || bx_env($key) !== false) {
                 continue;
             }
 
             $value = trim($value, " \t\n\r\0\x0B\"'");
-            putenv("$key=$value");
+            bx_putenv("$key=$value");
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
     }
 
-    if ((string) getenv('GOSMS_TOKEN') === '' && (string) getenv('GOSMS_TOKEN_API') !== '') {
-        $token = (string) getenv('GOSMS_TOKEN_API');
-        putenv('GOSMS_TOKEN=' . $token);
+    if ((string) bx_env('GOSMS_TOKEN') === '' && (string) bx_env('GOSMS_TOKEN_API') !== '') {
+        $token = (string) bx_env('GOSMS_TOKEN_API');
+        bx_putenv('GOSMS_TOKEN=' . $token);
         $_ENV['GOSMS_TOKEN'] = $token;
         $_SERVER['GOSMS_TOKEN'] = $token;
     }
@@ -36,8 +37,8 @@ function enviarMensagemGoSms(string $telefone, string $mensagem, ?string &$erro 
     $erro = null;
     gosmsLoadConfig();
 
-    $token = (string) getenv('GOSMS_TOKEN');
-    $from = (string) getenv('GOSMS_FROM');
+    $token = (string) bx_env('GOSMS_TOKEN');
+    $from = (string) bx_env('GOSMS_FROM');
     if ($token === '' || $from === '') {
         $erro = 'Configuração do serviço SMS incompleta.';
         error_log('[gosms] GOSMS_TOKEN ou GOSMS_FROM não configurado.');
@@ -85,7 +86,7 @@ function enviarMensagemGoSms(string $telefone, string $mensagem, ?string &$erro 
         CURLOPT_TIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => true,
     ];
-    $caBundle = (string) getenv('GOSMS_CA_BUNDLE');
+    $caBundle = (string) bx_env('GOSMS_CA_BUNDLE');
     if ($caBundle !== '') {
         if (!is_file($caBundle) || !is_readable($caBundle)) {
             curl_close($ch);

@@ -52,6 +52,9 @@ function agt_request_series(PDO $pdo, int $companyId, ?int $userId, string $envi
         'establishment' => $establishment,
         'contingency_indicator' => $contingency,
     ]);
+    if (agt_unreachable($res['data'])) {
+        throw new AgtUnavailableException(agt_unavailable_message());
+    }
     $r = $res['data']['resultado'] ?? [];
     if (empty($res['data']['success']) || empty($r['seriesCode'])) {
         return ['document_type' => $type, 'success' => false, 'message' => agt_error_message($res['data'])];
@@ -81,6 +84,9 @@ function agt_sync_series(PDO $pdo, int $companyId, string $environment, array $c
         'nome_empresa' => $creds['nome_empresa'],
         'test' => $creds['test'],
     ]);
+    if (agt_unreachable($res['data'])) {
+        throw new AgtUnavailableException(agt_unavailable_message());
+    }
     if (empty($res['data']['success'])) {
         throw new RuntimeException(agt_error_message($res['data']));
     }
@@ -169,43 +175,57 @@ try {
                     key_fingerprint = VALUES(key_fingerprint), key_bits = VALUES(key_bits), updated_by = VALUES(updated_by)
             ")->execute([$companyId, $environment, $taxId, $establishment, agt_encrypt($key['pem']), $key['fingerprint'], $key['bits'], $userId]);
 
-            $creds = agt_credentials($pdo, $companyId);
-            // Séries que a empresa já tenha na AGT (ex.: criadas noutro software ou numa carga anterior).
-            $syncError = null;
-            try {
-                agt_sync_series($pdo, $companyId, $environment, $creds);
-            } catch (RuntimeException $e) {
-                $syncError = $e->getMessage();
-            }
-
-            // Cria as séries base que ainda não existam para o ano corrente.
-            $year = (int) date('Y');
-            $existing = array_column(array_filter(
-                agt_list_local_series($pdo, $companyId, $environment),
-                static fn ($s) => (int) $s['series_year'] === $year && $s['contingency'] === 'N' && $s['status'] !== 'F'
-            ), 'document_type');
-            $created = [];
-            foreach (agt_default_document_types() as $type) {
-                if (!in_array($type, $existing, true)) {
-                    $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, 'N');
-                }
-            }
-
-            // A chave só fica guardada se a AGT aceitar pelo menos uma operação assinada com ela
-            // (a AGT valida a adesão (E06) antes da assinatura, por isso um erro não prova que a chave é boa).
-            $accepted = $syncError === null || count(array_filter($created, static fn ($c) => $c['success'])) > 0;
-            if (!$accepted) {
+            // Repõe a chave anterior (ou nenhuma) quando a AGT não valida a nova.
+            $restorePrevious = static function () use ($pdo, $previous, $companyId): void {
                 if ($previous) {
                     $pdo->prepare('UPDATE agt_settings SET environment = ?, tax_id = ?, establishment = ?, private_key_enc = ?, key_fingerprint = ?, key_bits = ? WHERE company_id = ?')
                         ->execute([$previous['environment'], $previous['tax_id'], $previous['establishment'], $previous['private_key_enc'], $previous['key_fingerprint'], $previous['key_bits'], $companyId]);
                 } else {
                     $pdo->prepare('DELETE FROM agt_settings WHERE company_id = ?')->execute([$companyId]);
                 }
+            };
+
+            $creds = agt_credentials($pdo, $companyId);
+            $syncError = null;
+            $created = [];
+            try {
+                // Séries que a empresa já tenha na AGT (ex.: criadas noutro software ou numa carga anterior).
+                try {
+                    agt_sync_series($pdo, $companyId, $environment, $creds);
+                } catch (AgtUnavailableException $e) {
+                    throw $e;
+                } catch (RuntimeException $e) {
+                    $syncError = $e->getMessage();
+                }
+
+                // Cria as séries base que ainda não existam para o ano corrente.
+                $year = (int) date('Y');
+                $existing = array_column(array_filter(
+                    agt_list_local_series($pdo, $companyId, $environment),
+                    static fn ($s) => (int) $s['series_year'] === $year && $s['contingency'] === 'N' && $s['status'] !== 'F'
+                ), 'document_type');
+                foreach (agt_default_document_types() as $type) {
+                    if (!in_array($type, $existing, true)) {
+                        $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, 'N');
+                    }
+                }
+            } catch (AgtUnavailableException $e) {
+                // A AGT não respondeu: não se sabe se a chave é válida, por isso não fica guardada.
+                $restorePrevious();
+                agt_respond(503, ['success' => false, 'unavailable' => true, 'message' => $e->getMessage()]);
+            }
+
+            // A chave só fica guardada se a AGT aceitar pelo menos uma operação assinada com ela
+            // (a AGT valida a adesão (E06) antes da assinatura, por isso um erro não prova que a chave é boa).
+            $accepted = $syncError === null || count(array_filter($created, static fn ($c) => $c['success'])) > 0;
+            if (!$accepted) {
+                $restorePrevious();
                 $errors = array_values(array_unique(array_filter(array_merge(
                     [$syncError],
                     array_map(static fn ($c) => $c['message'] ?? null, $created)
                 ))));
-                $signatureRejected = $errors !== [] && count(array_filter($errors, static fn ($m) => str_contains($m, 'E40'))) === count($errors);
+                // E40 = a jwsSignature não confere: a chave não é a registada na AGT para este NIF.
+                $signatureRejected = count(array_filter($errors, static fn ($m) => str_contains($m, 'E40'))) > 0;
                 agt_respond(422, [
                     'success' => false,
                     'message' => $signatureRejected
@@ -334,6 +354,8 @@ try {
     }
 
     agt_respond(404, ['success' => false, 'message' => 'Ação desconhecida.']);
+} catch (AgtUnavailableException $e) {
+    agt_respond(503, ['success' => false, 'unavailable' => true, 'message' => $e->getMessage()]);
 } catch (RuntimeException $e) {
     agt_respond(502, ['success' => false, 'message' => $e->getMessage()]);
 } catch (Throwable $e) {

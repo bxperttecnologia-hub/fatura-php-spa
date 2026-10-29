@@ -22,8 +22,34 @@
 - `SMTP_FROM_NAME` é opcional; por omissão, o remetente usa o nome `BXpert`. O endereço de origem é o utilizador SMTP configurado.
 - Não coloque credenciais SMTP no código ou em ficheiros servidos pela aplicação. Credenciais anteriormente expostas devem ser rodadas no fornecedor.
 
+## Verificação por SMS
+- O registo e a recuperação de senha enviam códigos pela API GoSMS (`POST https://api.go-sms.co.ao/v1/messages`).
+- Configure `GOSMS_TOKEN` e `GOSMS_FROM` no `.env` local ou no ambiente do PHP. O remetente deve estar autorizado na GoSMS.
+- Se o cURL do PHP não tiver um bundle CA configurado, defina `GOSMS_CA_BUNDLE` para um bundle CA confiável e legível.
+- A autenticação é enviada como Bearer token. O token não deve ser colocado no código nem no repositório.
+- A recuperação por e-mail continua disponível; a recuperação por telefone usa SMS.
+
+## Pagamento de subscrições AppyPay
+- Este fluxo paga exclusivamente a subscrição BXPERT; não processa facturas comerciais emitidas pelas empresas.
+- Antes de publicar a integração, execute `app/migrations/20261021_harden_subscription_payments.sql` na base MySQL. A migração acrescenta metadados de operação/auditoria e unicidade do identificador da AppyPay; não remove colunas nem histórico.
+- O período actual é de três meses. O preço é obtido de `subscription_plans()` no servidor, e coincide com os montantes dos pedidos históricos existentes.
+- Sandbox: `APPYPAY_ENV=sandbox`, `APPYPAY_CLIENT_ID_SANDBOX`, `APPYPAY_CLIENT_SECRET_SANDBOX`, `APPYPAY_RESOURCE_SANDBOX` (ou `APPYPAY_RESOURCE_TST`) e `APPYPAY_PAYMENT_METHOD_REF_SANDBOX` / `APPYPAY_PAYMENT_METHOD_GPO_SANDBOX`. Os nomes antigos sem sufixo são aceites apenas no Sandbox.
+- Produção exige credenciais e métodos separados (`APPYPAY_CLIENT_ID_PRODUCTION`, `APPYPAY_CLIENT_SECRET_PRODUCTION`, `APPYPAY_RESOURCE_PRODUCTION`, `APPYPAY_PAYMENT_METHOD_REF_PRODUCTION`, `APPYPAY_PAYMENT_METHOD_GPO_PRODUCTION`) e `APPYPAY_API_BASE_PRODUCTION` definido com a URL de produção fornecida pela AppyPay. O endpoint OAuth de produção segue a documentação oficial; nenhuma URL de gateway de produção é inferida pelo código.
+- Para ambos os ambientes, o token usa OAuth 2.0 Client Credentials documentado pela AppyPay e fica numa cache temporária separada por ambiente/credenciais, com permissões restritas. Não exponha credenciais, tokens nem respostas técnicas no browser.
+- Se o PHP/cURL não tiver um bundle CA configurado, o cliente tenta detectar o bundle do XAMPP junto do executável PHP. Noutros ambientes, defina `APPYPAY_CA_BUNDLE` no `.env` local ou no ambiente PHP para o caminho de um bundle CA confiável e legível. A validação TLS permanece activa.
+- Configure o webhook AppyPay para `POST /subscription/webhook/appypay.php`. O webhook só inicia uma consulta: o servidor confirma novamente a cobrança através de `GET /charges/{id}` antes de actualizar a subscrição. `APPYPAY_WEBHOOK_TOKEN` é opcional como validação adicional se o portal suportar o header `X-Appypay-Webhook-Token`.
+- Faça os testes exclusivamente no Sandbox: GPO com os números de simulação da AppyPay (por exemplo `900000000`) e REF com o endpoint Sandbox `/mocks/referenceProcessing`, seguido de “Atualizar status”. Não use números/dados Sandbox em produção.
+- A confirmação manual foi removida; uma subscrição só é activada após a confirmação do estado junto da AppyPay. Uma cobrança com resultado de rede desconhecido permanece pendente para impedir duplicação; um proprietário/administrador pode associar o ID obtido no portal, que só é aceite após validar a identidade, o valor, a moeda e o estado pela API.
+
+## Perfis e permissões
+- Os perfis hierárquicos existentes (`owner`, `admin`, `employee`, `viewer`) mantêm-se; proprietários têm acesso total.
+- Proprietários e administradores podem configurar o acesso de cada utilizador aos módulos em **Utilizadores → Gerir permissões**.
+- A ausência de configuração explícita mantém o acesso atual. As permissões gravadas são verificadas no servidor para páginas e endpoints.
+- Antes de usar a funcionalidade, execute uma vez `app/migrations/20261020_create_company_user_permissions.sql` na base MySQL.
+
 ## Geração de documentos pela API
 - Recibos, notas de crédito/débito, notas de entrega e folhas salariais são gerados pelo servidor genérico do `bxintelligence-api-rest`.
+- Para instalações existentes, execute `app/migrations/20261020_add_debit_note_discounts.sql` na base MySQL para ativar descontos nas notas de débito.
 - O browser obtém um token de documentos de cinco minutos através da sessão PHP autenticada e envia-o à API; o token restringe a consulta à empresa associada à sessão.
 - Configure `DOCUMENT_API_TOKEN_SECRET` com o mesmo segredo aleatório (mínimo 32 bytes) no ambiente do PHP e da API; configure `DOCUMENT_API_BASE_URL` com a URL pública da API.
 - Os uploads de logótipos são assinados no servidor. A chave usa `COMPANY_LOGO_UPLOAD_TOKEN`, `DOCUMENT_API_TOKEN_SECRET` ou, como fallback, a palavra-passe de base de dados já partilhada entre PHP e API; não é necessária configuração adicional quando usam as mesmas credenciais da BD.
