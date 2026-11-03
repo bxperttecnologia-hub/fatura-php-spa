@@ -2,7 +2,15 @@
 
 declare(strict_types=1);
 
-const PERFIL_DEBUG = false;
+// ===== DEBUG: ative só quando precisar, sem editar o código =====
+// Acesse a URL com ?debug=1 (ex.: update_profile.php?debug=1) para ver o dump.
+// Nunca deixe isso acessível em produção sem proteção extra (ex.: checar $_SESSION['user']['adm']).
+$DEBUG = isset($_GET['debug']) && $_GET['debug'] === '1';
+if ($DEBUG) {
+    ini_set('display_errors', '1');
+    error_reporting(E_ALL);
+}
+// ===================================================================
 
 require_once __DIR__ . '/../../../app/config/db.php';
 
@@ -50,7 +58,7 @@ foreach ($_POST as $key => $value) {
 
     $value = trim((string)$value);
 
-    if ($value === '') {
+    if ($value === '' && !in_array($key, ['address', 'address_district', 'country'], true)) {
         continue;
     }
 
@@ -65,6 +73,18 @@ if (!empty($_SESSION['user']['image'])) {
     $updates[] = "image = :image";
     $params[":image"] = $_SESSION['user']['image'];
 }
+
+// if ($DEBUG) {
+//     echo json_encode([
+//         "status" => "debug",
+//         "userId" => $userId,
+//         "post_recebido" => $_POST,
+//         "updates_montado" => $updates,
+//         "params_montado" => $params,
+//         "pdo_existe" => isset($pdo) ? get_class($pdo) : "PDO NAO DEFINIDO",
+//     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+//     exit;
+// }
 
 if (empty($updates)) {
     echo json_encode(["status" => "error", "message" => "Nenhum dado válido para atualizar."]);
@@ -81,9 +101,6 @@ try {
     // Atualiza a sessão com os novos valores
     foreach ($sessionUpdates as $key => $value) {
         $_SESSION['user'][$key] = $value;
-        if ($key === 'name') {
-            $_SESSION['user']['nome'] = $value;
-        }
     }
 
     echo json_encode([
@@ -93,15 +110,8 @@ try {
 } catch (PDOException $e) {
     error_log('Erro ao atualizar perfil: ' . $e->getMessage());
 
-    if ($e->getCode() === '23000') {
-        http_response_code(409);
-        echo json_encode(["status" => "error", "message" => "Este e-mail já está em uso por outra conta."]);
-        exit;
-    }
-
-    if (PERFIL_DEBUG) {
-        http_response_code(500);
-        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+    if ($DEBUG) {
+        echo json_encode(["status" => "error", "message" => $e->getMessage(), "sql" => $sql, "params" => $params]);
         exit;
     }
 

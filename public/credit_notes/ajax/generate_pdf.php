@@ -1,8 +1,6 @@
 <?php
 
-session_start();
-
-require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once '../../../vendor/autoload.php';
 
 use Dompdf\Dompdf;
@@ -27,12 +25,13 @@ $stmt = $pdo->prepare("
         issue_date,
         company_id
     FROM credit_notes
-    WHERE id = :id
+    WHERE id = :id AND company_id = :company_id
     LIMIT 1
 ");
 
 $stmt->execute([
-  ':id' => $id
+  ':id' => $id,
+  ':company_id' => session_company_id(),
 ]);
 
 $cn = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -40,22 +39,6 @@ $cn = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$cn) {
   http_response_code(404);
   exit('Nota de crédito não encontrada.');
-}
-
-/*
-|--------------------------------------------------------------------------
-| Segurança
-|--------------------------------------------------------------------------
-*/
-
-$sessionCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);
-
-if (
-  $sessionCompanyId > 0 &&
-  (int)$cn['company_id'] !== $sessionCompanyId
-) {
-  http_response_code(403);
-  exit('Acesso negado.');
 }
 
 /*

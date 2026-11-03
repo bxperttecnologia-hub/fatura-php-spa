@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Faturação eletrónica AGT — chave privada da empresa e séries de numeração.
  *
@@ -30,11 +31,27 @@ $companyId = session_company_id();
 $userId = (int) ($_SESSION['user']['id'] ?? 0);
 $environment = agt_environment();
 $action = (string) ($_GET['action'] ?? '');
+$allowedMethods = [
+    'status' => 'GET',
+    'invoice' => 'GET',
+    'documents' => 'GET',
+    'save_key' => 'POST',
+    'create_series' => 'POST',
+    'sync' => 'POST',
+    'set_default' => 'POST',
+    'save_options' => 'POST',
+    'invoice_send' => 'POST',
+    'check_pending' => 'POST',
+];
+
+if (!isset($allowedMethods[$action]) || $_SERVER['REQUEST_METHOD'] !== $allowedMethods[$action]) {
+    agt_respond(405, ['success' => false, 'message' => 'Método ou ação inválida.']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $expected = (string) ($_SESSION['csrf'] ?? '');
     $provided = (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-    if ($expected !== '' && !hash_equals($expected, $provided)) {
+    if ($expected === '' || !hash_equals($expected, $provided)) {
         agt_respond(403, ['success' => false, 'message' => 'Sessão expirada. Atualize a página.']);
     }
 }
@@ -185,14 +202,15 @@ try {
                 }
             };
 
-            $creds = agt_credentials($pdo, $companyId);
             $syncError = null;
             $created = [];
             try {
+                $creds = agt_credentials($pdo, $companyId);
+
                 // Séries que a empresa já tenha na AGT (ex.: criadas noutro software ou numa carga anterior).
                 try {
                     agt_sync_series($pdo, $companyId, $environment, $creds);
-                } catch (AgtUnavailableException $e) {
+                } catch (AgtUnavailableException | AgtApiConfigException $e) {
                     throw $e;
                 } catch (RuntimeException $e) {
                     $syncError = $e->getMessage();
@@ -202,7 +220,7 @@ try {
                 $year = (int) date('Y');
                 $existing = array_column(array_filter(
                     agt_list_local_series($pdo, $companyId, $environment),
-                    static fn ($s) => (int) $s['series_year'] === $year && $s['contingency'] === 'N' && $s['status'] !== 'F'
+                    static fn($s) => (int) $s['series_year'] === $year && $s['contingency'] === 'N' && $s['status'] !== 'F'
                 ), 'document_type');
                 foreach (agt_default_document_types() as $type) {
                     if (!in_array($type, $existing, true)) {
@@ -213,24 +231,32 @@ try {
                 // A AGT não respondeu: não se sabe se a chave é válida, por isso não fica guardada.
                 $restorePrevious();
                 agt_respond(503, ['success' => false, 'unavailable' => true, 'message' => $e->getMessage()]);
+            } catch (AgtApiConfigException $e) {
+                // A API adaptadora recusou a AGT_API_KEY: problema de configuração, a chave não foi sequer avaliada.
+                $restorePrevious();
+                agt_respond(502, ['success' => false, 'config_error' => true, 'message' => $e->getMessage()]);
+            } catch (Throwable $e) {
+                // Qualquer outra falha inesperada: não deixa a chave guardada sem validação.
+                $restorePrevious();
+                throw $e;
             }
 
             // A chave só fica guardada se a AGT aceitar pelo menos uma operação assinada com ela
             // (a AGT valida a adesão (E06) antes da assinatura, por isso um erro não prova que a chave é boa).
-            $accepted = $syncError === null || count(array_filter($created, static fn ($c) => $c['success'])) > 0;
+            $accepted = $syncError === null || count(array_filter($created, static fn($c) => $c['success'])) > 0;
             if (!$accepted) {
                 $restorePrevious();
                 $errors = array_values(array_unique(array_filter(array_merge(
                     [$syncError],
-                    array_map(static fn ($c) => $c['message'] ?? null, $created)
+                    array_map(static fn($c) => $c['message'] ?? null, $created)
                 ))));
                 // E40 = a jwsSignature não confere: a chave não é a registada na AGT para este NIF.
-                $signatureRejected = count(array_filter($errors, static fn ($m) => str_contains($m, 'E40'))) > 0;
+                $signatureRejected = count(array_filter($errors, static fn($m) => str_contains($m, 'E40'))) > 0;
                 agt_respond(422, [
                     'success' => false,
                     'message' => $signatureRejected
                         ? 'A AGT não reconheceu esta chave para o NIF ' . $taxId . '. Confirme que é a chave privada da empresa obtida no '
-                          . 'Portal do Contribuinte' . ($environment === 'test' ? ' (ambiente de testes/HML)' : '') . '.'
+                        . 'Portal do Contribuinte' . ($environment === 'test' ? ' (ambiente de testes/HML)' : '') . '.'
                         : 'A AGT recusou os pedidos, por isso a chave não foi guardada.',
                     'errors' => $errors,
                 ]);
@@ -245,9 +271,12 @@ try {
         case 'create_series':
             $creds = agt_credentials($pdo, $companyId);
             $types = array_values(array_unique(array_map('strtoupper', (array) ($_POST['types'] ?? []))));
-            $valid = array_keys(agt_document_types());
+            $valid = agt_default_document_types();
             if ($types === [] || array_diff($types, $valid)) {
-                agt_respond(422, ['success' => false, 'message' => 'Escolha pelo menos um tipo de documento válido.']);
+                agt_respond(422, [
+                    'success' => false,
+                    'message' => 'A criação de séries neste software está limitada a FT e FR até haver autorização AGT validada para outros tipos.',
+                ]);
             }
             $year = (int) ($_POST['year'] ?? date('Y'));
             $allowedYears = (int) date('md') > 1215 ? [(int) date('Y'), (int) date('Y') + 1] : [(int) date('Y')];
@@ -261,7 +290,7 @@ try {
             foreach ($types as $type) {
                 $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, $contingency);
             }
-            $ok = count(array_filter($created, static fn ($c) => $c['success']));
+            $ok = count(array_filter($created, static fn($c) => $c['success']));
             agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
                 'created' => $created,
                 'message' => $ok === count($created) ? 'Séries criadas na AGT.' : ($ok ? 'Algumas séries não foram criadas.' : 'A AGT não criou as séries.'),
@@ -314,8 +343,10 @@ try {
                     agt_respond(422, ['success' => false, 'message' => 'Esta fatura já foi recebida pela AGT.']);
                 }
                 $state = agt_submit_invoice($pdo, $id);
-            } elseif ($invoice['agt_status'] === 'sent'
-                && (empty($invoice['agt_checked_at']) || strtotime($invoice['agt_checked_at']) < time() - 20)) {
+            } elseif (
+                $invoice['agt_status'] === 'sent'
+                && (empty($invoice['agt_checked_at']) || strtotime($invoice['agt_checked_at']) < time() - 20)
+            ) {
                 // A validação na AGT é assíncrona: consulta, no máximo, a cada 20 s.
                 $state = agt_check_invoice($pdo, $id);
             } else {
@@ -334,7 +365,7 @@ try {
                 LIMIT 50
             ");
             $stmt->execute([$companyId]);
-            $docs = array_map(static fn ($row) => [
+            $docs = array_map(static fn($row) => [
                 'id' => (int) $row['id'],
                 'customer' => $row['customer'],
                 'issue_date' => $row['issue_date'],
@@ -356,6 +387,8 @@ try {
     agt_respond(404, ['success' => false, 'message' => 'Ação desconhecida.']);
 } catch (AgtUnavailableException $e) {
     agt_respond(503, ['success' => false, 'unavailable' => true, 'message' => $e->getMessage()]);
+} catch (AgtApiConfigException $e) {
+    agt_respond(502, ['success' => false, 'config_error' => true, 'message' => $e->getMessage()]);
 } catch (RuntimeException $e) {
     agt_respond(502, ['success' => false, 'message' => $e->getMessage()]);
 } catch (Throwable $e) {

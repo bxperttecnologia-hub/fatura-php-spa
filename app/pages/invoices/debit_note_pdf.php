@@ -59,7 +59,7 @@ if (!$d) {
 }
 
 $st = $pdo->prepare("
-  SELECT description, quantity, unit_price, tax
+  SELECT description, quantity, unit_price, discount, tax
   FROM debit_note_items
   WHERE debit_note_id = :id
   ORDER BY id ASC
@@ -106,7 +106,9 @@ $currency = h($d['currency']);
 
 $rows = '';
 foreach ($items as $n => $it) {
-  $lineBase = round((float)$it['quantity'] * (float)$it['unit_price'], 2);
+  $gross = round((float)$it['quantity'] * (float)$it['unit_price'], 2);
+  $discount = round($gross * (float)($it['discount'] ?? 0) / 100, 2);
+  $lineBase = round($gross - $discount, 2);
   $rows .= '<tr>'
     . '<td class="c">' . ($n + 1) . '</td>'
     . '<td>' . h($it['description']) . '</td>'

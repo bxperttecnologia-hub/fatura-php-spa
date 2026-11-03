@@ -377,7 +377,7 @@
     height: 34px;
 }
 
-/* ---------- Tabela ---------- */
+/* ---------- Tabela: mesma apresentação da listagem de proformas ---------- */
 .bx-docs-header {
     display: flex;
     align-items: baseline;
@@ -394,30 +394,22 @@
     color: var(--bx-muted);
 }
 
-.bx-table-wrap {
-    background: #fff;
-    border: 1px solid var(--bx-line);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
 #bxInvoicesPage #invoicesTable {
     width: 100%;
-    margin: 0;
-    border-collapse: collapse;
-    border-spacing: 0;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0 12px;
 }
 
 #bxInvoicesPage #invoicesTable thead th {
-    padding: 10px 14px;
-    background: #f8fafc !important;
-    border: 0;
-    border-bottom: 1px solid var(--bx-line);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    padding: 12px 16px;
+    background: transparent !important;
+    border: 0 !important;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
-    color: var(--bx-muted);
+    color: #9ca3af;
     white-space: nowrap;
 }
 
@@ -427,39 +419,69 @@
 }
 
 #bxInvoicesPage #invoicesTable thead th[data-key]:hover {
-    color: var(--bx-ink);
+    color: #111827;
+}
+
+#bxInvoicesPage #invoicesTable tbody tr.invoice-row {
+    background: #fff !important;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    text-align: left !important;
+    transition: all 0.25s ease;
+}
+
+#bxInvoicesPage #invoicesTable tbody tr.invoice-row:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }
 
 #bxInvoicesPage #invoicesTable tbody td {
-    padding: 12px 14px;
+    padding: 18px 16px;
     background: #fff !important;
-    border: 0;
-    border-bottom: 1px solid #f1f4f8;
-    font-size: 0.9rem;
+    border: 0 !important;
+    font-size: 0.95rem;
     color: #1f2937;
     vertical-align: middle;
     text-align: left;
 }
 
-#bxInvoicesPage #invoicesTable tbody tr:last-child td {
-    border-bottom: 0;
+#bxInvoicesPage #invoicesTable tbody td:first-child {
+    border-top-left-radius: 14px;
+    border-bottom-left-radius: 14px;
+    font-weight: 600;
+    color: #111;
 }
 
-#bxInvoicesPage #invoicesTable tbody tr.invoice-row {
-    cursor: pointer;
+#bxInvoicesPage #invoicesTable tbody td:last-child {
+    border-top-right-radius: 14px;
+    border-bottom-right-radius: 14px;
+    padding-right: 24px;
+    text-align: right;
 }
 
-#bxInvoicesPage #invoicesTable tbody tr.invoice-row:hover td {
-    background: #f9fbfd !important;
+#bxInvoicesPage #invoicesTable tbody td small {
+    display: block;
+    color: #6b7280;
 }
 
 #bxInvoicesPage #invoicesTable tbody tr.is-selected td {
-    background: #f0fdf4 !important;
+    background: #eaf1ff !important;
 }
 
-#bxInvoicesPage .bx-th-check,
+#bxInvoicesPage .bx-th-check {
+    min-width: 112px;
+}
+
+#bxInvoicesPage .bx-status-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
 #bxInvoicesPage .bx-td-check {
-    width: 40px;
+    min-width: 112px;
 }
 
 #bxInvoicesPage .bx-num {
@@ -724,7 +746,7 @@
     }
 }
 
-/* ---------- Mobile: cada documento vira um cartão ---------- */
+/* ---------- Mobile: mantém a tabela e permite deslocamento horizontal ---------- */
 @media (max-width: 767.98px) {
     .bx-cards {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -743,106 +765,17 @@
         flex: 1;
     }
 
-    .bx-table-wrap {
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        overflow: visible;
+    #bxInvoicesPage .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
-    #bxInvoicesPage #invoicesTable,
-    #bxInvoicesPage #invoicesTable tbody,
-    #bxInvoicesPage #invoicesTable tr,
-    #bxInvoicesPage #invoicesTable td {
-        display: block;
-        width: 100%;
-        white-space: normal;
-    }
-
-    #bxInvoicesPage #invoicesTable thead {
-        display: none;
-    }
-
-    #bxInvoicesPage #invoicesTable tbody tr {
-        position: relative;
-        margin-bottom: 12px;
-        padding: 12px 14px;
-        background: #fff;
-        border: 1px solid var(--bx-line);
-        border-radius: 12px;
-    }
-
-    #bxInvoicesPage #invoicesTable tbody td {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 3px 0;
-        border: 0;
-        background: transparent !important;
-    }
-
-    #bxInvoicesPage #invoicesTable tbody tr.invoice-row:hover td,
-    #bxInvoicesPage #invoicesTable tbody tr.is-selected td {
-        background: transparent !important;
-    }
-
-    #bxInvoicesPage #invoicesTable tbody tr.is-selected {
-        background: #f0fdf4;
-        border-color: #bbf7d0;
-    }
-
-    #bxInvoicesPage #invoicesTable td[data-label]::before {
-        content: attr(data-label);
-        font-size: 0.78rem;
-        color: var(--bx-muted);
-    }
-
-    #bxInvoicesPage .bx-td-check {
-        position: absolute;
-        top: 12px;
-        right: 14px;
-        width: auto;
-    }
-
-    #bxInvoicesPage .bx-td-doc {
-        padding-bottom: 6px;
-    }
-
-    #bxInvoicesPage .bx-td-client {
-        font-weight: 600;
-        padding-bottom: 6px;
-    }
-
-    #bxInvoicesPage .bx-td-total {
-        margin-top: 4px;
-        font-size: 1.05rem;
-    }
-
-    #bxInvoicesPage .bx-td-actions {
-        margin-top: 8px;
-        padding-top: 10px !important;
-        border-top: 1px solid #f1f4f8 !important;
+    #bxInvoicesPage #invoicesTable {
+        min-width: 920px;
     }
 
     .bx-actions {
-        justify-content: flex-start;
-    }
-
-    .bx-actions .js-more {
-        margin-left: auto;
-    }
-
-    .bx-icon-btn {
-        width: auto;
-        padding: 0 10px;
-        gap: 6px;
-    }
-
-    .bx-btn__label {
-        display: inline;
-        font-size: 0.85rem;
-        font-weight: 600;
+        justify-content: flex-end;
     }
 
     .bx-selbar {

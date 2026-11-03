@@ -1,6 +1,3 @@
-(function () {
-const PERFIL_DEBUG = false;
-
 // Cropper
 let cropper = null;
 let cropModal = null;
@@ -177,7 +174,10 @@ $(document).ready(function () {
     // formData precisa ser recriado a cada submit, senão acumula dados de envios anteriores
     const formData = {};
 
-    const $btn = $("#update-profile").prop("disabled", true);
+    const imageSrc = $("#profileImage").attr("src");
+    const imageName = imageSrc ? imageSrc.split("/").pop() : "";
+
+    formData["image"] = imageName;
 
     // form.elements pode não ter .forEach garantido em todos os browsers/contextos;
     // Array.from() converte para array de verdade
@@ -203,31 +203,13 @@ $(document).ready(function () {
       formData[field.name] = field.value.trim();
     });
 
-    if (PERFIL_DEBUG) {
-      console.log("PERFIL DEBUG enviando:", formData);
-    }
-
     $.ajax({
-      url: "/api/profile",
-      type: "PATCH",
-      contentType: "application/json",
-      data: JSON.stringify(formData),
+      url: "perfil/ajax/update_profile.php",
+      type: "POST",
+      data: formData, // objeto simples: deixa o jQuery serializar (não use processData:false/contentType:false aqui)
       dataType: "json",
-      complete: function () {
-        $btn.prop("disabled", false);
-      },
       success: function (response) {
-        if (PERFIL_DEBUG) {
-          console.log("PERFIL DEBUG resposta:", response);
-        }
-
         if (response.status === "success") {
-          if (window.APP && window.APP.user) {
-            window.APP.user.name = formData.name;
-            window.APP.user.nome = formData.name;
-            window.APP.user.email = formData.email;
-          }
-
           Swal.fire({
             icon: "success",
             title: "Sucesso!",
@@ -235,9 +217,7 @@ $(document).ready(function () {
             timer: 2000,
             showConfirmButton: false,
           }).then(() => {
-            const $profileCard = $("#profileImage").closest(".card");
-            if (formData.name) $profileCard.find("h5").text(formData.name);
-            if (formData.email) $profileCard.find("small").text(formData.email);
+            location.reload();
           });
         } else {
           Swal.fire({
@@ -248,30 +228,18 @@ $(document).ready(function () {
           });
         }
       },
-      error: function (xhr, textStatus, errorThrown) {
-        if (PERFIL_DEBUG) {
-          console.log("PERFIL DEBUG falha:", {
-            status: xhr.status,
-            textStatus,
-            errorThrown,
-            responseText: xhr.responseText,
-          });
-        }
+      error: function (xhr) {
         Swal.fire({
           icon: "error",
           title: "Erro!",
           text:
             (xhr.responseJSON && xhr.responseJSON.message) ||
-            `Falha ao atualizar perfil (HTTP ${xhr.status}: ${textStatus}).`,
+            "Erro inesperado. Tente novamente.",
         });
       },
     });
   });
 });
-
-function esc(v) {
-  return $("<div>").text(v == null ? "" : String(v)).html().replace(/"/g, "&quot;");
-}
 
 let countryMap = {};
 
@@ -297,16 +265,10 @@ function selectCountry(selectedCountry = "", selectedCity = "") {
 
       data.geonames.forEach((country) => {
         countryMap[country.countryName] = country.geonameId;
-        options += `<option value="${esc(country.countryName)}">${esc(country.countryName)}</option>`;
+        options += `<option value="${country.countryName}">${country.countryName}</option>`;
       });
 
-      // país salvo que não existe na lista da API (nome diferente): mantém como opção
-      // para o valor não ser perdido/apagado ao salvar
-      if (selectedCountry && !countryMap[selectedCountry]) {
-        options += `<option value="${esc(selectedCountry)}">${esc(selectedCountry)}</option>`;
-      }
-
-      countrySelect.html(options);
+      countrySelect.html(options).trigger("change");
       countrySelect.select2({
         width: "100%",
         placeholder: "Selecione um país",
@@ -314,18 +276,16 @@ function selectCountry(selectedCountry = "", selectedCity = "") {
         dropdownParent: countrySelect.parent(),
       });
 
-      // Seleção inicial: "change.select2" só atualiza a UI e NÃO dispara o handler abaixo
-      // (antes disparava loadCities duas vezes e a resposta sem cidade podia chegar por último,
-      // deixando a cidade vazia e apagando-a no banco ao salvar)
-      if (selectedCountry) {
-        countrySelect.val(selectedCountry).trigger("change.select2");
-        loadCities(selectedCountry, selectedCity);
-      }
-
       // Quando o usuário trocar o país, carregar cidades
       countrySelect.off("change.perfil").on("change.perfil", function () {
-        loadCities($(this).val() || "", "");
+        const c = $(this).val() || "";
+        loadCities(c, "");
       });
+
+      if (selectedCountry) {
+        countrySelect.val(selectedCountry).trigger("change");
+        loadCities(selectedCountry, selectedCity);
+      }
     })
     .catch((error) => {
       console.error("❌ Erro ao carregar países:", error);
@@ -335,19 +295,14 @@ function selectCountry(selectedCountry = "", selectedCity = "") {
     });
 }
 
-let cityReq = 0;
-
 function loadCities(countryName, selectedCity = "") {
   const citySelect = $("#city");
   const countryId = countryMap[countryName];
-  const myReq = ++cityReq; // ignora respostas antigas que chegarem atrasadas
 
   if (!countryId) {
-    let html = '<option value="">Selecione um país primeiro</option>';
-    if (selectedCity) {
-      html += `<option value="${esc(selectedCity)}" selected>${esc(selectedCity)}</option>`;
-    }
-    citySelect.html(html).trigger("change");
+    citySelect
+      .html('<option value="">Selecione um país primeiro</option>')
+      .trigger("change");
     return;
   }
 
@@ -360,19 +315,13 @@ function loadCities(countryName, selectedCity = "") {
   )
     .then((response) => response.json())
     .then((data) => {
-      if (myReq !== cityReq) return;
       if (!data.geonames) throw new Error("API retornou dados inválidos");
 
       let options = '<option value="">Selecione uma cidade</option>';
-      let found = false;
       data.geonames.forEach((city) => {
-        const isSel = city.name === selectedCity;
-        if (isSel) found = true;
-        options += `<option value="${esc(city.name)}" ${isSel ? "selected" : ""}>${esc(city.name)}</option>`;
+        let isSelected = city.name === selectedCity ? "selected" : "";
+        options += `<option value="${city.name}" ${isSelected}>${city.name}</option>`;
       });
-      if (selectedCity && !found) {
-        options += `<option value="${esc(selectedCity)}" selected>${esc(selectedCity)}</option>`;
-      }
 
       citySelect.html(options).trigger("change");
       citySelect.select2({
@@ -387,16 +336,9 @@ function loadCities(countryName, selectedCity = "") {
       }
     })
     .catch((error) => {
-      if (myReq !== cityReq) return;
       console.error("❌ Erro ao carregar cidades:", error);
-      // mantém a cidade salva para não ser apagada se a API falhar
-      let html = '<option value="">Erro ao carregar</option>';
-      if (selectedCity) {
-        html += `<option value="${esc(selectedCity)}" selected>${esc(selectedCity)}</option>`;
-      }
-      citySelect.html(html).trigger("change");
+      citySelect
+        .html('<option value="">Erro ao carregar</option>')
+        .trigger("change");
     });
 }
-
-window.selectCountry = selectCountry;
-})();

@@ -55,6 +55,11 @@ export const Item = sequelize.define('Item', {
     allowNull: false,
     defaultValue: 0,
   },
+  tax_classification: {
+    type: DataTypes.ENUM('standard', 'withholding_service', 'rental_income'),
+    allowNull: false,
+    defaultValue: 'standard',
+  },
   unit_price: {
     type: DataTypes.DOUBLE,
     allowNull: false,

@@ -16,6 +16,9 @@ try {
     $id = (int)($_POST['id'] ?? $_POST['item_id'] ?? $_POST['product_id'] ?? 0);
     // A empresa vem da sessão; o id_company do formulário não é de confiança.
     $id_company = session_company_id();
+    $stock_id = isset($_POST['stock_id']) && $_POST['stock_id'] !== ''
+        ? (int)$_POST['stock_id']
+        : null;
 
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['descricao'] ?? '');
@@ -58,7 +61,6 @@ try {
     if ($name === '') {
         throw new Exception("Nome é obrigatório.");
     }
-
     $descriptionLength = function_exists('mb_strlen')
         ? mb_strlen($description, 'UTF-8')
         : strlen($description);
@@ -69,9 +71,9 @@ try {
     // =========================
     // REGRA: código NÃO editável
     // =========================
-    $owned = $pdo->prepare("SELECT 1 FROM items WHERE id = ? AND company_id = ?");
+    $owned = $pdo->prepare("SELECT id FROM items WHERE id = ? AND company_id = ?");
     $owned->execute([$id, $id_company]);
-    if (!$owned->fetchColumn()) {
+    if ($owned->fetchColumn() === false) {
         throw new Exception("Item não encontrado.");
     }
 

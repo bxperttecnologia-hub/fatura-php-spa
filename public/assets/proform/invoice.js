@@ -103,11 +103,17 @@ $(function () {
   }
 
   function gerarPdfProforma() {
-    if (!currentInvoice) return;
-
     const button = document.getElementById("generatePdf");
     const element = document.querySelector("#fatura-container .invoice-page");
-    if (!element || button?.disabled) return;
+    if (button?.disabled) return;
+    if (!currentInvoice || !element) {
+      Swal.fire({
+        icon: "error",
+        title: "Não foi possível gerar o PDF",
+        text: "Os dados da proforma ainda não estão disponíveis. Atualize a página e tente novamente.",
+      });
+      return;
+    }
 
     const originalHtml = button?.innerHTML;
     if (button) {
@@ -120,23 +126,48 @@ $(function () {
       ? "https://api-crm.bxpert.co.ao"
       : "http://localhost:3004";
 
-    fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/pdf" },
-      body: JSON.stringify({
-        ...currentInvoice,
-        document_type: "PF",
-        document_url: new URL(
-          `/proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
-          window.location.href,
-        ).toString(),
-      }),
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.blob();
-      })
-      .then((blob) => {
+    (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/invoices/pdf`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/pdf" },
+          body: JSON.stringify({
+            ...currentInvoice,
+            document_type: "PF",
+            document_url: new URL(
+              `/proform/ajax/proform_public.php?id=${encodeURIComponent(currentInvoice.id)}`,
+              window.location.href,
+            ).toString(),
+          }),
+        });
+
+        if (!response.ok) {
+          let message = `O servidor respondeu com o erro ${response.status}.`;
+          const errorText = await response.text();
+          if (errorText.trim()) {
+            try {
+              const errorBody = JSON.parse(errorText);
+              message = errorBody.message || errorBody.error || message;
+            } catch {
+              message = errorText.trim();
+            }
+          }
+          throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        const signature = await blob.slice(0, 5).text();
+        if (blob.size === 0 || signature !== "%PDF-") {
+          let message = "O servidor não devolveu um ficheiro PDF válido.";
+          try {
+            const body = JSON.parse(await blob.text());
+            message = body.message || body.error || message;
+          } catch {
+            // A resposta não contém uma mensagem JSON legível.
+          }
+          throw new Error(message);
+        }
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -144,19 +175,27 @@ $(function () {
         document.body.appendChild(link);
         link.click();
         link.remove();
-        URL.revokeObjectURL(url);
-      })
-      .catch((error) => {
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        Swal.fire({
+          icon: "success",
+          title: "PDF preparado com sucesso",
+          text: "O download da proforma foi iniciado.",
+        });
+      } catch (error) {
         console.error("Erro ao gerar PDF da proforma:", error);
-        alert("Não foi possível gerar o PDF da proforma.");
-      })
-      .finally(() => {
-        staging.remove();
+        Swal.fire({
+          icon: "error",
+          title: "Falha ao gerar o PDF",
+          text: error.message || "Não foi possível gerar o PDF da proforma. Tente novamente.",
+        });
+      } finally {
         if (button) {
           button.disabled = false;
           button.innerHTML = originalHtml;
         }
-      });
+      }
+    })();
   }
 
   $("#btnPdf, #generatePdf").on("click", gerarPdfProforma);

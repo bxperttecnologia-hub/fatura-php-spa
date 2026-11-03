@@ -2,7 +2,7 @@
     /*  Ajustes pontuais só deste documento  */
     .invoice-page {
       /* border: 1px solid #cecece; */
-      background: #fff;
+      background: #fff !important;
       padding: 1.2rem;
       font-size: .74rem; /* mais espaço */
       /* Evite reservar um rodapé "fixo" com padding grande: isso causa páginas com muito branco no Dompdf */

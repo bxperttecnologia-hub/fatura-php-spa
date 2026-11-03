@@ -292,11 +292,11 @@ require_once '../app/views/layout_creation.php';
             <div class="invoice-header pagea4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                        <span class="mb-0">Proforma nº <span id="fatura-id"></span></span>
+                        <span class="mb-0"><span id="proform-preview-label">Proforma nº</span> <span id="fatura-id"></span></span>
                         <span class="subtitle" id="subtitle-client"></span>
                     </div>
                     <div>
-                        <span class="proform-document-type">PROFORMA</span>
+                        <span class="proform-document-type" id="proform-document-label">PROFORMA</span>
                     </div>
                 </div>
             </div>
@@ -308,13 +308,13 @@ require_once '../app/views/layout_creation.php';
         </div>
 
         <aside class="invoice-side-card" aria-label="Ações da proforma">
-            <div class="invoice-header__eyebrow">Proforma</div>
+            <div class="invoice-header__eyebrow" id="invoice-document-label">Proforma</div>
             <h1 class="invoice-header__title">
                 <strong id="action-proform-number">-</strong>
                 <span id="status-invoice" class="invoice-status-badge d-none"></span>
             </h1>
             <span class="invoice-header__subtitle" id="action-proform-client">-</span>
-            <div class="invoice-header__meta">Original</div>
+            <div class="invoice-header__meta" id="invoice-document-meta">Original</div>
 
             <div class="invoice-toolbar" aria-label="Ações principais">
                 <button type="button" class="bx-btn-primary" id="btnEditar">
@@ -333,6 +333,17 @@ require_once '../app/views/layout_creation.php';
                     data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
                     <i class="bi bi-send" aria-hidden="true"></i>
                     Enviar Proforma
+                </button>
+            </div>
+
+            <div class="invoice-actions" id="moreActionsDropdown">
+                <span class="pp-label">Mais ações</span>
+                <button type="button" class="dropdown-item d-none" id="btnDocumentHistory"
+                    data-history-endpoint="/proform/ajax/document_history.php"
+                    data-hide-when-alone="true" data-bs-toggle="modal"
+                    data-bs-target="#documentHistoryModal" aria-label="Histórico documental">
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                    Histórico documental
                 </button>
             </div>
         </aside>
@@ -611,8 +622,11 @@ require_once '../app/views/layout_creation.php';
     </div>
 </main>
 
+<?php require __DIR__ . '/partials/document_history_modal.php'; ?>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="proform/invoice.js?v=0.6"></script>
+<script src="/assets/js/document-history.js?v=1.0" data-spa-repeat></script>
+<script src="proform/invoice.js?v=0.7"></script>
 
 <?php require_once '../app/views/footer.php'; ?>

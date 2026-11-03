@@ -61,11 +61,15 @@ try {
   $stmt = $pdo->prepare("INSERT INTO credit_notes (
       invoice_id, contact_id, company_id, issue_date, reason,
       currency, retention, retention_value, total_sum, total_discount,
-      subtotal_without_tax, total_tax, final_total, user_id
+      subtotal_without_tax, total_tax, final_total, tax_withholding_type,
+      tax_withholding_rate, tax_withholding_base, tax_withholding_amount,
+      tax_withholding_description, tax_withholding_confirmed, gross_total, user_id
     ) VALUES (
       :invoice_id, :contact_id, :company_id, :issue_date, :reason,
       :currency, :retention, :retention_value, :total_sum, :total_discount,
-      :subtotal_without_tax, :total_tax, :final_total, :user_id
+      :subtotal_without_tax, :total_tax, :final_total, :tax_withholding_type,
+      :tax_withholding_rate, :tax_withholding_base, :tax_withholding_amount,
+      :tax_withholding_description, :tax_withholding_confirmed, :gross_total, :user_id
     )");
 
   $stmt->execute([
@@ -82,6 +86,15 @@ try {
     ':subtotal_without_tax' => $inv['subtotal_without_tax'],
     ':total_tax' => $inv['total_tax'],
     ':final_total' => $inv['final_total'],
+    ':tax_withholding_type' => $inv['tax_withholding_type'] ?? 'none',
+    ':tax_withholding_rate' => $inv['tax_withholding_rate'] ?? 0,
+    ':tax_withholding_base' => $inv['tax_withholding_base'] ?? 0,
+    ':tax_withholding_amount' => $inv['tax_withholding_amount'] ?? 0,
+    ':tax_withholding_description' => $inv['tax_withholding_description'] ?? null,
+    ':tax_withholding_confirmed' => $inv['tax_withholding_confirmed'] ?? 0,
+    ':gross_total' => (float)($inv['gross_total'] ?? 0) > 0
+      ? $inv['gross_total']
+      : (float)$inv['subtotal_without_tax'] + (float)$inv['total_tax'],
     ':user_id' => (int)($_SESSION['user']['id'] ?? $inv['user_id']),
   ]);
 
@@ -89,9 +102,9 @@ try {
 
   // Copia itens
   $stmtItem = $pdo->prepare("INSERT INTO credit_note_items (
-      credit_note_id, item_id, description, quantity, unit_price, tax, discount
+      credit_note_id, item_id, description, quantity, unit_price, tax, discount, retention_rate
     ) VALUES (
-      :credit_note_id, :item_id, :description, :quantity, :unit_price, :tax, :discount
+      :credit_note_id, :item_id, :description, :quantity, :unit_price, :tax, :discount, :retention_rate
     )");
 
   foreach ($items as $it) {
@@ -103,6 +116,7 @@ try {
       ':unit_price' => $it['unit_price'] ?? 0,
       ':tax' => $it['tax'] ?? null,
       ':discount' => $it['discount'] ?? null,
+      ':retention_rate' => $it['retention_rate'] ?? null,
     ]);
   }
 

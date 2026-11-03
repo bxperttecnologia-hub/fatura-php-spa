@@ -12,7 +12,6 @@ $agtSeriesOptions = agt_invoice_series_options($pdo, (int) ($_SESSION['user']['c
  */
 $listUrl       = '/invoices';
 $invTheme      = 'dark';
-$retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 ?>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
@@ -934,6 +933,11 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
             <input type="hidden" name="total_tax">
             <input type="hidden" name="retention_value">
             <input type="hidden" name="final_total">
+            <input type="hidden" name="tax_withholding_rate">
+            <input type="hidden" name="tax_withholding_base">
+            <input type="hidden" name="tax_withholding_amount">
+            <input type="hidden" name="gross_total">
+            <input type="hidden" name="net_payable">
 
             <div class="d-none">
                 <select id="currency" name="currency" required>
@@ -1093,13 +1097,8 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 
                 <div class="inv-terms">
                     <div class="inv-field">
-                        <label class="inv-label" for="apply_retention"><?= t('Tipo de Retenção') ?></label>
-                        <select class="inv-select" id="apply_retention" data-rate="<?= $retentionRate ?>">
-                            <option value="0"><?= t('Sem retenção') ?></option>
-                            <option value="<?= htmlspecialchars((string) $retentionRate, ENT_QUOTES, 'UTF-8') ?>">
-                                <?= t('Retenção na Fonte de Angola') ?> (<?= str_replace('.', ',', (string) $retentionRate) ?>% <?= t('de acordo com o Código do IRT/IVA') ?>)
-                            </option>
-                        </select>
+                        <span class="inv-label"><?= t('Retenção na Fonte') ?></span>
+                        <span><?= t('A taxa configurada em cada artigo será aplicada. Não é usada uma taxa global.') ?></span>
                     </div>
 
                     <div class="inv-chips" id="due_chips" role="group" aria-label="<?= t('Prazo de pagamento') ?>">
@@ -1236,6 +1235,21 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 
                     <div class="inv-summary" role="complementary" aria-label="<?= t('Resumo do documento') ?>">
                         <div class="inv-sum-row">
+                            <label for="tax_withholding_type"><?= t('Imposto / Retenção na Fonte') ?></label>
+                            <select class="inv-input" id="tax_withholding_type" name="tax_withholding_type">
+                                <option value="none">Sem imposto adicional — 0%</option>
+                                <option value="withholding_6_5">Retenção na Fonte (6,5%)</option>
+                                <option value="ipu_rent">IPU — Rendas (15%)</option>
+                            </select>
+                        </div>
+                        <div id="tax_withholding_confirm_row" class="inv-sum-row d-none">
+                            <label class="form-check">
+                                <input class="form-check-input" id="tax_withholding_confirmed" name="tax_withholding_confirmed" type="checkbox" value="1">
+                                <span class="form-check-label">Confirmo que a operação, a natureza do serviço/renda, o regime fiscal, o imóvel (quando aplicável) e os intervenientes estão abrangidos.</span>
+                            </label>
+                        </div>
+                        <div id="tax_withholding_warning" class="alert alert-warning d-none" role="alert"></div>
+                        <div class="inv-sum-row">
                             <span><?= t('Soma') ?></span>
                             <span id="total_sum">0,00</span>
                         </div>
@@ -1252,8 +1266,16 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                             <span id="total_tax">0,00</span>
                         </div>
                         <div class="inv-sum-row d-none" id="retention_sumary">
-                            <span><?= t('Retenção na Fonte') ?>:</span>
+                            <span><?= t('Retenção configurada por artigo') ?>:</span>
                             <span id="retention_value">0,00</span>
+                        </div>
+                        <div class="inv-sum-row d-none" id="document_tax_withholding_summary">
+                            <span id="document_tax_withholding_label"></span>
+                            <span id="tax_withholding_amount">0,00</span>
+                        </div>
+                        <div class="inv-sum-row">
+                            <span><?= t('Total bruto') ?>:</span>
+                            <span id="gross_total">0,00</span>
                         </div>
                         <div class="inv-sum-row inv-sum-total">
                             <span><?= t('Total a Liquidar') ?>:</span>

@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
-require_once __DIR__ . '/../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -108,7 +108,7 @@ $isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
 $basePath = $isLocalhost ? '/projects/bxpert/fatura/public' : '';
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 
-$logo = company_logo_pdf_src($d['logo_url'] ?? '');
+$logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
 
 /* ---------------- HTML ---------------- */
 
@@ -158,11 +158,9 @@ $html = '
   .code { width: 72px; }
   .unit { width: 72px; }
   .r { text-align: right; width: 90px; }
-  .sign { margin-top: 48px; }
-  .sign td { width: 50%; padding: 0 14px; }
-  .sign-box { border: 1px solid #ccc; padding: 12px; min-height: 150px; }
-  .sign-title { font-weight: bold; margin-bottom: 26px; }
-  .sign-line { border-top: 1px solid #000; padding-top: 5px; margin-top: 22px; }
+  .sign { margin-top: 70px; }
+  .sign td { width: 50%; text-align: center; padding: 0 20px; }
+  .line { border-top: 1px solid #000; padding-top: 5px; }
 </style>
 </head>
 <body>
@@ -217,20 +215,8 @@ $html = '
   . '
 <table class="sign">
   <tr>
-    <td>
-      <div class="sign-box">
-        <div class="sign-title">Responsável pela entrega</div>
-        <div class="sign-line">Nome e assinatura</div>
-        <div class="sign-line">Data</div>
-      </div>
-    </td>
-    <td>
-      <div class="sign-box">
-        <div class="sign-title">Responsável pela receção</div>
-        <div class="sign-line">Nome e assinatura</div>
-        <div class="sign-line">Data</div>
-      </div>
-    </td>
+    <td><div class="line">Entregue por</div></td>
+    <td><div class="line">Recebido por (nome, data e assinatura)</div></td>
   </tr>
 </table>
 

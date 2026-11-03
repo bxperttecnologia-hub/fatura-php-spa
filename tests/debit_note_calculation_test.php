@@ -11,6 +11,58 @@ function expectSameValue($expected, $actual, string $message): void
     }
 }
 
+final class DebitNoteSchemaStatement extends PDOStatement
+{
+    public function __construct(private array $rows)
+    {
+    }
+
+    public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array
+    {
+        return $this->rows;
+    }
+}
+
+final class DebitNoteSchemaPdo extends PDO
+{
+    public function __construct(private array $columns)
+    {
+    }
+
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
+    {
+        return new DebitNoteSchemaStatement($this->columns);
+    }
+}
+
+$doubleColumns = [];
+foreach ([
+    ['debit_note_items', 'quantity'],
+    ['debit_note_items', 'unit_price'],
+    ['debit_notes', 'subtotal_without_tax'],
+    ['debit_notes', 'total_discount'],
+    ['debit_notes', 'total_tax'],
+    ['debit_notes', 'final_total'],
+] as [$table, $column]) {
+    $doubleColumns[] = [
+        'table_name' => $table,
+        'column_name' => $column,
+        'data_type' => 'double',
+        'numeric_precision' => 53,
+        'numeric_scale' => 0,
+    ];
+}
+$doubleLimits = bx_debit_note_schema_limits(new DebitNoteSchemaPdo($doubleColumns));
+expectSameValue(3, $doubleLimits['quantity_scale'], 'double quantity precision');
+expectSameValue(1000000000000.0, $doubleLimits['max_amount'], 'double monetary limit');
+$doubleTotals = bx_calculate_debit_note_totals([[
+    'description' => 'Quantidade fraccionária em coluna double',
+    'quantity' => 0.5,
+    'unit_price' => 20000,
+    'tax' => 14,
+]], $doubleLimits['quantity_scale'], $doubleLimits['max_amount']);
+expectSameValue(11400.0, $doubleTotals['final_total'], 'double monetary total');
+
 $plain = bx_calculate_debit_note_totals([[
     'description' => 'Encargo',
     'quantity' => 2,

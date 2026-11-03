@@ -75,12 +75,18 @@ try {
 
   $pvp = (float)($_POST['pvp'] ?? 0);
 
-  // =========================
-  // RETENÇÃO
-  // =========================
-  $retention = isset($_POST['retention'])
-    ? (float)$_POST['retention']
-    : 0.0;
+  $retention = 0;
+  if ($item_id > 0) {
+    $existingItem = $pdo->prepare(
+      'SELECT retention FROM items WHERE id = ? AND company_id = ?'
+    );
+    $existingItem->execute([$item_id, $company_id]);
+    $existingRetention = $existingItem->fetchColumn();
+    if ($existingRetention === false) {
+      throw new Exception("Item não encontrado.");
+    }
+    $retention = (float)$existingRetention;
+  }
 
   // =========================
   // STOCK
@@ -103,7 +109,6 @@ try {
   if ($code === '') {
     throw new Exception("O código do item é obrigatório.");
   }
-
   // =========================
   // UPDATE
   // =========================
@@ -179,13 +184,17 @@ try {
   while ($stmt->nextRowset()) {
   }
 
+  $savedItemId = (int)($result['item_id'] ?? $item_id);
+  if ($savedItemId <= 0) {
+    throw new RuntimeException("Não foi possível identificar o artigo guardado.");
+  }
   // =========================
   // RESPONSE
   // =========================
   echo json_encode([
     "status"  => "success",
     "message" => $message,
-    "item_id" => $result['item_id'] ?? $item_id,
+    "item_id" => $savedItemId,
     "tax"     => $tax
   ]);
 } catch (Throwable $e) {

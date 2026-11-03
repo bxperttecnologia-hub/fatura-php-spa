@@ -37,7 +37,11 @@ $iban = $iban !== '' ? trim(substr($iban, 0, 4) . ' ' . chunk_split(substr($iban
 $documentType = strtoupper((string)($inv['document_type'] ?? 'FT'));
 $isProforma = $documentType === 'PF';
 $title = ($isProforma ? 'Proforma' : 'Factura') . ' n.º ' . (string)($inv['reference'] ?? '');
-$certificate = defined('AGT_CERTIFICATE') ? AGT_CERTIFICATE : 'FE/344/AGT/2026';
+$taxWithholdingLabel = match ((string)($inv['tax_withholding_type'] ?? 'none')) {
+  'withholding_6_5' => 'Retenção na Fonte ' . number_format((float)($inv['tax_withholding_rate'] ?? 0), 2, ',', '.') . '%',
+  'ipu_rent' => 'IPU — Rendas ' . number_format((float)($inv['tax_withholding_rate'] ?? 0), 2, ',', '.') . '%',
+  default => 'Imposto retido',
+};
 // Embutido (data URI): funciona igual no ecrã e no PDF, sem pedidos HTTP ao próprio servidor.
 $logoSrc = company_logo_pdf_src($inv['logo_url'] ?? '') ?: company_logo_src($inv['logo_url'] ?? '', $publicBasePath);
 $itemPages = [];
@@ -213,28 +217,28 @@ $pageCount = count($itemPages);
         <div class="t" style="left:0;top:94pt">Dados bancários:</div>
         <div class="t lv" style="top:94pt"><?= $escape($iban) ?></div>
 
-        <div class="t" style="left:320pt;top:34pt">Total líquido:</div>
+        <div class="t" style="left:320pt;top:34pt">Subtotal:</div>
         <div class="t rv" style="top:34pt"><?= $escape($money($inv['total_sum'])) ?></div>
-        <div class="t" style="left:320pt;top:50pt">Desconto:</div>
-        <div class="t rv" style="top:50pt"><?= $escape($money($inv['total_discount'])) ?></div>
-        <div class="t" style="left:320pt;top:66pt">Sem Imposto/IVA c/Desc.:</div>
-        <div class="t rv" style="top:66pt"><?= $escape($money($inv['subtotal_without_tax'] ?? ($inv['total_sum'] - $inv['total_discount']))) ?></div>
-        <div class="t" style="left:320pt;top:82pt">Imposto/IVA:</div>
-        <div class="t rv" style="top:82pt"><?= $escape($money($inv['total_tax'])) ?></div>
-        <div class="t" style="left:320pt;top:98pt">Retenção:</div>
-        <div class="t rv" style="top:98pt"><?= $escape($money($inv['retention_value'] ?? 0)) ?></div>
-        <div class="sep1"></div>
-        <div class="t final" style="left:320pt">Total:</div>
-        <div class="t final rv"><?= $escape($money($inv['final_total'])) ?></div>
-        <div class="sep2"></div>
+        <div class="t" style="left:320pt;top:46pt">Desconto:</div>
+        <div class="t rv" style="top:46pt"><?= $escape($money($inv['total_discount'])) ?></div>
+        <div class="t" style="left:320pt;top:58pt">Incidência após desconto:</div>
+        <div class="t rv" style="top:58pt"><?= $escape($money($inv['subtotal_without_tax'] ?? ($inv['total_sum'] - $inv['total_discount']))) ?></div>
+        <div class="t" style="left:320pt;top:70pt">IVA:</div>
+        <div class="t rv" style="top:70pt"><?= $escape($money($inv['total_tax'])) ?></div>
+        <div class="t" style="left:320pt;top:82pt">Retenção por artigo:</div>
+        <div class="t rv" style="top:82pt"><?= $escape($money($inv['retention_value'] ?? 0)) ?></div>
+        <div class="t" style="left:320pt;top:94pt;width:82pt;font-size:7pt"><?= $escape($taxWithholdingLabel) ?>:</div>
+        <div class="t rv" style="top:94pt"><?= $escape($money($inv['tax_withholding_amount'] ?? 0)) ?></div>
+        <div class="t" style="left:320pt;top:106pt">Total bruto:</div>
+        <div class="t rv" style="top:106pt"><?= $escape($money($inv['gross_total'] ?? ($inv['subtotal_without_tax'] + $inv['total_tax']))) ?></div>
+        <div class="sep1" style="top:118pt"></div>
+        <div class="t final" style="left:320pt;top:124pt">Total líquido a pagar:</div>
+        <div class="t final rv" style="top:124pt"><?= $escape($money($inv['net_payable'] ?? $inv['final_total'])) ?></div>
+        <div class="sep2" style="top:144pt"></div>
       </div>
     </div>
 
     <img class="qr" src="<?= $escape($qrSrc) ?>" alt="QR">
-    <div class="agt">
-      Factura processada pelo software certificado pela AGT | Nº <?= $escape($certificate) ?><br>
-      Powered by BXPERT
-    </div>
     <div class="pg"><?= $pageIndex + 1 ?>/<?= $pageCount ?></div>
   </main>
   <?php endforeach; ?>

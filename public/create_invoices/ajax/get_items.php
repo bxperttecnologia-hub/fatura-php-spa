@@ -85,6 +85,7 @@ try {
             i.unit_measure AS unit_measure_raw,
 
             i.tax,
+            GREATEST(0, ROUND(COALESCE(i.retention, 0), 4)) AS retention,
 
             /*
             PREÇOS

@@ -1,5 +1,3 @@
-const PERFIL_DEBUG = false;
-
 // Cropper
 let cropper = null;
 let cropModal = null;
@@ -205,28 +203,13 @@ $(document).ready(function () {
       formData[field.name] = field.value.trim();
     });
 
-    if (PERFIL_DEBUG) {
-      console.log("Perfil: dados enviados para atualização", formData);
-    }
-
     $.ajax({
-      url: "/api/profile",
-      type: "PATCH",
-      contentType: "application/json",
-      data: JSON.stringify(formData),
+      url: "perfil/ajax/update_profile.php",
+      type: "POST",
+      data: formData, // objeto simples: deixa o jQuery serializar (não use processData:false/contentType:false aqui)
       dataType: "json",
       success: function (response) {
-        if (PERFIL_DEBUG) {
-          console.log("Perfil: resposta do servidor", response);
-        }
-
         if (response.status === "success") {
-          if (window.APP && window.APP.user) {
-            window.APP.user.name = formData.name;
-            window.APP.user.nome = formData.name;
-            window.APP.user.email = formData.email;
-          }
-
           Swal.fire({
             icon: "success",
             title: "Sucesso!",
@@ -234,11 +217,7 @@ $(document).ready(function () {
             timer: 2000,
             showConfirmButton: false,
           }).then(() => {
-            const name = formData.name;
-            const email = formData.email;
-            const $profileCard = $("#profileImage").closest(".card");
-            if (name) $profileCard.find("h5").text(name);
-            if (email) $profileCard.find("small").text(email);
+            location.reload();
           });
         } else {
           Swal.fire({
@@ -249,21 +228,13 @@ $(document).ready(function () {
           });
         }
       },
-      error: function (xhr, textStatus, errorThrown) {
-        if (PERFIL_DEBUG) {
-          console.log("Perfil: falha na requisição de atualização", {
-            status: xhr.status,
-            textStatus,
-            errorThrown,
-            responseText: xhr.responseText,
-          });
-        }
+      error: function (xhr) {
         Swal.fire({
           icon: "error",
           title: "Erro!",
           text:
             (xhr.responseJSON && xhr.responseJSON.message) ||
-            `Falha ao atualizar perfil (HTTP ${xhr.status}: ${textStatus}).`,
+            "Erro inesperado. Tente novamente.",
         });
       },
     });

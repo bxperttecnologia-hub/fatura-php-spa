@@ -66,6 +66,7 @@ try {
             END AS item_type,
 
             i.item_type AS item_type_raw,
+            i.tax_classification,
 
             /*
             UNIDADE DE MEDIDA

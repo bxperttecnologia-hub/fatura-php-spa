@@ -9,6 +9,28 @@
  */
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/agt_qr.php';
+
+$agtEnvFile = dirname(__DIR__, 2) . '/.env';
+if (is_readable($agtEnvFile)) {
+    foreach (file($agtEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $value] = array_map('trim', explode('=', $line, 2));
+        if (in_array($key, ['AGT_API_URL', 'AGT_API_KEY', 'AGT_KEY_SECRET'], true) && bx_env($key) === false) {
+            bx_putenv($key . '=' . trim($value, " \t\n\r\0\x0B\"'"));
+        }
+    }
+}
+
+function agt_config_value(string $key): string
+{
+    $value = bx_env($key);
+    return $value === false ? '' : trim((string) $value);
+}
 
 /** Tipos de documento aceites pela AGT (solicitarSerie / listarSeries). */
 function agt_document_types(): array
@@ -66,9 +88,9 @@ function agt_unavailable_message(): string
 
 function agt_secret(): string
 {
-    $secret = defined('AGT_KEY_SECRET') ? base64_decode((string) AGT_KEY_SECRET, true) : false;
+    $secret = base64_decode(agt_config_value('AGT_KEY_SECRET'), true);
     if ($secret === false || strlen($secret) !== 32) {
-        throw new RuntimeException('AGT_KEY_SECRET não está configurado (32 bytes em base64) em app/config/config.php.');
+        throw new RuntimeException('Configure AGT_KEY_SECRET como Base64 de 32 bytes no ambiente PHP ou no ficheiro .env.');
     }
     return $secret;
 }
@@ -158,14 +180,19 @@ function agt_credentials(PDO $pdo, int $companyId): array
  */
 function agt_api_post(string $path, array $body, int $timeout = 60): array
 {
-    if (!defined('AGT_API_URL') || !defined('AGT_API_KEY') || AGT_API_KEY === '') {
-        throw new RuntimeException('AGT_API_URL / AGT_API_KEY não estão configurados em app/config/config.php.');
+    $apiUrl = agt_config_value('AGT_API_URL');
+    $apiKey = agt_config_value('AGT_API_KEY');
+    $urlParts = $apiUrl !== '' ? parse_url($apiUrl) : false;
+    if ($apiKey === '' || $urlParts === false
+        || !in_array($urlParts['scheme'] ?? '', ['http', 'https'], true)
+        || empty($urlParts['host'])) {
+        throw new RuntimeException('Configure AGT_API_URL (URL base da API adaptadora) e AGT_API_KEY no ambiente PHP ou no ficheiro .env.');
     }
-    $curl = curl_init(rtrim(AGT_API_URL, '/') . $path);
+    $curl = curl_init($apiUrl . $path);
     curl_setopt_array($curl, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'x-api-key: ' . AGT_API_KEY],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'x-api-key: ' . $apiKey],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => $timeout,
@@ -372,37 +399,6 @@ function agt_issue_number(PDO $pdo, int $companyId, string $docType, ?string $se
     return $prefix . $next;
 }
 
-/**
- * QR code da faturação eletrónica (consulta do documento no portal da AGT), obtido no
- * gerador externo e devolvido como data URI PNG. Null se o documento não tiver numeração
- * AGT (ex.: rascunho) ou se o gerador não responder.
- */
-function agt_fetch_qr_image(string $issuerNif, ?string $reference): ?string
-{
-    if (agt_parse_document_no($reference) === null || trim($issuerNif) === '') {
-        return null;
-    }
-    $url = 'https://fe.silicaerp.com/api/qrcode?nif=' . rawurlencode(trim($issuerNif))
-        . '&documento=' . rawurlencode((string) $reference);
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_TIMEOUT => 6,
-    ]);
-    $png = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-    curl_close($ch);
-
-    if ($png === false || $status !== 200 || stripos($type, 'image/png') !== 0) {
-        error_log("QR AGT: gerador sem resposta válida para {$reference} (HTTP {$status}).");
-        return null;
-    }
-    return 'data:image/png;base64,' . base64_encode($png);
-}
-
 /** "FT FT7826S1N/12" → ['FT', 'FT7826S1N', 12]; null se não for numeração AGT. */
 function agt_parse_document_no(?string $reference): ?array
 {
@@ -509,13 +505,16 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     $taxTotal = round($taxTotal, 2);
 
     $customerTaxId = preg_replace('/\s+/', '', (string) ($contact['contributor'] ?? ''));
+    if ($customerTaxId === '') {
+        throw new RuntimeException('Não é possível submeter a fatura à AGT sem um NIF de cliente confirmado.');
+    }
     $body = $creds + [
         'document_type' => strtoupper($invoice['document_type'] ?: 'FT'),
         'document_no' => $invoice['reference'],
         'document_date' => substr((string) $invoice['issue_date'], 0, 10),
         'document_status' => 'N',
         'system_entry_date' => str_replace(' ', 'T', (string) $invoice['agt_system_entry_date']),
-        'customer_tax_id' => $customerTaxId !== '' ? $customerTaxId : '999999999',
+        'customer_tax_id' => $customerTaxId,
         'customer_name' => mb_substr((string) (($contact['name'] ?? '') ?: 'Consumidor final'), 0, 200),
         'customer_country' => agt_country_code($contact['country'] ?? ''),
         'net_total' => $net,
@@ -525,11 +524,9 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     ];
     $retention = round((float) ($invoice['retention_value'] ?? 0), 2);
     if ($retention > 0) {
-        $body['withholding_tax_list'] = [[
-            'type' => 'II',
-            'amount' => $retention,
-            'description' => 'Retenção na fonte (Imposto Industrial)',
-        ]];
+        throw new RuntimeException(
+            'A retenção configurada não tem tipo fiscal AGT associado; a submissão foi interrompida para evitar um enquadramento presumido.'
+        );
     }
     return $body;
 }
@@ -550,7 +547,12 @@ function agt_submit_invoice(PDO $pdo, int $invoiceId): ?array
     $stmt->execute([$invoiceId]);
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
     $parsed = $invoice ? agt_parse_document_no($invoice['reference']) : null;
-    if (!$invoice || !$parsed || !agt_enabled($pdo, (int) $invoice['company_id'])) {
+    if (
+        !$invoice
+        || !$parsed
+        || !in_array($parsed[0], agt_invoice_document_types(), true)
+        || !agt_enabled($pdo, (int) $invoice['company_id'])
+    ) {
         return null;
     }
     if (in_array($invoice['agt_status'], ['sent', 'valid'], true)) {

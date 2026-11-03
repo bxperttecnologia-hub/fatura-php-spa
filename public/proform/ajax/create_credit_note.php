@@ -8,9 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   exit;
 }
 
-
 $invoiceId = (int)($_POST['invoice_id'] ?? 0);
-require_owned('invoices', $invoiceId);
 $reason = trim($_POST['reason'] ?? '');
 
 if (!$invoiceId) {

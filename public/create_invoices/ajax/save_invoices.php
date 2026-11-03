@@ -1,14 +1,25 @@
 <?php
-require_once '../../../app/config/db.php';
+require_once '../../../app/helpers/require_login.php';
 require_once '../../../app/helpers/subscription.php';
 require_once '../../../app/helpers/anonymous_contact.php';
+require_once '../../../app/helpers/document_tax.php';
 
-header('Content-Type: application/json');
-session_start();
+header('Content-Type: application/json; charset=utf-8');
 
-// 🔥 DEBUG (remove em produção)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Método inválido.']);
+    exit;
+}
+
+if (
+    empty($_SESSION['csrf'])
+    || !hash_equals((string)$_SESSION['csrf'], (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))
+) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Token CSRF inválido.']);
+    exit;
+}
 
 // Recebe dados
 $invoiceData = $_POST['invoice'] ?? [];
@@ -33,6 +44,24 @@ try {
 
     subscription_assert_active($pdo, $companyIdSession);
     subscription_check_limit($pdo, $companyIdSession, 'invoice');
+    $itemData = bx_document_assign_retention_rates($pdo, $itemData, $companyIdSession);
+    $taxSummary = bx_document_company_tax_summary($pdo, $itemData, $companyIdSession);
+    $taxWithholdingType = (string)($fatura['tax_withholding_type'] ?? 'none');
+    $eligibilityConfirmed = (string)($fatura['tax_withholding_confirmed'] ?? '') === '1';
+    $taxConfiguration = $taxWithholdingType === 'none'
+        ? null
+        : bx_document_active_tax_configuration($pdo, $companyIdSession, $taxWithholdingType, (string)$fatura['issue_date']);
+    $regimeStmt = $pdo->prepare('SELECT vat_regime FROM companies WHERE id = ?');
+    $regimeStmt->execute([$companyIdSession]);
+    $taxRegime = $regimeStmt->fetchColumn();
+    $withholdingSummary = bx_document_tax_withholding_summary(
+        $itemData,
+        $taxSummary,
+        $taxWithholdingType,
+        $taxConfiguration,
+        $eligibilityConfirmed,
+        $taxRegime === false ? null : (string)$taxRegime
+    );
 
     // =========================
     // 📌 CONTACTO
@@ -49,6 +78,7 @@ try {
         $contactId = get_anonymous_contact_id($pdo, $companyIdSession);
     } elseif (!empty($fatura['contact_id'])) {
         $contactId = (int)$fatura['contact_id'];
+        require_owned('contact', $contactId);
     } else {
 
         $stmt = $pdo->prepare("SELECT id FROM contact WHERE email = ? AND company_id = ?");
@@ -97,15 +127,23 @@ try {
         'reference' => $fatura['reference'] ?? null,
         'observation' => $fatura['observation'] ?? null,
         'series' => $fatura['series'] ?? null,
-        'retention' => (float)($fatura['retention'] ?? 0),
+        'retention' => 0.0,
         'currency' => $fatura['currency'],
         'manual_exchange_rate' => (float)($fatura['manual_exchange_rate'] ?? 1),
-        'total_sum' => (float)$fatura['total_sum'],
-        'total_discount' => (float)($fatura['total_discount'] ?? 0),
-        'subtotal_without_tax' => (float)($fatura['subtotal_without_tax'] ?? 0),
-        'total_tax' => (float)($fatura['total_tax'] ?? 0),
-        'retention_value' => (float)($fatura['retention_value'] ?? 0),
-        'final_total' => (float)$fatura['final_total'],
+        'total_sum' => $taxSummary['total_sum'],
+        'total_discount' => $taxSummary['total_discount'],
+        'subtotal_without_tax' => $taxSummary['subtotal'],
+        'total_tax' => $taxSummary['total_tax'],
+        'retention_value' => $taxSummary['retention'],
+        'tax_withholding_type' => $withholdingSummary['type'],
+        'tax_withholding_rate' => $withholdingSummary['rate'],
+        'tax_withholding_base' => $withholdingSummary['base'],
+        'tax_withholding_amount' => $withholdingSummary['amount'],
+        'tax_withholding_description' => $withholdingSummary['description'],
+        'tax_withholding_confirmed' => $withholdingSummary['confirmed'] ? 1 : 0,
+        'gross_total' => $withholdingSummary['gross_total'],
+        'net_payable' => $withholdingSummary['net_payable'],
+        'final_total' => $withholdingSummary['net_payable'],
         'converted_total' => (float)($fatura['converted_total'] ?? 0),
         'status' => 1
     ];
@@ -130,8 +168,8 @@ try {
     }
 
     $stmt = $pdo->prepare("
-        INSERT INTO invoice_items (invoice_id,item_id,quantity,unit_price,tax,discount)
-        VALUES (?,?,?,?,?,?)
+        INSERT INTO invoice_items (invoice_id,item_id,quantity,unit_price,tax,discount,retention_rate)
+        VALUES (?,?,?,?,?,?,?)
     ");
 
     foreach ($itemData as $item) {
@@ -146,7 +184,8 @@ try {
             (float)$item['quantity'],
             (float)$item['unit_price'],
             (float)$item['tax'],
-            (float)$item['discount']
+            (float)$item['discount'],
+            (float)$item['retention_rate']
         ]);
     }
 
@@ -165,7 +204,10 @@ try {
 
     error_log($e->getMessage());
 
-    http_response_code(500);
+    $statusCode = $e instanceof InvalidArgumentException
+        ? 422
+        : (in_array($e->getCode(), [404, 409, 422], true) ? $e->getCode() : 500);
+    http_response_code($statusCode);
 
     echo json_encode([
         'success' => false,

@@ -1,84 +1,241 @@
 <?php
-require_once __DIR__ . '../../../../app/config/db.php';
-session_start();
 
-// Verifique se o company_id está na sessão
-if (!isset($_SESSION['user']['company_id'])) {
-    echo json_encode(['error' => 'Company ID não encontrado na sessão.']);
+require_once '../../../app/config/db.php';
+// document_tax.php: procura nas localizações possíveis (local XAMPP / produção)
+foreach (
+    [
+        __DIR__ . '/../../../app/helpers/document_tax.php',
+        __DIR__ . '/../../../helpers/document_tax.php',
+        __DIR__ . '/../../app/helpers/document_tax.php',
+        __DIR__ . '/../../../../app/helpers/document_tax.php',
+    ] as $bxHelperFile
+) {
+    if (is_file($bxHelperFile)) {
+        require_once $bxHelperFile;
+        break;
+    }
+}
+if (!function_exists('bx_document_tax_summary')) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Não foi possível carregar o ficheiro document_tax.php.']);
     exit;
 }
 
-$company_id = $_SESSION['user']['company_id'];
 
-// Consulta para obter os dados para os gráficos
-$query = "SELECT 
-        YEAR(issue_date) AS year,
-        contact_id,
-        SUM(final_total) AS total,
-        name
-    FROM invoices i
-     Left JOIN contact c
-ON i.contact_id = c.id
-    WHERE i.company_id = :company_id
-    GROUP BY year, contact_id
-    ORDER BY year DESC
-";
+header('Content-Type: application/json');
 
-$stmt = $pdo->prepare($query);
-$stmt->bindParam(':company_id', $company_id, PDO::PARAM_INT);
-$stmt->execute();
-$results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$proformaId = (int)($_GET['id'] ?? 0);
 
-// Preparar dados para gráficos
-$yearlyData = [];
-$contactData = [];
-
-foreach ($results as $row) {
-    // Organizar os dados por ano
-    if (!isset($yearlyData[$row['year']])) {
-        $yearlyData[$row['year']] = 0;
-    }
-    $yearlyData[$row['year']] += $row['total'];
-
-    // Organizar os dados por contato
-    if (!isset($contactData[$row['name']])) {
-        $contactData[$row['name']] = 0;
-    }
-    $contactData[$row['name']] += $row['total'];
+if ($proformaId <= 0) {
+    echo json_encode([
+        'success' => false,
+        'error' => 'Proforma não encontrada.'
+    ]);
+    exit;
 }
 
-// Preparar os dados para resposta
-$graphs = [
-    'yearly' => [
-        'labels' => array_keys($yearlyData),
-        'values' => array_values($yearlyData)
-    ],
-    'contact' => [
-        'labels' => array_keys($contactData),
-        'values' => array_values($contactData)
-    ]
-];
+try {
 
-// Consulta para obter as Últimas Facturas emitidas
-$queryInvoices = "SELECT i.*,c.name,
-        concat(YEAR(i.issue_date),'/',i.id) AS codigo, cc.currency as currency_name, cc.symbol, cc.position,
-        cc.iso_code, ist.name as status_name
-         FROM invoices i
-    Left JOIN contact c ON i.contact_id = c.id
-    left join currencies cc on cc.iso_code = i.currency
-    left join invoice_status ist on ist.id = i.status
-    WHERE i.company_id = :company_id
-    ORDER BY issue_date DESC
-   
-";
+    /*
+    |--------------------------------------------------------------------------
+    | PROFORMA
+    |--------------------------------------------------------------------------
+    */
 
-$stmtInvoices = $pdo->prepare($queryInvoices);
-$stmtInvoices->bindParam(':company_id', $company_id, PDO::PARAM_INT);
-$stmtInvoices->execute();
-$invoices = $stmtInvoices->fetchAll(PDO::FETCH_ASSOC);
+    $sql = "
+        SELECT
+            p.id,
+            p.reference,
+            p.converted_invoice_id,
+            CONCAT(YEAR(p.issue_date), '/', p.id) AS codigo,
 
-// Enviar os dados em formato JSON
-echo json_encode([
-    'invoices' => $invoices,
-    'graphs' => $graphs
-]);
+            p.issue_date,
+            p.due_date,
+
+            p.observation,
+            p.series,
+
+            p.currency,
+            p.manual_exchange_rate,
+            p.retention,
+
+            p.total_sum,
+            p.total_discount,
+            p.subtotal_without_tax,
+            p.total_tax,
+            p.final_total,
+            'PF' AS document_type,
+
+            ps.name AS status_invoice,
+            ps.color,
+            ps.text_color,
+
+            c.id AS contact_id,
+            c.name AS client_name,
+            c.address AS client_address,
+            c.contributor AS client_contributor,
+            c.country AS client_country,
+            c.city AS client_city,
+
+            comp.name AS company_name,
+            comp.address AS company_address,
+            comp.city AS company_city,
+            comp.country AS company_country,
+            comp.registration_number,
+            comp.email AS company_email,
+            comp.phone AS company_phone,
+            comp.logo_url,
+            comp.vat_regime,
+            comp.goods_services,
+            comp.bank_details,
+
+            cur.symbol,
+            cur.position,
+
+            cur2.symbol AS company_symbol,
+            cur2.position AS company_position,
+
+            comp.currency AS currency_company
+
+        FROM proformas p
+
+        INNER JOIN contact c
+            ON c.id = p.contact_id
+
+        INNER JOIN companies comp
+            ON comp.id = p.company_id
+
+        INNER JOIN proforma_status ps
+            ON ps.id = p.status
+
+        LEFT JOIN currencies cur
+            ON cur.iso_code = 'AOA'
+
+        LEFT JOIN currencies cur2
+            ON cur2.iso_code = comp.currency
+
+        WHERE p.id = ?
+        LIMIT 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$proformaId]);
+
+    $proforma = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$proforma) {
+        throw new Exception('Proforma não encontrada.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TEXTO PADRÃO
+    |--------------------------------------------------------------------------
+    */
+
+    if (empty(trim($proforma['goods_services'] ?? ''))) {
+        $proforma['goods_services'] =
+            "Os bens e serviços foram colocados à disposição do adquirente na data do documento.";
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ITENS
+    |--------------------------------------------------------------------------
+    */
+
+    $sqlItems = "
+        SELECT
+            pi.item_id,
+
+            it.code,
+            it.name,
+            it.description,
+
+            pi.quantity,
+            pi.unit_price,
+            pi.tax,
+            pi.discount
+
+        FROM proforma_items pi
+
+        INNER JOIN items it
+            ON it.id = pi.item_id
+
+        WHERE pi.proforma_id = ?
+    ";
+
+    $stmtItems = $pdo->prepare($sqlItems);
+    $stmtItems->execute([$proformaId]);
+
+    $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+
+    $proforma['items'] = $items;
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESUMO DE IMPOSTOS
+    |--------------------------------------------------------------------------
+    */
+
+    $taxSummary = bx_document_tax_summary($items, (string)($proforma['vat_regime'] ?? ''));
+    $retentionValue = max(
+        0.0,
+        ($taxSummary['subtotal'] + $taxSummary['total_tax'])
+            * (float)($proforma['retention'] ?? 0) / 100
+    );
+    $taxSummary = bx_document_tax_summary(
+        $items,
+        (string)($proforma['vat_regime'] ?? ''),
+        $retentionValue
+    );
+    $proforma['total_sum'] = $taxSummary['total_sum'];
+    $proforma['total_discount'] = $taxSummary['total_discount'];
+    $proforma['subtotal_without_tax'] = $taxSummary['subtotal'];
+    $proforma['total_tax'] = $taxSummary['total_tax'];
+    $proforma['retention_value'] = $taxSummary['retention'];
+    $proforma['retention'] = (float)($proforma['retention'] ?? 0);
+    $proforma['final_total'] = $taxSummary['final_total'];
+    $proforma['tax_details'] = array_map(
+        static fn(array $row): array => [
+            'tax_rate' => $row['rate'],
+            'tax_base' => $row['base'],
+            'tax_value' => $row['iva'],
+            'retention_rate' => (float)($proforma['retention'] ?? 0),
+            'retention_value' => $row['retention'],
+            'total_sum' => $taxSummary['total_sum'],
+            'symbol' => $proforma['company_symbol'] ?? '',
+            'position' => $proforma['company_position'] ?? 'right',
+        ],
+        $taxSummary['rows']
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | PROFORMA NÃO TEM PAGAMENTOS
+    |--------------------------------------------------------------------------
+    */
+
+    $proforma['paid_total'] = 0;
+    $proforma['saldo'] = $proforma['final_total'];
+    $proforma['pay_status'] = 'proforma';
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
+
+    echo json_encode([
+        'success' => true,
+        'data' => $proforma
+    ]);
+} catch (Throwable $e) {
+
+    http_response_code(500);
+
+    echo json_encode([
+        'success' => false,
+        'error' => $e->getMessage()
+    ]);
+}

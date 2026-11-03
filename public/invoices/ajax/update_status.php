@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 ob_start();
 
 ini_set('display_errors', 1);
@@ -9,6 +8,22 @@ header('Content-Type: application/json');
 
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/invoice_helper.php';
+
+session_start();
+$companyIdSession = (int)($_SESSION['user']['company_id'] ?? 0);
+if ($companyIdSession <= 0) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Sessão inválida.']);
+    exit;
+}
+if (
+    empty($_SESSION['csrf'])
+    || !hash_equals((string)$_SESSION['csrf'], (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))
+) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Token CSRF inválido.']);
+    exit;
+}
 
 // 🔐 FUNÇÃO HASH
 function gerarHash($invoiceDate, $systemEntryDate, $invoiceNo, $grossTotal, $previousHash = "")
@@ -28,9 +43,7 @@ try {
         throw new Exception("Método inválido");
     }
 
-
     $invoiceId = $_POST['invoice_id'] ?? null;
-    require_owned('invoices', (int)$invoiceId);
     $newStatusName = $_POST['new_status'] ?? 'Pendente';
     $documentType = $_POST['document_type'] ?? 'FT';
 
@@ -44,10 +57,13 @@ try {
     $stmt = $pdo->prepare("
         SELECT *
         FROM invoices
-        WHERE id = :id
+        WHERE id = :id AND company_id = :company_id
         FOR UPDATE
     ");
-    $stmt->execute([':id' => $invoiceId]);
+    $stmt->execute([
+        ':id' => $invoiceId,
+        ':company_id' => $companyIdSession,
+    ]);
 
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -65,6 +81,9 @@ try {
         : $documentType;
 
     $docType = strtoupper(trim($docType));
+    if (!in_array($docType, ['FT', 'FR'], true)) {
+        throw new Exception("Tipo de documento inválido");
+    }
 
     $statusMap = invoice_status_map();
 
@@ -74,29 +93,54 @@ try {
 
     $statusId = $statusMap[$newStatusName];
 
+    $currentReference = $invoice['reference'];
+    $hadDuplicateReference = $currentReference !== null
+        && $currentReference !== ''
+        && reference_exists(
+            $pdo,
+            (int)$invoice['company_id'],
+            (string)$currentReference,
+            (int)$invoiceId
+        );
+    if ($hadDuplicateReference) {
+        $currentReference = null;
+    }
+
     //  GERAR NUMERAÇÃO
     $result = apply_invoice_number_rules(
         $pdo,
         (int)$invoice['company_id'],
         $newStatusName,
-        $invoice['reference'],
-        $docType,
-        $invoice['series'] ?? null
+        $currentReference,
+        $docType
     );
 
     $newReference = $result['reference'];
+    $series = (string)($invoice['series'] ?? '');
+    if (
+        $statusId !== 1
+        && (
+            preg_match('/^RASCUNHO-(?:FT|FR)-\d{4}$/', $series)
+            || $hadDuplicateReference
+        )
+    ) {
+        $agtDocumentNumber = agt_parse_document_no($newReference);
+        $series = $agtDocumentNumber[1] ?? date('Y', strtotime((string)$invoice['issue_date']));
+    }
 
     // 🔹 ATUALIZAR NUMERO E STATUS
     $update = $pdo->prepare("
         UPDATE invoices 
-        SET status = ?, reference = ?, document_type = ?
-        WHERE id = ?
+        SET status = ?, reference = ?, series = ?, document_type = ?
+        WHERE id = ? AND company_id = ?
     ");
     $update->execute([
         $statusId,
         $newReference,
+        $series,
         $docType,
-        $invoiceId
+        $invoiceId,
+        $companyIdSession
     ]);
 
     // =========================
@@ -151,16 +195,12 @@ try {
 
     $pdo->commit();
 
-    // Faturação eletrónica: envia à AGT depois de emitida (não bloqueia a emissão se falhar).
-    $agt = stripos($newStatusName, 'cancel') === 0 ? null : agt_submit_invoice($pdo, (int)$invoiceId);
-
     $output = ob_get_clean();
 
     echo json_encode([
         'success' => true,
         'reference' => $newReference,
         'hash' => $hash,
-        'agt' => $agt,
         'debug' => $output
     ]);
 } catch (Throwable $e) {

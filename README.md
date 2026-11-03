@@ -49,6 +49,7 @@
 
 ## Geração de documentos pela API
 - Recibos, notas de crédito/débito, notas de entrega e folhas salariais são gerados pelo servidor genérico do `bxintelligence-api-rest`.
+- O histórico documental de facturas/proformas usa as relações `converted_invoice_id` e `invoice_id`, sem migração adicional; a consulta e os PDFs validam a empresa e a permissão do módulo.
 - Para instalações existentes, execute `app/migrations/20261020_add_debit_note_discounts.sql` na base MySQL para ativar descontos nas notas de débito.
 - O browser obtém um token de documentos de cinco minutos através da sessão PHP autenticada e envia-o à API; o token restringe a consulta à empresa associada à sessão.
 - Configure `DOCUMENT_API_TOKEN_SECRET` com o mesmo segredo aleatório (mínimo 32 bytes) no ambiente do PHP e da API; configure `DOCUMENT_API_BASE_URL` com a URL pública da API.

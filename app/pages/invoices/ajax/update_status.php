@@ -93,26 +93,51 @@ try {
 
     $statusId = $statusMap[$newStatusName];
 
+    $currentReference = $invoice['reference'];
+    $hadDuplicateReference = $currentReference !== null
+        && $currentReference !== ''
+        && reference_exists(
+            $pdo,
+            (int)$invoice['company_id'],
+            (string)$currentReference,
+            (int)$invoiceId
+        );
+    if ($hadDuplicateReference) {
+        $currentReference = null;
+    }
+
     //  GERAR NUMERAÇÃO
     $result = apply_invoice_number_rules(
         $pdo,
         (int)$invoice['company_id'],
         $newStatusName,
-        $invoice['reference'],
+        $currentReference,
         $docType
     );
 
     $newReference = $result['reference'];
+    $series = (string)($invoice['series'] ?? '');
+    if (
+        $statusId !== 1
+        && (
+            preg_match('/^RASCUNHO-(?:FT|FR)-\d{4}$/', $series)
+            || $hadDuplicateReference
+        )
+    ) {
+        $agtDocumentNumber = agt_parse_document_no($newReference);
+        $series = $agtDocumentNumber[1] ?? date('Y', strtotime((string)$invoice['issue_date']));
+    }
 
     // 🔹 ATUALIZAR NUMERO E STATUS
     $update = $pdo->prepare("
         UPDATE invoices 
-        SET status = ?, reference = ?, document_type = ?
+        SET status = ?, reference = ?, series = ?, document_type = ?
         WHERE id = ? AND company_id = ?
     ");
     $update->execute([
         $statusId,
         $newReference,
+        $series,
         $docType,
         $invoiceId,
         $companyIdSession

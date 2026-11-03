@@ -639,9 +639,6 @@ $(document).ready(function () {
     const tax = form.querySelector("#tax");
     if (tax) tax.value = "";
 
-    const retention = form.querySelector("#retention_tax");
-    if (retention) retention.value = "0";
-
     modalTitle.innerHTML = defaultTitle;
 
     if (typeof syncUI === "function") {

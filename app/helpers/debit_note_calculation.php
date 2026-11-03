@@ -30,7 +30,9 @@ function bx_debit_note_schema_limits(PDO $pdo): array
     $quantityType = strtolower((string)$quantityColumn['data_type']);
     if (in_array($quantityType, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) {
         $quantityScale = 0;
-    } elseif (in_array($quantityType, ['decimal', 'numeric', 'float', 'double', 'real'], true)) {
+    } elseif (in_array($quantityType, ['float', 'double', 'real'], true)) {
+        $quantityScale = 3;
+    } elseif (in_array($quantityType, ['decimal', 'numeric'], true)) {
         $quantityScale = (int)($quantityColumn['numeric_scale'] ?? 0);
         if ($quantityScale < 0 || $quantityScale > 3) {
             throw new RuntimeException('A precisão fraccionária da quantidade não é suportada.');
@@ -51,11 +53,16 @@ function bx_debit_note_schema_limits(PDO $pdo): array
         if (!$column) {
             throw new RuntimeException('Não foi possível verificar os limites monetários das notas de débito.');
         }
+        $type = strtolower((string)$column['data_type']);
+        if (in_array($type, ['float', 'double', 'real'], true)) {
+            continue;
+        }
+        if (!in_array($type, ['decimal', 'numeric'], true)) {
+            throw new RuntimeException('O tipo monetário das notas de débito não é suportado.');
+        }
         $precision = (int)($column['numeric_precision'] ?? 0);
         $scale = (int)($column['numeric_scale'] ?? 0);
-        $type = strtolower((string)$column['data_type']);
-        if (!in_array($type, ['decimal', 'numeric', 'float', 'double', 'real'], true)
-            || $precision <= $scale || $scale < 2) {
+        if ($precision <= $scale || $scale < 2) {
             throw new RuntimeException('O tipo monetário das notas de débito não é suportado.');
         }
         $maxAmount = min($maxAmount, (10 ** ($precision - $scale)) - 0.01);

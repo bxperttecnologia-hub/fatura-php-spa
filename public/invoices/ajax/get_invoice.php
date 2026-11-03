@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../app/helpers/document_tax.php';
@@ -24,9 +23,20 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    // Faturas e proformas têm sequências de id independentes: o tipo tem de vir no pedido
-    // (antes "detetava-se" por existir uma proforma com o mesmo id, o que trocava documentos).
-    $isProforma = ($_GET['type'] ?? '') === 'proforma';
+    $isProforma = false;
+
+    $check = $pdo->prepare("
+        SELECT id
+        FROM proformas
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+    $check->execute([$documentId]);
+
+    if ($check->fetch()) {
+        $isProforma = true;
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -39,8 +49,7 @@ try {
     $statusTable   = $isProforma ? 'proforma_status' : 'invoice_status';
     $statusAlias   = $isProforma ? 'ps' : 'ivs';
     $documentType  = $isProforma ? "'PF'" : 'd.document_type';
-    $retentionValueColumn = $isProforma ? '0' : 'd.retention_value';
-    $paidTotalColumn = $isProforma ? '0' : 'd.paid_total';
+    $retentionValue = $isProforma ? '0' : 'd.retention_value';
 
     /*
     |--------------------------------------------------------------------------
@@ -80,11 +89,18 @@ try {
             d.series,
             d.total_sum,
             d.final_total,
-            {$paidTotalColumn} AS recorded_paid_total,
             d.total_discount,
             d.retention,
-            {$retentionValueColumn} AS retention_value,
+            {$retentionValue} AS retention_value,
             d.total_tax,
+            d.tax_withholding_type,
+            d.tax_withholding_rate,
+            d.tax_withholding_base,
+            d.tax_withholding_amount,
+            d.tax_withholding_description,
+            d.tax_withholding_confirmed,
+            d.gross_total,
+            d.net_payable,
             d.manual_exchange_rate,
             d.reference,
             d.converted_total,
@@ -120,12 +136,11 @@ try {
             ON cr2.iso_code = comp.currency
 
         WHERE d.id = ?
-          AND d.company_id = ?
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$documentId, session_company_id()]);
+    $stmt->execute([$documentId]);
 
     $document = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -159,7 +174,8 @@ try {
             di.quantity,
             di.unit_price,
             di.tax,
-            di.discount
+            di.discount,
+            di.retention_rate
         FROM {$itemsTable} di
         INNER JOIN items it
             ON it.id = di.item_id
@@ -200,7 +216,7 @@ try {
     $document['retention_value'] = $taxSummary['retention'];
     $document['final_total'] = $taxSummary['final_total'];
     $document['tax_details'] = array_map(
-        static fn(array $row, int $index): array => [
+        static fn(array $row): array => [
             'tax_rate' => $row['rate'],
             'tax_base' => $row['base'],
             'tax_value' => $row['iva'],
@@ -210,8 +226,7 @@ try {
             'symbol' => $document['company_symbol'] ?? '',
             'position' => $document['company_position'] ?? 'right',
         ],
-        $taxSummary['rows'],
-        array_keys($taxSummary['rows'])
+        $taxSummary['rows']
     );
 
     /*
@@ -231,13 +246,12 @@ try {
 
         $stmtPaid->execute([$documentId]);
 
-        $receiptPaid = (float)$stmtPaid->fetchColumn();
-        $paid = max($receiptPaid, (float)($document['recorded_paid_total'] ?? 0));
+        $paid = (float)$stmtPaid->fetchColumn();
 
         $document['paid_total'] = $paid;
 
         $document['saldo'] =
-            max(0, (float)$document['final_total'] - $paid);
+            (float)$document['final_total'] - $paid;
 
         $document['pay_status'] =
             $paid <= 0

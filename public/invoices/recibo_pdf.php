@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
-require_once __DIR__ . '/../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -40,8 +40,6 @@ SELECT
     i.issue_date,
     i.reference AS invoice_reference,
     i.final_total,
-    i.retention AS invoice_retention,
-    i.retention_value AS invoice_retention_value,
     i.currency AS invoice_currency,
 
     cr.symbol AS moneySymbol,
@@ -137,11 +135,8 @@ $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 | Ajusta automaticamente para localhost
 */
 
-$isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
-
-$basePath = $isLocalhost
-  ? '/projects/bxpert/fatura/public'
-  : '';
+$basePath = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$basePath = $basePath === '.' ? '' : $basePath;
 
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 
@@ -151,7 +146,7 @@ $BASE_URL = "{$protocol}://{$host}{$basePath}";
 |--------------------------------------------------------------------------
 */
 
-$logo = company_logo_pdf_src($d['logo_url'] ?? '');
+$logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
 
 
 /*
@@ -163,12 +158,8 @@ $logo = company_logo_pdf_src($d['logo_url'] ?? '');
 $facturado = (float)$d['final_total'];
 $pago = (float)$d['amount_paid'];
 
-// Retenção na fonte: a da própria fatura (antes estava fixa em 6,5% para todos os recibos).
-$retencaoPercent = (float)($d['invoice_retention'] ?? 0);
-$retencaoValor = (float)($d['invoice_retention_value'] ?? 0);
-if ($retencaoPercent > 0 && $retencaoValor <= 0) {
-    $retencaoValor = ($facturado * $retencaoPercent) / 100;
-}
+$retencaoPercent = 6.5;
+$retencaoValor = ($facturado * $retencaoPercent) / 100;
 
 $valorPendente = (float)$d['pending_amount'];
 
@@ -639,13 +630,21 @@ $html .= '
 
         </tr>
 
-' . ($retencaoPercent > 0 ? '
         <tr>
-          <td>Retenção (' . number_format($retencaoPercent, 2, ',', '.') . '%)</td>
-          <td>' . money($facturado) . ' Kz</td>
-          <td class="right">' . money($retencaoValor) . ' Kz</td>
+
+          <td>
+            Retenção (6,50%)
+          </td>
+
+          <td>
+            ' . money($facturado) . ' Kz
+          </td>
+
+          <td class="right">
+            ' . money($retencaoValor) . ' Kz
+          </td>
+
         </tr>
-' : '') . '
 
       </table>
 

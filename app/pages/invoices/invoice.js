@@ -80,9 +80,28 @@
 
         currentInvoice = inv; // guarda para modal
         document_type = String(inv.document_type || "FT").toUpperCase();
-        $("#invoice-document-label").text(
-          document_type === "FR" ? "Factura-Recibo" : "Factura",
-        );
+        const documentLabels = {
+          FT: "Factura",
+          FR: "Factura-Recibo",
+          NC: "Nota de Crédito",
+          ND: "Nota de Débito",
+        };
+        const documentLabel = documentLabels[document_type] || "Factura";
+        const documentNumber =
+          inv.status_invoice === "Rascunho"
+            ? `${inv.series}/${inv.id}`
+            : inv.numero_validacao || inv.reference || `${inv.series}/${inv.id}`;
+        $("#invoice-document-label").text(documentLabel);
+        window.BXDocumentHistory?.setCurrentDocument({
+          type: "invoice",
+          id: Number(inv.id),
+          label: documentLabel,
+          number: documentNumber,
+          document_code: document_type,
+          date: inv.issue_date,
+          status: inv.status_invoice,
+          client: inv.client_name || "",
+        });
 
         // Esconde todos os botões antes
         $(
@@ -92,11 +111,7 @@
         // Preenche formulário/UI
         $('#formPagamento [name="invoice_id"]').val(inv.id);
 
-        $("#fatura-id").text(
-          inv.status_invoice === "Rascunho"
-            ? `${inv.series}/${inv.id}`
-            : inv.numero_validacao,
-        );
+        $("#fatura-id").text(documentNumber);
 
         const statusText = inv.status_invoice || "-";
         $("#status-invoice")
@@ -116,7 +131,7 @@
           $("#btnCloneToInvoice").removeClass("d-none");
           $("#btnDeleteInvoice").removeClass("d-none");
         } else if (normalizedStatus.startsWith("cancel")) {
-          $("#generatePdf, #btnEnviar, #btnNotaCredito").removeClass("d-none");
+          $("#generatePdf, #btnEnviar").removeClass("d-none");
         } else {
           $("#btnRecibo").removeClass("d-none");
           $("#btnCloneToInvoice").removeClass("d-none");
@@ -278,18 +293,6 @@
 
     // ---------- 3) abrir recibo ou modal Pagamento ----------
     function showPaymentModal() {
-      const balance = Number(
-        currentInvoice?.saldo ??
-          (Number(currentInvoice?.final_total || 0) -
-            Number(currentInvoice?.paid_total || 0)),
-      );
-      if (balance <= 0.009) {
-        return Swal.fire({
-          icon: "info",
-          title: "Fatura sem saldo pendente",
-          text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
-        });
-      }
       bootstrap.Modal.getOrCreateInstance(
         document.getElementById("modalPagamento"),
       ).show();
@@ -414,22 +417,15 @@
     });
 
     // ---------- 4) abre modal Pagamento ----------
-    $("#modalPagamento").on("show.bs.modal", function (event) {
+    $("#modalPagamento").on("show.bs.modal", function () {
       if (!currentInvoice) return alert("Factura ainda não carregada!");
+
+      console.log(currentInvoice);
 
       const total = Number(currentInvoice.final_total) || 0;
       const jaPago = Number(currentInvoice.paid_total) || 0;
       const retention = Number(currentInvoice.retention) || 0;
-      const saldo = Math.max(0, total - jaPago);
-      if (saldo <= 0.009) {
-        event.preventDefault();
-        Swal.fire({
-          icon: "info",
-          title: "Fatura sem saldo pendente",
-          text: "Esta fatura já está totalmente paga. Não é possível registar outro pagamento.",
-        });
-        return;
-      }
+      const saldo = total - jaPago;
 
       $("#pg_valor")
         .val(saldo.toFixed(2))
@@ -1657,7 +1653,7 @@
 
     // ---------------------------------------------------------------------------
     // PRÉ-VISUALIZAR E IMPRIMIR
-    // O botão "Imprimir / Baixar PDF" abre o modal #modalPrintPreview: o utilizador
+    // O botão "Imprimir / Baixar" abre o modal #modalPrintPreview: o utilizador
     // escolhe o formato (A4 em PDF ou talão de 80mm), vê o documento e só depois
     // imprime ou descarrega.
     // ---------------------------------------------------------------------------
@@ -1685,6 +1681,16 @@
         token: 0, // descarta respostas de pedidos antigos
       };
 
+      function ppDocument() {
+        return window.BXDocumentHistory?.getSelectedDocument()
+          || (currentInvoice ? {
+            type: "invoice",
+            id: Number(currentInvoice.id),
+            isRoot: true,
+            document_code: currentInvoice.document_type,
+          } : null);
+      }
+
       function ppSetState(state, message) {
         ppLoading.classList.toggle("d-none", state !== "loading");
         ppError.classList.toggle("d-none", state !== "error");
@@ -1697,13 +1703,25 @@
       }
 
       function ppSyncControls() {
+        const selected = ppDocument();
+        const thermalRadio = ppModalEl.querySelector('input[name="pp_format"][value="thermal"]');
+        const thermalLabel = thermalRadio?.closest(".pp-format");
+        const thermalAvailable = selected?.isRoot && selected.type === "invoice";
+        if (thermalLabel) thermalLabel.classList.toggle("d-none", !thermalAvailable);
+        if (!thermalAvailable && pp.format === "thermal") {
+          pp.format = "a4";
+          const a4Radio = ppModalEl.querySelector('input[name="pp_format"][value="a4"]');
+          if (a4Radio) a4Radio.checked = true;
+        }
+
         const isA4 = pp.format === "a4";
         ppCopiesBox.classList.toggle("d-none", !isA4);
         ppDownloadBtn.classList.toggle("d-none", !isA4);
       }
 
       function ppFilename() {
-        const base = String(currentInvoice?.reference || "factura").replace(
+        const selected = window.BXDocumentHistory?.getSelectedDocument();
+        const base = String(selected?.number || currentInvoice?.reference || "factura").replace(
           /[\\/:*?"<>|]+/g,
           "-",
         );
@@ -1717,8 +1735,9 @@
 
       async function ppRender() {
         const token = ++pp.token;
+        const selected = ppDocument();
 
-        if (!currentInvoice) {
+        if (!selected) {
           ppSetState("error", "A factura ainda está a carregar.");
           return;
         }
@@ -1730,7 +1749,7 @@
             if (token === pp.token) ppSetState("ready");
           };
 
-          if (pp.format === "thermal") {
+          if (pp.format === "thermal" && selected.isRoot && selected.type === "invoice") {
             const html = buildThermalReceiptHtml(currentInvoice).replace(
               "</head>",
               PP_THERMAL_SCREEN_CSS + "</head>",
@@ -1742,7 +1761,13 @@
           let entry = pp.cache.get(pp.copies);
 
           if (!entry) {
-            const blob = await fetchInvoicePdfBlob(currentInvoice, pp.copies);
+            const blob = selected.isRoot && selected.type === "invoice"
+              ? await fetchInvoicePdfBlob({
+                ...currentInvoice,
+                id: selected.id,
+                document_type: selected.document_code || currentInvoice.document_type,
+              }, pp.copies)
+              : await window.BXDocumentHistory.fetchPdf(selected);
             if (token !== pp.token) return; // o utilizador já mudou de opção
             entry = { blob, url: URL.createObjectURL(blob) };
             pp.cache.set(pp.copies, entry);
@@ -1780,6 +1805,16 @@
           ppSyncControls();
           ppRender();
         });
+      });
+
+      document.addEventListener("bx:document-selected", () => {
+        pp.token++;
+        ppReleaseCache();
+        pp.format = "a4";
+        const a4Radio = ppModalEl.querySelector('input[name="pp_format"][value="a4"]');
+        if (a4Radio) a4Radio.checked = true;
+        ppSyncControls();
+        if (ppModalEl.classList.contains("show")) ppRender();
       });
 
       document.getElementById("ppCopies").addEventListener("change", (e) => {
@@ -1948,6 +1983,32 @@
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           });
+        const parseLocalizedNumber = (value) => {
+          let normalized = String(value ?? "").trim().replace(/[\s\u00a0\u202f]/g, "");
+          if (!normalized) return Number.NaN;
+
+          if (normalized.includes(",")) {
+            if (!/^\d*(?:\.\d{3})*(?:,\d+)$/.test(normalized)) return Number.NaN;
+            normalized = normalized.replace(/\./g, "").replace(",", ".");
+          } else if (/^\d{1,3}(?:\.\d{3})+$/.test(normalized)) {
+            normalized = normalized.replace(/\./g, "");
+          } else if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
+            return Number.NaN;
+          }
+
+          const parsed = Number(normalized);
+          return Number.isFinite(parsed) ? parsed : Number.NaN;
+        };
+        const invoiceItems = Array.isArray(currentInvoice.items)
+          ? currentInvoice.items
+          : [];
+        if (invoiceItems.length > 50) {
+          return Swal.fire({
+            icon: "error",
+            title: "Não foi possível transportar as linhas",
+            text: "A factura tem mais de 50 linhas, o limite de linhas por nota de débito.",
+          });
+        }
 
         // Formulário com linhas editáveis
         const form = await Swal.fire({
@@ -1988,12 +2049,15 @@
               let sub = 0;
               let tax = 0;
               body.querySelectorAll("tr").forEach((tr) => {
-                const q = parseFloat(tr.querySelector(".nd-qty").value) || 0;
-                const p = parseFloat(tr.querySelector(".nd-price").value) || 0;
-                const t = parseFloat(tr.querySelector(".nd-tax").value) || 0;
-                const base = Math.round(q * p * 100) / 100;
+                const q = parseLocalizedNumber(tr.querySelector(".nd-qty").value) || 0;
+                const p = parseLocalizedNumber(tr.querySelector(".nd-price").value) || 0;
+                const t = parseLocalizedNumber(tr.querySelector(".nd-tax").value) || 0;
+                const gross = Math.round(q * p * 100) / 100;
+                const discountRate = Number(tr.dataset.discount) || 0;
+                const discount = Math.round(gross * discountRate) / 100;
+                const base = Math.round((gross - discount) * 100) / 100;
                 const taxVal = Math.round(base * t) / 100;
-                tr.querySelector(".nd-line-total").textContent = fmt(base);
+                tr.querySelector(".nd-line-total").textContent = fmt(base + taxVal);
                 sub += base;
                 tax += taxVal;
               });
@@ -2002,13 +2066,13 @@
               document.getElementById("ndTotal").textContent = fmt(sub + tax);
             };
 
-            const addLine = () => {
+            const addLine = (item = null) => {
               const tr = document.createElement("tr");
               tr.innerHTML = `
               <td><input type="text" class="form-control form-control-sm nd-desc" maxlength="500" placeholder="Descrição"></td>
-              <td><input type="number" class="form-control form-control-sm nd-qty" min="0" step="any" value="1"></td>
-              <td><input type="number" class="form-control form-control-sm nd-price" min="0" step="any" value=""></td>
-              <td><input type="number" class="form-control form-control-sm nd-tax" min="0" max="100" step="any" value="14"></td>
+                <td><input type="text" inputmode="decimal" class="form-control form-control-sm nd-qty" value="1"></td>
+                <td><input type="text" inputmode="decimal" class="form-control form-control-sm nd-price" value=""></td>
+                <td><input type="text" inputmode="decimal" class="form-control form-control-sm nd-tax" value="14"></td>
               <td class="nd-line-total" style="text-align:right">0,00</td>
               <td><button type="button" class="btn btn-sm btn-link text-danger nd-del" title="Remover">&times;</button></td>
             `;
@@ -2019,13 +2083,29 @@
                   recalc();
                 }
               });
+              const description = item?.description || item?.name || item?.code || "";
+              const itemTax = Number(item?.tax ?? 14);
+              const effectiveTax = window.BXDocumentTax?.effectiveRate(
+                itemTax,
+                currentInvoice?.vat_regime,
+              ) ?? itemTax;
+              tr.querySelector(".nd-desc").value = description;
+              tr.querySelector(".nd-qty").value = item?.quantity ?? 1;
+              tr.querySelector(".nd-price").value = item?.unit_price ?? "";
+              tr.querySelector(".nd-tax").value = effectiveTax;
+              tr.dataset.discount = String(item?.discount ?? 0);
               body.appendChild(tr);
+              recalc();
             };
 
             document
               .getElementById("ndAddLine")
               .addEventListener("click", addLine);
-            addLine();
+            if (invoiceItems.length) {
+              invoiceItems.forEach((item) => addLine(item));
+            } else {
+              addLine();
+            }
           },
           preConfirm: () => {
             const reason = document.getElementById("ndReason").value.trim();
@@ -2039,11 +2119,9 @@
             for (let i = 0; i < rows.length; i++) {
               const tr = rows[i];
               const description = tr.querySelector(".nd-desc").value.trim();
-              const quantity = parseFloat(tr.querySelector(".nd-qty").value);
-              const unit_price = parseFloat(
-                tr.querySelector(".nd-price").value,
-              );
-              const tax = parseFloat(tr.querySelector(".nd-tax").value);
+              const quantity = parseLocalizedNumber(tr.querySelector(".nd-qty").value);
+              const unit_price = parseLocalizedNumber(tr.querySelector(".nd-price").value);
+              const tax = parseLocalizedNumber(tr.querySelector(".nd-tax").value);
 
               if (!description) {
                 Swal.showValidationMessage(
@@ -2069,7 +2147,13 @@
                 );
                 return false;
               }
-              items.push({ description, quantity, unit_price, tax });
+              items.push({
+                description,
+                quantity,
+                unit_price,
+                discount: Number(tr.dataset.discount) || 0,
+                tax,
+              });
             }
 
             return { reason, items };
