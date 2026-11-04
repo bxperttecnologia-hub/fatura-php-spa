@@ -1,7 +1,8 @@
 <?php
 
-require_once '../../../app/config/db.php';
-require_once '../../../app/helpers/document_helper.php';
+require_once __DIR__ . '/../../../app/helpers/require_login.php';
+require_once __DIR__ . '/../../../app/helpers/document_helper.php';
+require_once __DIR__ . '/../../../app/helpers/agt_receipt.php';
 
 header('Content-Type: application/json');
 
@@ -11,6 +12,11 @@ $amount         = round((float)($_POST['amount'] ?? 0), 2);
 $pay_date       = trim($_POST['pay_date'] ?? '');
 $payment_method = trim($_POST['payment_method'] ?? '');
 $notes          = trim($_POST['notes'] ?? '');
+$companyId      = (int)($_SESSION['user']['company_id'] ?? 0);
+
+if ($pay_date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $pay_date)) {
+  $pay_date = date('Y-m-d');
+}
 
 if ($invoice_id <= 0) {
   http_response_code(422);
@@ -39,16 +45,20 @@ try {
   $st = $pdo->prepare("
         SELECT
             id,
+            reference,
+            document_type,
+            issue_date,
             final_total,
             paid_total,
             company_id,
-            status
+            status,
+            agt_status
         FROM invoices
-        WHERE id = ?
+        WHERE id = ? AND company_id = ?
         FOR UPDATE
     ");
 
-  $st->execute([$invoice_id]);
+  $st->execute([$invoice_id, $companyId]);
 
   $invoice = $st->fetch(PDO::FETCH_ASSOC);
 
@@ -76,7 +86,8 @@ try {
 
   if ($amount > $currentPending) {
     throw new Exception(
-      "O valor pago não pode ser superior ao saldo pendente ({$currentPending})."
+      "O valor pago não pode ser superior ao saldo pendente ({$currentPending}).",
+      422
     );
   }
 
@@ -107,24 +118,48 @@ try {
 
   // ======================================================
   // GERAR NÚMERO DO RECIBO
+  // Fatura com numeração AGT → recibo RC da série AGT ("RC <série>/<n>"),
+  // que depois é enviado à AGT. Senão, numeração interna (legado).
   // ======================================================
 
-  $stmt = $pdo->prepare("
-        SELECT COALESCE(MAX(number), 0) + 1
-        FROM receipts
-        FOR UPDATE
-    ");
+  $agtReceipt = agt_receipt_required($pdo, $invoice);
+  $agtSeriesId = null;
 
-  $stmt->execute();
+  if ($agtReceipt) {
+    if ($invoice['agt_status'] !== 'valid') {
+      throw new Exception(
+        $invoice['agt_status'] === 'sent'
+          ? 'A fatura ainda está a aguardar validação da AGT. Tente o recibo daqui a pouco.'
+          : 'A fatura não foi validada pela AGT; o recibo só pode ser emitido sobre uma fatura válida.',
+        422
+      );
+    }
+    if (strtotime($pay_date) < strtotime(substr((string)$invoice['issue_date'], 0, 10)) || strtotime($pay_date) > time()) {
+      throw new Exception('A data do pagamento tem de estar entre a data da fatura e hoje.', 422);
+    }
+    $rc = agt_receipt_next_number($pdo, $companyId);
+    $serie = $rc['series_code'];
+    $number = $rc['number'];
+    $reference = $rc['reference'];
+    $agtSeriesId = $rc['series_id'];
+  } else {
+    $stmt = $pdo->prepare("
+          SELECT COALESCE(MAX(number), 0) + 1
+          FROM receipts
+          FOR UPDATE
+      ");
 
-  $number = (int)$stmt->fetchColumn();
+    $stmt->execute();
 
-  $reference = 'FR-' . str_pad(
-    $number,
-    6,
-    '0',
-    STR_PAD_LEFT
-  );
+    $number = (int)$stmt->fetchColumn();
+
+    $reference = 'FR-' . str_pad(
+      $number,
+      6,
+      '0',
+      STR_PAD_LEFT
+    );
+  }
 
   // ======================================================
   // INSERIR RECIBO
@@ -140,9 +175,10 @@ try {
             amount_paid,
             pending_amount,
             payment_method,
-            notes
+            notes,
+            agt_series_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
   $stmt->execute([
@@ -154,7 +190,8 @@ try {
     $amount,
     $newPendingAmount,
     $payment_method,
-    $notes
+    $notes,
+    $agtSeriesId
   ]);
 
   $receipt_id = (int)$pdo->lastInsertId();
@@ -183,6 +220,10 @@ try {
 
   $pdo->commit();
 
+  // Envio à AGT depois do commit: o recibo fica registado mesmo que a AGT falhe
+  // (pode reenviar-se depois); o estado fica em receipts.agt_*.
+  $agt = $agtReceipt ? agt_submit_receipt($pdo, $receipt_id) : null;
+
   echo json_encode([
     'success' => true,
     'receipt_id' => $receipt_id,
@@ -191,7 +232,8 @@ try {
     'amount_paid' => $amount,
     'paid_total' => $newPaidTotal,
     'pending_amount' => $newPendingAmount,
-    'status' => $status
+    'status' => $status,
+    'agt' => $agt
   ]);
 } catch (Throwable $e) {
 
@@ -200,6 +242,7 @@ try {
   }
 
   http_response_code(in_array($e->getCode(), [404, 422], true) ? $e->getCode() : 500);
+
 
   echo json_encode([
     'success' => false,

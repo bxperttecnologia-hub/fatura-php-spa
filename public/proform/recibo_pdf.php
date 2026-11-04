@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
-require_once __DIR__ . '/../../helpers/company_logo.php';
+require_once __DIR__ . '/../../app/helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;

@@ -11,11 +11,14 @@
  *   POST ?action=save_options  código de isenção por omissão (exemption_code)
  *   GET  ?action=invoice&id=   estado AGT de uma fatura (consulta a AGT se ainda estiver pendente)
  *   POST ?action=invoice_send  (re)envia uma fatura que não chegou à AGT (id)
+ *   GET  ?action=receipt&id=   estado AGT de um recibo (RC)
+ *   POST ?action=receipt_send  (re)envia um recibo que não chegou à AGT (id)
  *   GET  ?action=documents     últimas faturas com numeração AGT
  *   POST ?action=check_pending consulta o estado das faturas pendentes
  */
 require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once __DIR__ . '/../../../app/helpers/agt.php';
+require_once __DIR__ . '/../../../app/helpers/agt_receipt.php';
 
 ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
@@ -35,6 +38,8 @@ $allowedMethods = [
     'status' => 'GET',
     'invoice' => 'GET',
     'documents' => 'GET',
+    'receipt' => 'GET',
+    'receipt_send' => 'POST',
     'save_key' => 'POST',
     'create_series' => 'POST',
     'sync' => 'POST',
@@ -378,6 +383,33 @@ try {
             }
             agt_respond(200, ['success' => true, 'enabled' => true, 'agt' => $state]);
 
+        case 'receipt':
+        case 'receipt_send':
+            $id = (int) ($_REQUEST['id'] ?? 0);
+            $stmt = $pdo->prepare('SELECT r.* FROM receipts r JOIN invoices i ON i.id = r.invoice_id WHERE r.id = ? AND i.company_id = ?');
+            $stmt->execute([$id, $companyId]);
+            $receipt = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$receipt) {
+                agt_respond(404, ['success' => false, 'message' => 'Recibo não encontrado.']);
+            }
+            if (!agt_parse_document_no($receipt['reference'] ?? null)) {
+                agt_respond(200, ['success' => true, 'enabled' => agt_enabled($pdo, $companyId), 'agt' => null]);
+            }
+            if ($action === 'receipt_send') {
+                if (!in_array($receipt['agt_status'], [null, 'error'], true)) {
+                    agt_respond(422, ['success' => false, 'message' => 'Este recibo já foi recebido pela AGT.']);
+                }
+                $state = agt_submit_receipt($pdo, $id);
+            } elseif (
+                $receipt['agt_status'] === 'sent'
+                && (empty($receipt['agt_checked_at']) || strtotime($receipt['agt_checked_at']) < time() - 20)
+            ) {
+                $state = agt_check_receipt($pdo, $id);
+            } else {
+                $state = agt_receipt_state($receipt);
+            }
+            agt_respond(200, ['success' => true, 'enabled' => true, 'agt' => $state]);
+
         case 'documents':
             $stmt = $pdo->prepare("
                 SELECT i.id, i.reference, i.document_type, i.issue_date, i.final_total, c.name AS customer,
@@ -403,6 +435,12 @@ try {
             $checked = 0;
             foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
                 agt_check_invoice($pdo, (int) $id);
+                $checked++;
+            }
+            $stmt = $pdo->prepare("SELECT r.id FROM receipts r JOIN invoices i ON i.id = r.invoice_id WHERE i.company_id = ? AND r.agt_status = 'sent' ORDER BY r.agt_sent_at LIMIT 20");
+            $stmt->execute([$companyId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                agt_check_receipt($pdo, (int) $id);
                 $checked++;
             }
             agt_respond(200, ['success' => true, 'checked' => $checked]);

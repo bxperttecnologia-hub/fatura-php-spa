@@ -42,6 +42,7 @@ function agt_document_types(): array
         'ND' => 'Nota de Débito',
         'FA' => 'Fatura de Adiantamento',
         'AF' => 'Fatura/Recibo de Autofaturação',
+        'RC' => 'Recibo',
     ];
 }
 

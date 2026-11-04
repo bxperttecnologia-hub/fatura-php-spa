@@ -331,6 +331,25 @@
             ? new Date(receipt.created_at).toLocaleDateString("pt-PT")
             : "-";
 
+          const agt = receipt.agt;
+          const agtClass = !agt
+            ? ""
+            : agt.status === "valid"
+              ? "bg-success-subtle text-success-emphasis"
+              : agt.status === "sent"
+                ? "bg-warning-subtle text-warning-emphasis"
+                : "bg-danger-subtle text-danger-emphasis";
+          const agtHtml = agt
+            ? `<div class="mt-2 small">
+                <span class="badge ${agtClass}">AGT: ${escapeReceiptHtml(agt.label || "")}</span>
+                ${(agt.errors || []).length ? `<ul class="mb-0 mt-1 text-danger">${agt.errors.map((e) => `<li>${escapeReceiptHtml(e)}</li>`).join("")}</ul>` : ""}
+              </div>`
+            : "";
+          const agtButtons = agt
+            ? `${["error", null].includes(agt.status) ? `<button class="btn btn-sm btn-warning js-receipt-agt" data-action="receipt_send" data-id="${receipt.id}"><i class="fa fa-paper-plane me-1"></i>Reenviar à AGT</button>` : ""}
+               ${agt.status === "sent" ? `<button class="btn btn-sm btn-outline-secondary js-receipt-agt" data-action="receipt" data-id="${receipt.id}"><i class="fa fa-rotate me-1"></i>Consultar AGT</button>` : ""}`
+            : "";
+
           return `
         <div class="border rounded-3 p-3 mb-3 bg-light shadow-sm">
           
@@ -338,7 +357,7 @@
             
             <div>
               <h6 class="mb-1 fw-bold">
-                Recibo #${receipt.receipt_number || receipt.id}
+                Recibo ${escapeReceiptHtml(receipt.reference || "#" + receipt.id)}
               </h6>
 
               <small class="text-muted">
@@ -351,6 +370,7 @@
             </span>
 
           </div>
+          ${agtHtml}
 
           <div class="d-flex gap-2 mt-3">
 
@@ -370,6 +390,7 @@
               <i class="fa fa-print me-1"></i>
               Imprimir / Baixar PDF
             </button>
+            ${agtButtons}
 
           </div>
 
@@ -384,6 +405,44 @@
     /* ======================================================
      * UTILITÁRIOS
      * ====================================================== */
+
+    function escapeReceiptHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    }
+
+    function receiptAgtHtml(agt) {
+      if (!agt) return "";
+      return `<div class="mt-2 small text-start"><strong>AGT:</strong> ${escapeReceiptHtml(agt.label || "")}${
+        (agt.errors || []).length ? `<ul class="mb-0 mt-1">${agt.errors.map((e) => `<li>${escapeReceiptHtml(e)}</li>`).join("")}</ul>` : ""
+      }</div>`;
+    }
+
+    function reloadReceipts() {
+      if (!currentInvoice || !currentInvoice.id) return;
+      $.getJSON("invoices/ajax/get_last_receipt.php", { invoice_id: currentInvoice.id }).done((res) => {
+        if (res && res.success) renderReceipts(res.data || []);
+      });
+    }
+
+    $(document).off("click", ".js-receipt-agt");
+    $(document).on("click", ".js-receipt-agt", async function () {
+      const btn = this;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/agt/ajax/agt.php?action=${action}&id=${encodeURIComponent(id)}`, action === "receipt_send"
+          ? { method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || "" }, body: new URLSearchParams({ id }) }
+          : { credentials: "same-origin" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.message || "Não foi possível comunicar com a AGT.");
+        reloadReceipts();
+      } catch (error) {
+        Swal.fire("Faturação eletrónica", error.message, "error");
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
     function formatCurrency(value) {
       return Number(value || 0).toLocaleString("pt-PT", {
@@ -477,22 +536,24 @@
             }
           }
 
+          const agtFailed = resp && resp.agt && ["error", "invalid"].includes(resp.agt.status);
+          const receiptRef = escapeReceiptHtml((resp && resp.reference) || "");
           await Swal.fire({
-            icon: receiptDownloadError ? "warning" : "success",
+            icon: receiptDownloadError || agtFailed ? "warning" : "success",
             title: receiptDownloadError ? "Pagamento registrado" : "Sucesso",
-            text: receiptDownloadError
-              ? `O pagamento foi registrado, mas não foi possível descarregar o recibo: ${receiptDownloadError.message}`
-              : "Pagamento registrado com sucesso!",
+            html: (receiptDownloadError
+              ? `O pagamento foi registrado (recibo <b>${receiptRef}</b>), mas não foi possível descarregar o recibo: ${escapeReceiptHtml(receiptDownloadError.message)}`
+              : `Pagamento registrado. Recibo <b>${receiptRef}</b> emitido.`) + receiptAgtHtml(resp && resp.agt),
           });
           refreshCurrentInvoice();
         })
         .fail((xhr) => {
           Swal.close();
+          const message = (xhr.responseJSON && (xhr.responseJSON.error || xhr.responseJSON.message)) || xhr.responseText || "Tente novamente.";
           Swal.fire({
             icon: "error",
-            title: "Erro",
-            text:
-              "Erro ao registrar: " + (xhr.responseText || "Tente novamente."),
+            title: "Não foi possível registar o pagamento",
+            text: message,
           });
         })
         .always(() => {

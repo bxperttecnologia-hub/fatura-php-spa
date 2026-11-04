@@ -2,7 +2,9 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
-require_once __DIR__ . '/../../helpers/company_logo.php';
+require_once __DIR__ . '/../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../app/helpers/agt_qr.php';
+require_once __DIR__ . '/../../app/helpers/agt.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -30,6 +32,8 @@ SELECT
     r.id AS receipt_id,
     r.serie,
     r.number,
+    r.reference AS receipt_reference,
+    r.agt_status AS receipt_agt_status,
     r.pay_date,
     r.amount_paid,
     r.payment_method,
@@ -40,6 +44,12 @@ SELECT
     i.issue_date,
     i.reference AS invoice_reference,
     i.final_total,
+    i.subtotal_without_tax,
+    i.total_tax,
+    i.retention_value,
+    i.tax_withholding_amount,
+    i.tax_withholding_rate,
+    i.tax_withholding_description,
     i.currency AS invoice_currency,
 
     cr.symbol AS moneySymbol,
@@ -54,6 +64,7 @@ SELECT
     comp.registration_number AS company_nif,
     comp.logo_url,
     comp.website,
+    comp.vat_regime,
 
     c.name AS client_name,
     c.email AS client_email,
@@ -158,10 +169,34 @@ $logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
 $facturado = (float)$d['final_total'];
 $pago = (float)$d['amount_paid'];
 
-$retencaoPercent = 6.5;
-$retencaoValor = ($facturado * $retencaoPercent) / 100;
-
 $valorPendente = (float)$d['pending_amount'];
+
+// Parte da fatura liquidada por este recibo: base, IVA e retenção na mesma proporção.
+$share = $facturado > 0 ? min(1, $pago / $facturado) : 1;
+$ivaFatura = (float)$d['total_tax'];
+$ivaRecibo = round($ivaFatura * $share, 2);
+$baseRecibo = round($pago - $ivaRecibo, 2);
+$retencaoFatura = (float)$d['tax_withholding_amount'] > 0 ? (float)$d['tax_withholding_amount'] : (float)$d['retention_value'];
+$retencaoValor = round($retencaoFatura * $share, 2);
+$retencaoPercent = (float)$d['tax_withholding_rate'];
+$retencaoLabel = trim((string)$d['tax_withholding_description']) !== ''
+  ? $d['tax_withholding_description']
+  : 'Retenção na fonte' . ($retencaoPercent > 0 ? ' (' . number_format($retencaoPercent, 2, ',', '.') . '%)' : '');
+$ivaPercent = (float)$d['subtotal_without_tax'] > 0 ? round($ivaFatura / (float)$d['subtotal_without_tax'] * 100, 2) : 0;
+$ivaLabel = $ivaFatura > 0 ? 'IVA - ' . rtrim(rtrim(number_format($ivaPercent, 2, ',', ''), '0'), ',') . '%' : 'Isento - 0%';
+
+$regimeIva = match (strtolower((string)($d['vat_regime'] ?? ''))) {
+  'geral'        => 'Regime Geral',
+  'simplificado' => 'Regime Simplificado',
+  'isento'       => 'Regime de Exclusão',
+  default        => '-',
+};
+
+// Recibo emitido na faturação eletrónica: "RC <série>/<n>" e QR de consulta da AGT.
+$agtNumber = agt_parse_document_no($d['receipt_reference'] ?? null) ? $d['receipt_reference'] : null;
+$receiptTitle = $agtNumber ?? ('RG ' . $d['number'] . '/' . $d['serie']);
+$agtQrUrl = $agtNumber ? agt_qr_url((string)$d['company_nif'], $agtNumber) : null;
+$qrHtml = $agtQrUrl ? '<img src="' . agt_qr_image($agtQrUrl) . '" style="width:95px;height:95px">' : '';
 
 /*
 |--------------------------------------------------------------------------
@@ -485,7 +520,7 @@ $html .= '
   </div>
 
   <div class="bold fs15 mt10">
-    Recibo n.º RG ' . h($d['number']) . '/' . h($d['serie']) . '
+    Recibo n.º ' . h($receiptTitle) . '
   </div>
 
   <div class="line"></div>
@@ -535,7 +570,9 @@ $html .= '
   <div class="bold mt10">
     Observações
   </div>
-
+' . (trim((string)$d['notes']) !== '' ? '
+  <div class="fs12 mt10">' . nl2br(h($d['notes'])) . '</div>
+' : '') . '
   <div class="small-line"></div>
 
   <!-- TABELA -->
@@ -617,34 +654,35 @@ $html .= '
         <tr>
 
           <td>
-            Isento - 0
+            ' . h($ivaLabel) . '
           </td>
 
           <td>
-            ' . money($facturado) . ' Kz
+            ' . money($baseRecibo) . ' ' . h($d['moneySymbol']) . '
           </td>
 
           <td class="right">
-            0,00 Kz
+            ' . money($ivaRecibo) . ' ' . h($d['moneySymbol']) . '
           </td>
 
         </tr>
-
+' . ($retencaoValor > 0 ? '
         <tr>
 
           <td>
-            Retenção (6,50%)
+            ' . h($retencaoLabel) . '
           </td>
 
           <td>
-            ' . money($facturado) . ' Kz
+            ' . money($baseRecibo) . ' ' . h($d['moneySymbol']) . '
           </td>
 
           <td class="right">
-            ' . money($retencaoValor) . ' Kz
+            ' . money($retencaoValor) . ' ' . h($d['moneySymbol']) . '
           </td>
 
         </tr>
+' : '') . '
 
       </table>
 
@@ -661,7 +699,7 @@ $html .= '
           </td>
 
           <td class="total-line bold right">
-            ' . money($pago) . ' Kz
+            ' . money($pago) . ' ' . h($d['moneySymbol']) . '
           </td>
 
         </tr>
@@ -708,8 +746,19 @@ $html .= '
     <div class="footer-line"></div>
 
     <div class="fs12 mt10">
-      Regime simplificado
+      ' . h($regimeIva) . '
     </div>
+' . ($qrHtml !== '' ? '
+    <table class="mt20">
+      <tr>
+        <td width="110">' . $qrHtml . '</td>
+        <td style="vertical-align:middle;font-size:10px">
+          Documento emitido no âmbito da faturação eletrónica da AGT.<br>
+          Consulte a autenticidade lendo o código QR.
+        </td>
+      </tr>
+    </table>
+' : '') . '
 
   </div>
 
@@ -738,7 +787,7 @@ $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->render();
 
 $dompdf->stream(
-  'Recibo_' . $d['serie'] . '-' . $d['number'] . '.pdf',
+  'Recibo_' . preg_replace('/[^A-Za-z0-9_-]+/', '-', $receiptTitle) . '.pdf',
   [
     'Attachment' => true
   ]
