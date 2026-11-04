@@ -1,6 +1,20 @@
 <?php
 require_once '../app/views/layout_creation.php';
 ?>
+<?php
+require_once '../app/config/db.php';
+require_once '../app/helpers/agt.php';
+$bxAgtEnabled = false;
+try {
+    $bxAgtEnabled = agt_enabled($pdo, (int)($_SESSION['user']['company_id'] ?? 0));
+} catch (Throwable $e) {
+    $bxAgtEnabled = false;
+}
+?>
+<script>
+    // Faturação eletrónica: usado para avisar quando o cliente não tem NIF.
+    window.BX_AGT = { enabled: <?= json_encode($bxAgtEnabled) ?>, consumerTaxId: <?= json_encode(agt_consumer_tax_id()) ?> };
+</script>
 <link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 <style>
     :root {
@@ -614,6 +628,6 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="proform/invoice.js?v=0.8"></script>
+<script src="proform/invoice.js?v=0.9"></script>
 
 <?php require_once '../app/views/footer.php'; ?>

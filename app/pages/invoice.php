@@ -1,6 +1,20 @@
 <?php
 require_once '../app/views/layout_creation.php';
 ?>
+<?php
+require_once '../app/config/db.php';
+require_once '../app/helpers/agt.php';
+$bxAgtEnabled = false;
+try {
+    $bxAgtEnabled = agt_enabled($pdo, (int)($_SESSION['user']['company_id'] ?? 0));
+} catch (Throwable $e) {
+    $bxAgtEnabled = false;
+}
+?>
+<script>
+    // Faturação eletrónica: usado para avisar quando o cliente não tem NIF.
+    window.BX_AGT = { enabled: <?= json_encode($bxAgtEnabled) ?>, consumerTaxId: <?= json_encode(agt_consumer_tax_id()) ?> };
+</script>
 <link rel="stylesheet" href="/assets/css/documents.css?v=1.2">
 <style>
     :root {
@@ -1070,7 +1084,7 @@ require_once '../app/views/layout_creation.php';
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
 <script src="/assets/js/document-history.js?v=1.0" data-spa-repeat></script>
-<script src="invoices/invoice.js?v=5.10" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=5.11" data-spa-repeat></script>
 
 <script>
 // Estado da fatura na AGT (faturação eletrónica, ambiente HML).
@@ -1088,8 +1102,10 @@ require_once '../app/views/layout_creation.php';
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmt = (value) => value ? new Date(String(value).replace(' ', 'T')).toLocaleString('pt-PT') : '';
     let timer = null;
+    let lastAgt = null;
 
     function render(agt) {
+        lastAgt = agt;
         if (!agt) {
             panel.classList.add('d-none');
             return;
@@ -1101,6 +1117,7 @@ require_once '../app/views/layout_creation.php';
         if (agt.request_id) parts.push(`Pedido AGT nº ${esc(agt.request_id)}`);
         if (agt.sent_at) parts.push(`enviada em ${esc(fmt(agt.sent_at))}`);
         if (agt.checked_at) parts.push(`última consulta ${esc(fmt(agt.checked_at))}`);
+        if (agt.consumer_final) parts.push(`cliente sem NIF: enviada com o NIF de consumidor final ${esc(agt.consumer_tax_id || '')}`);
         meta.innerHTML = parts.join(' · ');
         errors.innerHTML = (agt.errors || []).map((e) => `<li>${esc(e)}</li>`).join('');
         errors.classList.toggle('d-none', !(agt.errors || []).length);
@@ -1140,7 +1157,21 @@ require_once '../app/views/layout_creation.php';
     }
 
     refreshBtn.addEventListener('click', () => withButton(refreshBtn, () => load('invoice')));
-    sendBtn.addEventListener('click', () => withButton(sendBtn, () => load('invoice_send', 'POST')));
+    sendBtn.addEventListener('click', async () => {
+        if (lastAgt?.consumer_final) {
+            const ok = await Swal.fire({
+                icon: 'warning',
+                title: 'Cliente sem NIF',
+                html: `A fatura será enviada à AGT com o NIF de consumidor final (<b>${esc(lastAgt.consumer_tax_id || '')}</b>).`,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar à AGT',
+                cancelButtonText: 'Cancelar',
+            });
+            if (!ok.isConfirmed) return;
+        }
+        withButton(sendBtn, () => load('invoice_send', 'POST'));
+    });
+    window.bxAgtInvoiceReload = () => load().catch(() => {});
     load().catch(() => panel.classList.add('d-none'));
 })();
 </script>

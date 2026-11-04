@@ -382,11 +382,24 @@ $(function () {
     const documentLabels = { FT: "Fatura", FR: "Fatura/Recibo" };
     const buttonHtml = $btn.html();
 
+    // Cliente sem NIF: a AGT recebe o NIF de consumidor final. O utilizador é avisado antes de emitir.
+    const agtConfig = window.BX_AGT || {};
+    const withoutNif = !String(currentInvoice?.client_contributor || "").trim();
+    const consumerWarning = agtConfig.enabled && withoutNif
+      ? `<div class="alert alert-warning text-start small mt-3 mb-0">
+           <b>Cliente sem NIF.</b> O documento será enviado à AGT com o NIF de consumidor final
+           (<b>${$("<div>").text(agtConfig.consumerTaxId || "999999999").html()}</b>).
+         </div>`
+      : "";
+
     // Situação da faturação eletrónica devolvida pelo servidor depois da emissão.
     const agtSummary = (agt) => {
       if (!agt) return "";
       const errors = (agt.errors || []).map((e) => `<li>${$("<div>").text(e).html()}</li>`).join("");
-      return `<div class="mt-2 small text-start"><strong>AGT:</strong> ${$("<div>").text(agt.label || "").html()}${
+      const consumer = agt.consumer_final
+        ? `<div>Enviada com o NIF de consumidor final (${$("<div>").text(agt.consumer_tax_id || "").html()}).</div>`
+        : "";
+      return `<div class="mt-2 small text-start"><strong>AGT:</strong> ${$("<div>").text(agt.label || "").html()}${consumer}${
         errors ? `<ul class="mb-0 mt-1">${errors}</ul>` : ""
       }</div>`;
     };
@@ -398,7 +411,8 @@ $(function () {
       html:
         "Escolha o documento a emitir.<br>" +
         "<small><b>Fatura</b>: fica por pagar até registar o pagamento.<br>" +
-        "<b>Fatura/Recibo</b>: o cliente paga no acto.</small>",
+        "<b>Fatura/Recibo</b>: o cliente paga no acto.</small>" +
+        consumerWarning,
       icon: "question",
       showCancelButton: true,
       showDenyButton: true,

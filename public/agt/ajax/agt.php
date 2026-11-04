@@ -372,6 +372,10 @@ try {
             } else {
                 $state = agt_invoice_state($invoice);
             }
+            if ($state !== null) {
+                $state['consumer_final'] = agt_invoice_is_consumer_final($pdo, $invoice);
+                $state['consumer_tax_id'] = agt_consumer_tax_id();
+            }
             agt_respond(200, ['success' => true, 'enabled' => true, 'agt' => $state]);
 
         case 'documents':

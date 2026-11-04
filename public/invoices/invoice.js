@@ -2582,9 +2582,22 @@
     // ---------- 6) Finalizar Fatura (Rascunho -> Pendente) ----------
     // ---------- 6) Finalizar Fatura (Rascunho -> Pendente) ----------
     $("#btnFinalizar").on("click", function () {
+      const esc = (value) => $("<div>").text(String(value ?? "")).html();
+      // Cliente sem NIF: a AGT recebe o NIF de consumidor final. Avisa antes de emitir.
+      const agtConfig = window.BX_AGT || {};
+      const withoutNif = !String(currentInvoice?.client_contributor || "").trim();
+      const consumerWarning = agtConfig.enabled && withoutNif
+        ? `<div class="alert alert-warning text-start small mt-3 mb-0">
+             <b>Cliente sem NIF.</b> A factura será enviada à AGT com o NIF de consumidor final
+             (<b>${esc(agtConfig.consumerTaxId || "999999999")}</b>).
+           </div>`
+        : "";
+      const isReceipt = document_type === "FR";
       Swal.fire({
-        title: "Finalizar factura?",
-        text: "A factura deixará de ser rascunho e passará para Pendente.",
+        title: isReceipt ? "Emitir Factura/Recibo?" : "Finalizar factura?",
+        html: (isReceipt
+          ? "A Factura/Recibo será emitida como paga."
+          : "A factura deixará de ser rascunho e ficará por pagar.") + consumerWarning,
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#3085d6",
@@ -2601,11 +2614,21 @@
             },
             function (res) {
               if (res.success) {
-                Swal.fire(
-                  "Sucesso",
-                  "Factura finalizada com sucesso!",
-                  "success",
-                ).then(refreshCurrentInvoice);
+                const agt = res.agt;
+                const agtFailed = agt && ["error", "invalid"].includes(agt.status);
+                const agtHtml = agt
+                  ? `<div class="mt-2 small text-start"><strong>AGT:</strong> ${esc(agt.label || "")}${
+                      agt.consumer_final ? `<div>Enviada com o NIF de consumidor final (${esc(agt.consumer_tax_id || "")}).</div>` : ""
+                    }${(agt.errors || []).length ? `<ul class="mb-0 mt-1">${agt.errors.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}</div>`
+                  : "";
+                Swal.fire({
+                  icon: agtFailed ? "warning" : "success",
+                  title: "Sucesso",
+                  html: `Factura <b>${esc(res.reference || "")}</b> emitida com sucesso.${agtHtml}`,
+                }).then(() => {
+                  refreshCurrentInvoice();
+                  if (typeof window.bxAgtInvoiceReload === "function") window.bxAgtInvoiceReload();
+                });
               } else {
                 Swal.fire(
                   "Erro",

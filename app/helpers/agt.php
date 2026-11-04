@@ -395,6 +395,20 @@ function agt_parse_document_no(?string $reference): ?array
     return [$m[1], $m[2], (int) $m[3]];
 }
 
+/** NIF de consumidor final usado na AGT quando o cliente não tem NIF. */
+function agt_consumer_tax_id(): string
+{
+    return '999999999';
+}
+
+/** A fatura segue para a AGT com o NIF de consumidor final (o cliente não tem NIF)? */
+function agt_invoice_is_consumer_final(PDO $pdo, array $invoice): bool
+{
+    $stmt = $pdo->prepare('SELECT contributor FROM contact WHERE id = ?');
+    $stmt->execute([(int) ($invoice['contact_id'] ?? 0)]);
+    return preg_replace('/\s+/', '', (string) $stmt->fetchColumn()) === '';
+}
+
 /** Arredonda por excesso ao cêntimo (regra da AGT para taxContribution). */
 function agt_round_up_cents(float $value): float
 {
@@ -491,9 +505,10 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     $net = round($net, 2);
     $taxTotal = round($taxTotal, 2);
 
+    // Cliente sem NIF (ex.: Cliente X): segue com o NIF de consumidor final aceite pela AGT.
     $customerTaxId = preg_replace('/\s+/', '', (string) ($contact['contributor'] ?? ''));
     if ($customerTaxId === '') {
-        throw new RuntimeException('Não é possível submeter a fatura à AGT sem um NIF de cliente confirmado.');
+        $customerTaxId = agt_consumer_tax_id();
     }
     $body = $creds + [
         'document_type' => strtoupper($invoice['document_type'] ?: 'FT'),

@@ -44,6 +44,12 @@ function bx_invoice_emit(PDO $pdo, int $companyId, int $invoiceId, string $newSt
         throw new RuntimeException('Tipo de documento inválido');
     }
 
+    // A Fatura/Recibo é paga no acto: ao emitir fica sempre "Paga", sem vencimento.
+    $isReceipt = $docType === 'FR' && stripos($newStatusName, 'cancel') !== 0 && $newStatusName !== 'Rascunho';
+    if ($isReceipt) {
+        $newStatusName = 'Paga';
+    }
+
     $statusMap = invoice_status_map();
     if (!isset($statusMap[$newStatusName])) {
         throw new RuntimeException('Status inválido');
@@ -81,6 +87,10 @@ function bx_invoice_emit(PDO $pdo, int $companyId, int $invoiceId, string $newSt
 
     $pdo->prepare('UPDATE invoices SET status = ?, reference = ?, series = ?, document_type = ? WHERE id = ? AND company_id = ?')
         ->execute([$statusId, $newReference, $series, $docType, $invoiceId, $companyId]);
+    if ($isReceipt) {
+        $pdo->prepare('UPDATE invoices SET paid_total = final_total, due_date = 0 WHERE id = ? AND company_id = ?')
+            ->execute([$invoiceId, $companyId]);
+    }
 
     // Hash encadeado com o último documento do mesmo tipo.
     $stmtHash = $pdo->prepare("
@@ -112,7 +122,14 @@ function bx_invoice_send_agt(PDO $pdo, int $invoiceId, string $statusName = ''):
         return null;
     }
     try {
-        return agt_submit_invoice($pdo, $invoiceId);
+        $state = agt_submit_invoice($pdo, $invoiceId);
+        if ($state !== null) {
+            $stmt = $pdo->prepare('SELECT contact_id FROM invoices WHERE id = ?');
+            $stmt->execute([$invoiceId]);
+            $state['consumer_final'] = agt_invoice_is_consumer_final($pdo, ['contact_id' => $stmt->fetchColumn()]);
+            $state['consumer_tax_id'] = agt_consumer_tax_id();
+        }
+        return $state;
     } catch (Throwable $e) {
         error_log('AGT envio fatura ' . $invoiceId . ': ' . $e->getMessage());
         return ['status' => 'error', 'label' => 'Não foi enviada', 'errors' => [$e->getMessage()]];
