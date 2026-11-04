@@ -247,8 +247,74 @@
         border-top: 1px solid var(--border);
     }
 
-    .bg-plan {
-        background: rgba(255, 255, 255, 0.15) !important;
+    /* Plano: linha compacta no rodapé do menu */
+    .plan-chip {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .5rem .6rem;
+        margin-top: .5rem;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        text-decoration: none;
+        line-height: 1.15;
+        transition: background .15s ease;
+    }
+
+    .plan-chip:hover,
+    .plan-chip:focus-visible {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+
+    .plan-chip__icon {
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        opacity: .9;
+    }
+
+    .plan-chip__text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .plan-chip__text strong {
+        font-size: .8rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .plan-chip__text small {
+        font-size: .7rem;
+        opacity: .8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .plan-chip__cta {
+        flex: 0 0 auto;
+        font-size: .7rem;
+        font-weight: 600;
+        padding: .2rem .5rem;
+        border-radius: 999px;
+        background: #fff;
+        color: #111827;
+    }
+
+    .plan-chip.is-expiring .plan-chip__text small {
+        opacity: 1;
+        font-weight: 600;
+    }
+
+    .plan-chip.is-expiring .plan-chip__cta {
+        background: #fcd34d;
     }
 
     /* ESTADO COLAPSADO (desktop) */
@@ -468,18 +534,14 @@
         </a>
 
         <div class="col-12 above">
-            <div class="card border-0 rounded-xl bg-plan p-3">
-                <div class="d-flex justify-content-between align-items-center align-content-center flex-wrap gap-3 mb-2">
-                    <div>
-                        <h5 class="mb-1 fw-bolder text-white" style="font-size: 12pt;">Plano &nbsp;</h5>
-                        <div id="subInfo" class="text-white" style="font-size:0.85rem;">Carregando...</div>
-                    </div>
-                    <a href="/subscription" class="btn bg-light text-dark w-100 d-flex align-items-center justify-content-center gap-2 py-2" data-spa>
-                        Renovar
-                        <i class="bi bi-arrow-up-right"></i>
-                    </a>
-                </div>
-            </div>
+            <a href="/subscription" class="plan-chip" id="planChip" data-spa aria-label="Plano e renovação">
+                <i data-lucide="gem" class="plan-chip__icon"></i>
+                <span class="plan-chip__text">
+                    <strong id="subPlanName">Plano</strong>
+                    <small id="subInfo">A carregar…</small>
+                </span>
+                <span class="plan-chip__cta">Renovar</span>
+            </a>
         </div>
 
     </div>

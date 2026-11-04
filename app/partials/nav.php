@@ -604,8 +604,17 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
                 const exp = resp.plan_expires_at ?
                     new Date(resp.plan_expires_at + 'T00:00:00').toLocaleDateString('pt-PT') :
                     '-';
-                const days = resp.days_left ?? '-';
-                subInfo.textContent = `${resp.plan_name} • vence em ${exp} • ${days} dias restantes`;
+                const days = resp.days_left === null || resp.days_left === undefined || resp.days_left === '' || !Number.isFinite(Number(resp.days_left)) ? null : Number(resp.days_left);
+                const planName = document.getElementById('subPlanName');
+                if (planName) planName.textContent = resp.plan_name || 'Plano';
+                subInfo.textContent = days === null
+                    ? `Até ${exp}`
+                    : (days <= 0 ? 'Expirado' : `${days} ${days === 1 ? 'dia' : 'dias'} · até ${exp}`);
+                const chip = document.getElementById('planChip');
+                if (chip) {
+                    chip.classList.toggle('is-expiring', days !== null && days <= 7);
+                    chip.title = `${resp.plan_name || 'Plano'} — vence em ${exp}`;
+                }
 
                 const renewLink = document.getElementById('btnRenewFromIndex');
                 if (renewLink) renewLink.href = `subscription.php?company_id=${encodeURIComponent(resp.company_id)}`;
