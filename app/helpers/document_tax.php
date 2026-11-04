@@ -140,8 +140,9 @@ function bx_document_assign_retention_rates(PDO $pdo, array $items, int $company
     $itemTypes = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $itemId = (int)$row['id'];
-        $retentionRate = $row['retention'] ?? 0;
-        $taxRate = $row['tax'] ?? 0;
+        // IVA e retenção são opcionais no catálogo: vazio/NULL conta como 0%.
+        $retentionRate = trim((string)($row['retention'] ?? '')) === '' ? 0 : $row['retention'];
+        $taxRate = trim((string)($row['tax'] ?? '')) === '' ? 0 : $row['tax'];
         if (
             !is_numeric($retentionRate) || !is_finite((float)$retentionRate)
             || (float)$retentionRate < 0 || (float)$retentionRate > 100
