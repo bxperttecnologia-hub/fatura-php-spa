@@ -446,6 +446,12 @@ body .modal .contact-modal-header {
   background: #007abd !important;
 }
 
+/* Com o fundo azul, a pesquisa (sem margem em cima) ficava encostada à faixa e parecia tapada */
+body .modal #contactSelectModal .contact-search-wrapper,
+body #contactSelectModal .contact-search-wrapper {
+  margin-top: 18px;
+}
+
 body .modal .modal-header *,
 body .modal .contact-modal-header * {
   color: #fff !important;
