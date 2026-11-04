@@ -47,7 +47,7 @@ $basePath = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
 $basePath = $basePath === '.' ? '' : $basePath;
 $baseUrl = $host ? ($scheme.'://'.$host.$basePath) : '';
 
-$logo = company_logo_src($d['logo_url'] ?? '', $baseUrl);
+$logo = company_logo_pdf_src($d['logo_url'] ?? '') ?: company_logo_src($d['logo_url'] ?? '', $baseUrl);
 
 $html = '<!doctype html><html><head><meta charset="utf-8">
 <style>

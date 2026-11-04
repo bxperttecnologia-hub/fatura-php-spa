@@ -157,7 +157,7 @@ $BASE_URL = "{$protocol}://{$host}{$basePath}";
 |--------------------------------------------------------------------------
 */
 
-$logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
+$logo = company_logo_pdf_src($d['logo_url'] ?? '') ?: company_logo_src($d['logo_url'] ?? '', $BASE_URL);   // data URI: o Dompdf não pede o logo ao próprio servidor
 
 
 /*

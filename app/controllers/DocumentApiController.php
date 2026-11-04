@@ -11,18 +11,13 @@ final class DocumentApiController
             throw new HttpException(403, 'Empresa inválida.');
         }
 
-        // DOCUMENT_API_BASE_URL sobrepõe o destino padrão da API de documentos.
+        // Os PDFs são gerados pela própria app (GET /api/documents/..., ver public/document_pdf.php),
+        // por isso o destino padrão é a própria origem. DOCUMENT_API_BASE_URL (.env) sobrepõe-no.
         $apiBaseUrl = trim((string)bx_env('DOCUMENT_API_BASE_URL'));
         if ($apiBaseUrl === '') {
-            $isProduction = defined('APP_ENV') && APP_ENV === 'production';
-            $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-            $isProductionHost = in_array($host, [
-                'api-crm.bxpert.co.ao',
-                'www.api-crm.bxpert.co.ao',
-            ], true);
-            $apiBaseUrl = $isProduction || $isProductionHost
-                ? 'https://api-sandibox.bxpert.co.ao'
-                : 'http://localhost:3004';
+            $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+            $apiBaseUrl = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
         }
         if (!filter_var($apiBaseUrl, FILTER_VALIDATE_URL) || !in_array(parse_url($apiBaseUrl, PHP_URL_SCHEME), ['http', 'https'], true)) {
             throw new HttpException(503, 'A URL da API de documentos não está configurada corretamente.');
