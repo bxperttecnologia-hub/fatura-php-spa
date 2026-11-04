@@ -556,7 +556,7 @@
                     <h2 class="items-page-title">Lista de Produtos/Serviços</h2>
                     <p class="items-page-subtitle">Produtos e serviços cadastrados</p>
                 </div>
-                <button id="newContact" data-bs-toggle="modal" data-bs-target="#itemModal" class="btn btn-primary items-primary-action">
+                <button id="newContact" data-bs-toggle="modal" data-bs-target="#itemModal" data-item-new class="btn btn-primary items-primary-action">
                     <i class="bi bi-plus-lg" aria-hidden="true"></i> Novo Produto
                 </button>
             </div>

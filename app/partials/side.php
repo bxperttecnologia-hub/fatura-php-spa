@@ -452,7 +452,7 @@
         <div class="submenu" id="produtos">
             <!-- Abre o modal de novo item (#itemModal, incluído no layout em todas as páginas).
                  Não é um link: um href relativo dava 404 fora da página de itens. -->
-            <a href="#" role="button" data-bs-toggle="modal" data-bs-target="#itemModal">
+            <a href="#" role="button" data-bs-toggle="modal" data-bs-target="#itemModal" data-item-new>
                 <i class="text-white" data-lucide="plus"></i> Adicionar
             </a>
             <a href="/items" data-spa> <i data-lucide="list"></i> Meus Itens </a>

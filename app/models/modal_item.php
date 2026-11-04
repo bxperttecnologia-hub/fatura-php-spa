@@ -920,5 +920,5 @@
 </script>
 
 <script src="/assets/js/preset_items.js?v=1.2"></script>
-<script src="/assets/js/quick_add.js?v=1.6"></script>
+<script src="/assets/js/quick_add.js?v=1.7"></script>
 <script src="/assets/js/modal_item.js?v=2.1"></script>

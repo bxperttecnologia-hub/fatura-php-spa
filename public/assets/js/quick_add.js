@@ -365,4 +365,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Render inicial
   renderCategories();
   renderItems();
+
+  // =========================
+  // BOTÕES "NOVO" (data-item-new): abrem logo o formulário de novo item,
+  // sem passar pela lista. Usa o botão "Criar item personalizado", que já
+  // trata os dois casos (página da fatura e restantes páginas) e deixa o
+  // "Voltar" disponível. Registado por último: corre depois dos outros
+  // handlers de abertura, que mostram a lista.
+  // =========================
+  modalEl?.addEventListener("show.bs.modal", (event) => {
+    if (!event.relatedTarget?.closest?.("[data-item-new]")) return;
+    btnCustomItem?.click();
+  });
 });
