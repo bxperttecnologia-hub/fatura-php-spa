@@ -16,6 +16,7 @@ use chillerlan\QRCode\{QRCode, QROptions};
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 require_once __DIR__ . '/../../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../../app/helpers/agt.php';
 
 // ---------- configuração (igual ao PDF) ----------
 const AGT_CERTIFICATE = 'FE/344/AGT/2026';
@@ -282,7 +283,10 @@ $inv['final_total'] = $taxSummary['final_total'];
 $inv['retention_value'] = $taxSummary['retention'];
 
 // ---------- QR ----------
-$qrData = "https://bxpert.co.ao/sistema/invoice_public.php?id={$inv['id']}";
+// Documento com numeração AGT: QR de consulta no Portal do Contribuinte (homologação ou produção,
+// conforme o ambiente). Rascunhos e numeração interna mantêm o link para o documento.
+$agtQrUrl = agt_qr_url((string)($inv['registration_number'] ?? ''), $inv['reference'] ?? null);
+$qrData = $agtQrUrl ?? "https://bxpert.co.ao/sistema/invoice_public.php?id={$inv['id']}";
 $opts = new QROptions([
   'outputType'   => QRCode::OUTPUT_IMAGE_PNG,
   'eccLevel'     => QRCode::ECC_L,
@@ -290,7 +294,7 @@ $opts = new QROptions([
   'addQuietzone' => false,
   'imageBase64'  => true,
 ]);
-$qrSrc = (new QRCode($opts))->render($qrData);
+$qrSrc = $agtQrUrl !== null ? agt_qr_image($agtQrUrl) : (new QRCode($opts))->render($qrData);
 
 // ---------- dados preparados para o layout ----------
 $symbol = (string)$inv['moneySymbol'];
