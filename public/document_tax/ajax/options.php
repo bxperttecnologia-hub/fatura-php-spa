@@ -23,14 +23,12 @@ $stmt = $pdo->prepare(
 $stmt->execute([session_company_id(), $date, $date]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $seen = [];
-$options = [
-    'withholding_6_5' => null,
-    'ipu_rent' => null,
-];
 // Sem regra própria da empresa, ficam as taxas legais por omissão (activas).
-foreach (array_keys($options) as $type) {
+$options = [];
+foreach (bx_document_tax_catalog() as $type => $tax) {
     $default = bx_document_tax_default_configuration($type);
     $options[$type] = [
+        'label' => $tax['label'],
         'rate' => (float)$default['rate'],
         'base_type' => $default['base_type'],
         'enabled' => true,
@@ -44,6 +42,7 @@ foreach ($rows as $row) {
     }
     $seen[$type] = true;
     $options[$type] = [
+        'label' => bx_document_tax_label($type),
         'rate' => (float)$row['rate'],
         'base_type' => (string)$row['base_type'],
         'enabled' => (bool)$row['enabled'],

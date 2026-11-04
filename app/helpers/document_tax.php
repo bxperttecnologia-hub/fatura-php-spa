@@ -299,31 +299,44 @@ function bx_document_tax_summary(
     ];
 }
 
-function bx_document_tax_withholding_types(): array
+/**
+ * Impostos retidos no documento (Angola) e a taxa legal usada quando a empresa não registou
+ * uma regra própria em Definições da Empresa. Todas incidem sobre o valor sem IVA.
+ * Uma regra registada (mesmo inactiva) tem sempre prioridade sobre estas taxas.
+ */
+function bx_document_tax_catalog(): array
 {
     return [
-        'none' => 'Sem imposto adicional',
-        'withholding_6_5' => 'Retenção na Fonte',
-        'ipu_rent' => 'Imposto Predial sobre Rendas',
+        'withholding_6_5' => ['label' => 'Retenção na Fonte — Imposto Industrial', 'rate' => 6.5],
+        'irt_group_b' => ['label' => 'Retenção na Fonte — IRT Grupo B', 'rate' => 6.5],
+        'ipu_rent' => ['label' => 'IPU — Rendas', 'rate' => 15.0],
+        'iac' => ['label' => 'IAC — Aplicação de Capitais', 'rate' => 10.0],
+        'iac_reduced' => ['label' => 'IAC — taxa reduzida', 'rate' => 5.0],
     ];
 }
 
-/**
- * Taxas legais usadas quando a empresa não registou uma regra própria em Definições da Empresa:
- * Retenção na Fonte 6,5% e IPU sobre rendas 15%, ambas sobre o valor sem IVA.
- * Uma regra registada (mesmo inactiva) tem sempre prioridade.
- */
+function bx_document_tax_is_type(string $type): bool
+{
+    return isset(bx_document_tax_catalog()[$type]);
+}
+
+function bx_document_tax_label(string $type): string
+{
+    return bx_document_tax_catalog()[$type]['label'] ?? 'Imposto retido';
+}
+
+function bx_document_tax_withholding_types(): array
+{
+    return ['none' => 'Sem imposto adicional'] + array_map(static fn($tax) => $tax['label'], bx_document_tax_catalog());
+}
+
 function bx_document_tax_default_configuration(string $type): array
 {
-    $defaults = [
-        'withholding_6_5' => 6.5,
-        'ipu_rent' => 15.0,
-    ];
-    if (!isset($defaults[$type])) {
+    if (!bx_document_tax_is_type($type)) {
         throw new InvalidArgumentException('Tipo de imposto inválido.');
     }
 
-    return ['rate' => $defaults[$type], 'base_type' => 'net_subtotal', 'enabled' => 1];
+    return ['rate' => bx_document_tax_catalog()[$type]['rate'], 'base_type' => 'net_subtotal', 'enabled' => 1];
 }
 
 /** A linha entra na base do imposto: serviços, excepto os classificados para o outro imposto. */
@@ -340,7 +353,7 @@ function bx_document_tax_line_is_eligible(array $item, string $type): bool
 
 function bx_document_active_tax_configuration(PDO $pdo, int $companyId, string $type, string $date): array
 {
-    if (!in_array($type, ['withholding_6_5', 'ipu_rent'], true)) {
+    if (!bx_document_tax_is_type($type)) {
         throw new InvalidArgumentException('Tipo de imposto inválido.');
     }
 
@@ -393,7 +406,7 @@ function bx_document_tax_withholding_summary(
         ];
     }
 
-    if (!in_array($type, ['withholding_6_5', 'ipu_rent'], true)) {
+    if (!bx_document_tax_is_type($type)) {
         throw new InvalidArgumentException('Tipo de imposto inválido.');
     }
     if (!$eligibilityConfirmed) {
@@ -428,7 +441,7 @@ function bx_document_tax_withholding_summary(
     if ($eligibleCount === 0) {
         $message = $type === 'ipu_rent'
             ? 'O IPU só pode ser aplicado a linhas de serviço (rendas).'
-            : 'A retenção na fonte só pode ser aplicada a linhas de serviço.';
+            : 'Este imposto só pode ser aplicado a linhas de serviço.';
         throw new InvalidArgumentException($message);
     }
     if (bx_document_retention_total($items) > 0) {
@@ -442,9 +455,7 @@ function bx_document_tax_withholding_summary(
         2,
         PHP_ROUND_HALF_UP
     );
-    $description = $type === 'ipu_rent'
-        ? sprintf('Imposto Predial sobre Rendas — taxa aplicável (%s%%)', number_format((float)$rate, 2, ',', '.'))
-        : sprintf('Retenção na Fonte — %s%%', number_format((float)$rate, 2, ',', '.'));
+    $description = sprintf('%s — %s%%', bx_document_tax_label($type), number_format((float)$rate, 2, ',', '.'));
 
     return [
         'type' => $type,

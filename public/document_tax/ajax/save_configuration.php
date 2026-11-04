@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once __DIR__ . '/../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -24,7 +25,7 @@ $effectiveFrom = trim((string)($_POST['effective_from'] ?? ''));
 $enabled = isset($_POST['enabled']) && (string)$_POST['enabled'] === '1' ? 1 : 0;
 $validDate = DateTimeImmutable::createFromFormat('!Y-m-d', $effectiveFrom);
 
-if (!in_array($type, ['withholding_6_5', 'ipu_rent'], true)) {
+if (!bx_document_tax_is_type($type)) {
     http_response_code(422);
     echo json_encode(['success' => false, 'error' => 'Tipo de imposto inválido.']);
     exit;

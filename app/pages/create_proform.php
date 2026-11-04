@@ -1219,8 +1219,10 @@ $invTheme      = 'dark';
                             <label for="tax_withholding_type"><?= t('Imposto / Retenção na Fonte') ?></label>
                             <select class="inv-input" id="tax_withholding_type" name="tax_withholding_type">
                                 <option value="none">Sem imposto adicional — 0%</option>
-                                <option value="withholding_6_5">Retenção na Fonte (6,5%) — estimativa</option>
-                                <option value="ipu_rent">IPU — Rendas (15%) — estimativa</option>
+                                <?php require_once __DIR__ . '/../helpers/document_tax.php'; ?>
+                                <?php foreach (bx_document_tax_catalog() as $taxType => $tax): ?>
+                                    <option value="<?= htmlspecialchars($taxType) ?>"><?= htmlspecialchars($tax['label']) ?> (<?= str_replace('.', ',', (string)$tax['rate']) ?>%) — estimativa</option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                         <div id="tax_withholding_confirm_row" class="inv-sum-row d-none">
@@ -1415,4 +1417,4 @@ $invTheme      = 'dark';
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_proform/create_proform.js?v=3.1" data-spa-repeat></script>
+<script src="create_proform/create_proform.js?v=3.2" data-spa-repeat></script>

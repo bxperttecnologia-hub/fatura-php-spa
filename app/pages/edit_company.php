@@ -294,8 +294,10 @@ require_once '../app/views/layout_creation.php';
                                     <div class="col-md-3">
                                         <label class="form-label" for="doc_tax_type">Imposto</label>
                                         <select class="form-select" id="doc_tax_type">
-                                            <option value="withholding_6_5">Retenção na Fonte</option>
-                                            <option value="ipu_rent">IPU / Rendas</option>
+                                            <?php require_once __DIR__ . '/../helpers/document_tax.php'; ?>
+                                            <?php foreach (bx_document_tax_catalog() as $taxType => $tax): ?>
+                                                <option value="<?= htmlspecialchars($taxType) ?>"><?= htmlspecialchars($tax['label']) ?></option>
+                                            <?php endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="col-md-2">
@@ -458,8 +460,9 @@ require_once '../app/views/layout_creation.php';
             const history = document.getElementById("documentTaxHistory");
             const today = new Date().toISOString().slice(0, 10);
             effectiveFrom.value = today;
-            const defaults = { withholding_6_5: 6.5, ipu_rent: 15 };
-            const typeLabels = { withholding_6_5: "Retenção na Fonte", ipu_rent: "IPU / Rendas" };
+            const taxCatalog = <?= json_encode(bx_document_tax_catalog(), JSON_UNESCAPED_UNICODE) ?>;
+            const defaults = Object.fromEntries(Object.entries(taxCatalog).map(([key, tax]) => [key, tax.rate]));
+            const typeLabels = Object.fromEntries(Object.entries(taxCatalog).map(([key, tax]) => [key, tax.label]));
             const baseLabels = {
                 net_subtotal: "Incidência elegível após desconto, sem IVA",
                 gross_including_vat: "Incidência elegível incluindo IVA",

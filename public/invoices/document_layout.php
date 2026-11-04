@@ -37,11 +37,11 @@ $iban = $iban !== '' ? trim(substr($iban, 0, 4) . ' ' . chunk_split(substr($iban
 $documentType = strtoupper((string)($inv['document_type'] ?? 'FT'));
 $isProforma = $documentType === 'PF';
 $title = ($isProforma ? 'Proforma' : 'Factura') . ' n.º ' . (string)($inv['reference'] ?? '');
-$taxWithholdingLabel = match ((string)($inv['tax_withholding_type'] ?? 'none')) {
-  'withholding_6_5' => 'Retenção na Fonte ' . number_format((float)($inv['tax_withholding_rate'] ?? 0), 2, ',', '.') . '%',
-  'ipu_rent' => 'IPU — Rendas ' . number_format((float)($inv['tax_withholding_rate'] ?? 0), 2, ',', '.') . '%',
-  default => 'Imposto retido',
-};
+require_once __DIR__ . '/../../app/helpers/document_tax.php';
+$taxWithholdingType = (string)($inv['tax_withholding_type'] ?? 'none');
+$taxWithholdingLabel = bx_document_tax_is_type($taxWithholdingType)
+  ? bx_document_tax_label($taxWithholdingType) . ' ' . number_format((float)($inv['tax_withholding_rate'] ?? 0), 2, ',', '.') . '%'
+  : 'Imposto retido';
 // Embutido (data URI): funciona igual no ecrã e no PDF, sem pedidos HTTP ao próprio servidor.
 $logoSrc = company_logo_pdf_src($inv['logo_url'] ?? '') ?: company_logo_src($inv['logo_url'] ?? '', $publicBasePath);
 $itemPages = [];

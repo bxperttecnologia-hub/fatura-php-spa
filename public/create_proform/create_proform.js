@@ -1275,15 +1275,10 @@ $(document).ready(function () {
         if (!response?.success || !response.options) throw new Error(response?.error || "Configuração fiscal indisponível.");
         Object.assign(documentTaxConfigurations, response.options);
         documentTaxConfigLoaded = true;
-        const labels = {
-          withholding_6_5: "Retenção na Fonte",
-          ipu_rent: "IPU — Rendas",
-        };
-        Object.entries(labels).forEach(([type, label]) => {
+        Object.entries(documentTaxConfigurations).forEach(([type, config]) => {
           const option = $(`#tax_withholding_type option[value='${type}']`);
-          const config = documentTaxConfigurations[type];
           const rate = Number(config?.rate);
-          option.text(`${label} (${rate.toLocaleString("pt-PT")}% )${config?.enabled ? " — estimativa" : " — configuração inactiva"}`);
+          option.text(`${config?.label || type} (${rate.toLocaleString("pt-PT")}%)${config?.enabled ? " — estimativa" : " — configuração inactiva"}`);
         });
         updateInvoiceSummary();
       })
@@ -1440,10 +1435,10 @@ $(document).ready(function () {
       } else if (!eligibleLineCount) {
         validationMessage = selectedType === "ipu_rent"
           ? "O IPU só pode ser aplicado a artigos de serviço (rendas)."
-          : "A retenção só pode ser aplicada a artigos de serviço.";
+          : "Este imposto só pode ser aplicado a artigos de serviço.";
       } else if (!$("#tax_withholding_confirmed").is(":checked")) {
         validationMessage = "Confirme o enquadramento legal da operação e dos intervenientes.";
-      } else if (selectedType === "withholding_6_5" && totalRetention > 0) {
+      } else if (totalRetention > 0) {
         validationMessage = "Existe retenção configurada por artigo. Remova a retenção duplicada antes de seleccionar esta retenção documental.";
       } else {
         documentTaxSelectionValid = true;
@@ -1451,9 +1446,7 @@ $(document).ready(function () {
           ? eligibleTaxBase + eligibleTaxVat
           : eligibleTaxBase);
         documentTaxAmount = roundMoney(documentTaxBase * (Number(config.rate) / 100));
-        documentTaxDescription = selectedType === "ipu_rent"
-          ? `IPU — Rendas (${Number(config.rate).toLocaleString("pt-PT")}%) estimado`
-          : `Retenção na Fonte — ${Number(config.rate).toLocaleString("pt-PT")}% estimada`;
+        documentTaxDescription = `${config.label || "Imposto retido"} — ${Number(config.rate).toLocaleString("pt-PT")}% (estimativa)`;
       }
     }
 
