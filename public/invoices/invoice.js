@@ -485,7 +485,8 @@
       const total = Number(currentInvoice.final_total) || 0;
       const jaPago = Number(currentInvoice.paid_total) || 0;
       const retention = Number(currentInvoice.retention) || 0;
-      const saldo = total - jaPago;
+      const creditado = Number(currentInvoice.credited_total) || 0;
+      const saldo = Math.max(0, total - jaPago - creditado);
 
       $("#pg_valor")
         .val(saldo.toFixed(2))
@@ -1895,85 +1896,170 @@
     }
 
     // ---------- Nota de Crédito ----------
-    $("#btnNotaCredito").on("click", async function () {
+    // Credita a fatura toda ou só algumas linhas/quantidades. Cada NC fica ligada às linhas
+    // da fatura; a fatura só passa a Cancelada quando tudo estiver creditado.
+    const ncEsc = (v) =>
+      String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const ncNum = (v, d = 2) =>
+      Number(v || 0).toLocaleString("pt-PT", { minimumFractionDigits: d, maximumFractionDigits: d });
+    const ncQty = (v) => Number(v || 0).toLocaleString("pt-PT", { maximumFractionDigits: 4 });
+    const NC_AGT = { valid: "Validada AGT", sent: "AGT pendente", invalid: "Rejeitada AGT", error: "Não enviada à AGT" };
+
+    $(document).off("click", ".js-nc-pdf").on("click", ".js-nc-pdf", function (e) {
+      e.preventDefault();
+      window.BXDocumentApi.openPdf(`/api/documents/credit-notes/${encodeURIComponent(this.dataset.id)}/pdf`)
+        .catch((error) => Swal.fire("Erro", error.message, "error"));
+    });
+
+    $("#btnNotaCredito").off("click").on("click", async function () {
+      if (!currentInvoice?.id) {
+        return Swal.fire({ icon: "error", title: "Erro", text: "Factura ainda não carregada." });
+      }
+
+      let info;
       try {
-        // Validação da fatura
-        if (!currentInvoice?.id) {
-          return Swal.fire({
-            icon: "error",
-            title: "Erro",
-            text: "Factura ainda não carregada.",
-          });
-        }
+        info = await $.getJSON("invoices/ajax/credit_note_lines.php", { invoice_id: currentInvoice.id });
+      } catch (xhr) {
+        return Swal.fire("Erro", xhr?.responseJSON?.error || "Não foi possível carregar as linhas da fatura.", "error");
+      }
+      const lines = info.lines || [];
+      const notes = info.credit_notes || [];
+      const symbol = currentInvoice.symbol || "Kz";
+      const open = lines.filter((l) => l.remaining_quantity > 0);
 
-        // Verifica se já existe nota de crédito
-        const verifyResponse = await $.ajax({
-          url: "invoices/ajax/credit_notes.php",
-          method: "GET",
-          dataType: "json",
-          data: {
-            invoice_id: currentInvoice.id,
-          },
+      const notesHtml = notes.length
+        ? `<div class="text-start small mb-3"><div class="fw-semibold mb-1">Notas de crédito já emitidas</div>
+            ${notes.map((n) => `<div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1">
+              <span><a href="#" class="js-nc-pdf" data-id="${n.id}">${ncEsc(n.reference)}</a>
+                ${n.agt_status ? `<span class="badge bg-light text-dark border ms-1">${ncEsc(NC_AGT[n.agt_status] || n.agt_status)}</span>` : ""}</span>
+              <span>${ncNum(n.final_total)} ${ncEsc(symbol)}</span></div>`).join("")}</div>`
+        : "";
+
+      if (!open.length) {
+        return Swal.fire({
+          icon: "info",
+          title: "Fatura totalmente creditada",
+          html: notesHtml || "Não há linhas por creditar.",
         });
+      }
 
-        // Se já existir nota de crédito
-        if (verifyResponse?.data?.id) {
-          window.BXDocumentApi.download(
-            `/api/documents/credit-notes/${encodeURIComponent(verifyResponse.data.id)}/pdf`,
-            `NotaCredito_${verifyResponse.data.id}.pdf`,
-          ).catch((error) => Swal.fire("Erro", error.message, "error"));
-          return;
-        }
+      const rowsHtml = open.map((l) => `
+        <tr data-id="${l.invoice_item_id}" data-price="${l.unit_price}" data-discount="${l.discount}" data-tax="${l.tax}">
+          <td><input type="checkbox" class="form-check-input nc-check" checked aria-label="Creditar linha ${l.line_no}"></td>
+          <td class="text-start"><div class="fw-semibold">${ncEsc(l.name)}</div>
+            <div class="text-muted small">${ncEsc(l.code || "")}${l.credited_quantity > 0 ? ` · já creditado ${ncQty(l.credited_quantity)}` : ""}</div></td>
+          <td class="text-end">${ncNum(l.unit_price)}</td>
+          <td style="width:110px"><input type="number" class="form-control form-control-sm text-end nc-qty"
+            min="0" step="any" max="${l.remaining_quantity}" value="${l.remaining_quantity}"></td>
+          <td class="text-end text-muted small">de ${ncQty(l.remaining_quantity)}</td>
+          <td class="text-end nc-line-total"></td>
+        </tr>`).join("");
 
-        // Pergunta antes de emitir
-        const result = await Swal.fire({
-          title: "Emitir Nota de Crédito?",
-          text: "A Nota de Crédito será associada a esta factura.",
-          input: "textarea",
-          inputLabel: "Motivo (opcional)",
-          inputPlaceholder: "Descreva o motivo da correção/anulação…",
-          showCancelButton: true,
-          confirmButtonText: "Emitir",
-          cancelButtonText: "Cancelar",
-          confirmButtonColor: "#3085d6",
-        });
+      const result = await Swal.fire({
+        title: "Emitir Nota de Crédito",
+        width: 860,
+        html: `${notesHtml}
+          <div class="text-start small text-muted mb-2">Escolha as linhas e as quantidades a creditar.</div>
+          <div class="table-responsive" style="max-height:45vh">
+            <table class="table table-sm align-middle mb-2">
+              <thead><tr><th></th><th class="text-start">Artigo</th><th class="text-end">Preço</th>
+                <th class="text-end">Qtd. a creditar</th><th></th><th class="text-end">Valor (s/ IVA)</th></tr></thead>
+              <tbody id="ncLines">${rowsHtml}</tbody>
+            </table>
+          </div>
+          <div class="text-end fw-semibold mb-3">Total a creditar (s/ IVA): <span id="ncTotal"></span> ${ncEsc(symbol)}</div>
+          <textarea id="ncReason" class="form-control" rows="2"
+            placeholder="Motivo${info.agt ? " (obrigatório)" : " (opcional)"} — ex.: devolução, serviço não prestado…"></textarea>`,
+        showCancelButton: true,
+        confirmButtonText: "Emitir nota de crédito",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#007abd",
+        didOpen: (popup) => {
+          const recalc = () => {
+            let total = 0;
+            popup.querySelectorAll("#ncLines tr").forEach((tr) => {
+              const on = tr.querySelector(".nc-check").checked;
+              const qtyInput = tr.querySelector(".nc-qty");
+              qtyInput.disabled = !on;
+              const qty = on ? Number(qtyInput.value) || 0 : 0;
+              const value = qty * Number(tr.dataset.price) * (1 - Number(tr.dataset.discount || 0) / 100);
+              tr.querySelector(".nc-line-total").textContent = ncNum(value);
+              total += value;
+            });
+            popup.querySelector("#ncTotal").textContent = ncNum(total);
+          };
+          popup.querySelector("#ncLines").addEventListener("input", recalc);
+          popup.querySelector("#ncLines").addEventListener("change", recalc);
+          recalc();
+        },
+        preConfirm: () => {
+          const popup = Swal.getPopup();
+          const selected = [];
+          for (const tr of popup.querySelectorAll("#ncLines tr")) {
+            if (!tr.querySelector(".nc-check").checked) continue;
+            const input = tr.querySelector(".nc-qty");
+            const qty = Number(input.value);
+            if (!(qty > 0)) continue;
+            if (qty > Number(input.max) + 1e-9) {
+              Swal.showValidationMessage(`A quantidade máxima numa das linhas é ${ncQty(input.max)}.`);
+              return false;
+            }
+            selected.push({ invoice_item_id: Number(tr.dataset.id), quantity: qty });
+          }
+          if (!selected.length) {
+            Swal.showValidationMessage("Escolha pelo menos uma linha com quantidade.");
+            return false;
+          }
+          const reason = popup.querySelector("#ncReason").value.trim();
+          if (info.agt && !reason) {
+            Swal.showValidationMessage("Indique o motivo (obrigatório na faturação eletrónica).");
+            return false;
+          }
+          return { selected, reason };
+        },
+      });
 
-        if (!result.isConfirmed) return;
+      if (!result.isConfirmed) return;
 
-        // Criar nota de crédito
-        const res = await $.ajax({
+      Swal.fire({ title: "A emitir…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      let res;
+      try {
+        res = await $.ajax({
           url: "invoices/ajax/create_credit_note.php",
           method: "POST",
           dataType: "json",
           data: {
             invoice_id: currentInvoice.id,
-            reason: result.value || "",
+            reason: result.value.reason,
+            lines: JSON.stringify(result.value.selected),
           },
         });
-
-        // Sucesso
-        if (res?.success && res?.credit_note_id) {
-          refreshCurrentInvoice();
-          window.BXDocumentApi.download(
-            `/api/documents/credit-notes/${encodeURIComponent(res.credit_note_id)}/pdf`,
-            `NotaCredito_${res.credit_note_id}.pdf`,
-          ).catch((error) => Swal.fire("Erro", error.message, "error"));
-        } else {
-          Swal.fire({
-            icon: "error",
-            title: "Erro",
-            text: res?.error || "Não foi possível emitir a Nota de Crédito.",
-          });
-        }
-      } catch (error) {
-        console.error("Erro ao processar Nota de Crédito:", error);
-
-        Swal.fire({
+      } catch (xhr) {
+        return Swal.fire({
           icon: "error",
-          title: "Erro",
-          text: error?.responseText || "Falha ao processar a Nota de Crédito.",
+          title: "Não foi possível emitir a nota de crédito",
+          text: xhr?.responseJSON?.error || xhr?.responseText || "Tente novamente.",
         });
       }
+
+      refreshCurrentInvoice();
+      const agt = res.agt;
+      const agtFailed = agt && ["error", "invalid"].includes(agt.status);
+      const agtHtml = agt
+        ? `<div class="mt-2 small text-start"><strong>AGT:</strong> ${ncEsc(agt.label || "")}${
+            (agt.errors || []).length ? `<ul class="mb-0 mt-1">${agt.errors.map((e) => `<li>${ncEsc(e)}</li>`).join("")}</ul>` : ""
+          }</div>`
+        : "";
+      await Swal.fire({
+        icon: agtFailed ? "warning" : "success",
+        title: "Nota de crédito emitida",
+        html: `Nota de crédito <b>${ncEsc(res.reference || "#" + res.credit_note_id)}</b> de
+          <b>${ncNum(res.final_total)} ${ncEsc(symbol)}</b>${res.partial ? " (parcial)" : " — a fatura ficou anulada"}.${agtHtml}`,
+      });
+      window.BXDocumentApi.download(
+        `/api/documents/credit-notes/${encodeURIComponent(res.credit_note_id)}/pdf`,
+        `NotaCredito_${String(res.reference || res.credit_note_id).replace(/[^A-Za-z0-9_-]+/g, "-")}.pdf`,
+      ).catch((error) => Swal.fire("Erro", error.message, "error"));
     });
 
     // ---------- Nota de Débito ----------

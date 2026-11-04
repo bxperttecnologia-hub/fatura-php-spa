@@ -440,8 +440,12 @@ function agt_unit_of_measure(?string $unit): string
     ][(string) $unit] ?? 'UN';
 }
 
-/** Monta o pedido para POST /api/faturas a partir de uma fatura emitida. */
-function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, string $exemptionCode): array
+/**
+ * Monta o pedido para POST /api/faturas a partir de uma fatura emitida.
+ * $quantities (invoice_items.id => quantidade) limita as linhas e quantidades — usado pela
+ * nota de crédito parcial; cada linha leva então source_line_no (nº da linha na fatura).
+ */
+function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, string $exemptionCode, ?array $quantities = null): array
 {
     require_once __DIR__ . '/document_tax.php';
 
@@ -454,7 +458,7 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     $regime = (string) $stmt->fetchColumn();
 
     $stmt = $pdo->prepare("
-        SELECT ii.quantity, ii.unit_price, ii.tax, ii.discount,
+        SELECT ii.id AS invoice_item_id, ii.quantity, ii.unit_price, ii.tax, ii.discount,
                i.code, i.name, i.unit_measure, i.item_type
         FROM invoice_items ii
         LEFT JOIN items i ON i.id = ii.item_id
@@ -471,6 +475,12 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     $net = 0.0;
     $taxTotal = 0.0;
     foreach ($items as $index => $item) {
+        if ($quantities !== null) {
+            if (!isset($quantities[(int) $item['invoice_item_id']])) {
+                continue;
+            }
+            $item['quantity'] = $quantities[(int) $item['invoice_item_id']];
+        }
         $qty = (float) $item['quantity'];
         $unitBase = round((float) $item['unit_price'], 4);
         $discountPct = min(100.0, max(0.0, (float) $item['discount']));
@@ -498,6 +508,9 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
         ];
         if ($rate <= 0) {
             $line['tax_exemption_code'] = $exemptionCode;
+        }
+        if ($quantities !== null) {
+            $line['source_line_no'] = $index + 1;
         }
         $lines[] = $line;
         $net += $amount;

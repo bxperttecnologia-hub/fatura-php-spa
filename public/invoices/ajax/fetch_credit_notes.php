@@ -50,9 +50,14 @@ SELECT
         c.total_tax,
         c.total_sum,
         c.user_id,
-        c.issue_date
+        c.issue_date,
+        c.reference,
+        c.agt_status,
+        i.reference AS invoice_reference,
+        ct.name AS client_name
         FROM credit_notes AS c
         INNER JOIN invoices AS i ON i.id = c.invoice_id
+        LEFT JOIN contact AS ct ON ct.id = c.contact_id
         WHERE i.reference IS NOT NULL
           AND c.company_id = :company_id
         ORDER BY c.id DESC

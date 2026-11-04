@@ -13,12 +13,15 @@
  *   POST ?action=invoice_send  (re)envia uma fatura que não chegou à AGT (id)
  *   GET  ?action=receipt&id=   estado AGT de um recibo (RC)
  *   POST ?action=receipt_send  (re)envia um recibo que não chegou à AGT (id)
+ *   GET  ?action=credit_note&id=   estado AGT de uma nota de crédito (NC)
+ *   POST ?action=credit_note_send  (re)envia uma NC que não chegou à AGT (id)
  *   GET  ?action=documents     últimas faturas com numeração AGT
  *   POST ?action=check_pending consulta o estado das faturas pendentes
  */
 require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once __DIR__ . '/../../../app/helpers/agt.php';
 require_once __DIR__ . '/../../../app/helpers/agt_receipt.php';
+require_once __DIR__ . '/../../../app/helpers/agt_credit_note.php';
 
 ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
@@ -40,6 +43,8 @@ $allowedMethods = [
     'documents' => 'GET',
     'receipt' => 'GET',
     'receipt_send' => 'POST',
+    'credit_note' => 'GET',
+    'credit_note_send' => 'POST',
     'save_key' => 'POST',
     'create_series' => 'POST',
     'sync' => 'POST',
@@ -410,6 +415,33 @@ try {
             }
             agt_respond(200, ['success' => true, 'enabled' => true, 'agt' => $state]);
 
+        case 'credit_note':
+        case 'credit_note_send':
+            $id = (int) ($_REQUEST['id'] ?? 0);
+            $stmt = $pdo->prepare('SELECT * FROM credit_notes WHERE id = ? AND company_id = ?');
+            $stmt->execute([$id, $companyId]);
+            $note = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$note) {
+                agt_respond(404, ['success' => false, 'message' => 'Nota de crédito não encontrada.']);
+            }
+            if (!agt_parse_document_no($note['reference'] ?? null)) {
+                agt_respond(200, ['success' => true, 'enabled' => agt_enabled($pdo, $companyId), 'agt' => null]);
+            }
+            if ($action === 'credit_note_send') {
+                if (!in_array($note['agt_status'], [null, 'error'], true)) {
+                    agt_respond(422, ['success' => false, 'message' => 'Esta nota de crédito já foi recebida pela AGT.']);
+                }
+                $state = agt_submit_credit_note($pdo, $id);
+            } elseif (
+                $note['agt_status'] === 'sent'
+                && (empty($note['agt_checked_at']) || strtotime($note['agt_checked_at']) < time() - 20)
+            ) {
+                $state = agt_check_credit_note($pdo, $id);
+            } else {
+                $state = agt_credit_note_state($note);
+            }
+            agt_respond(200, ['success' => true, 'enabled' => true, 'agt' => $state]);
+
         case 'documents':
             $stmt = $pdo->prepare("
                 SELECT i.id, i.reference, i.document_type, i.issue_date, i.final_total, c.name AS customer,
@@ -441,6 +473,12 @@ try {
             $stmt->execute([$companyId]);
             foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
                 agt_check_receipt($pdo, (int) $id);
+                $checked++;
+            }
+            $stmt = $pdo->prepare("SELECT id FROM credit_notes WHERE company_id = ? AND agt_status = 'sent' ORDER BY agt_sent_at LIMIT 20");
+            $stmt->execute([$companyId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                agt_check_credit_note($pdo, (int) $id);
                 $checked++;
             }
             agt_respond(200, ['success' => true, 'checked' => $checked]);

@@ -1,5 +1,6 @@
 <?php
-require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/require_login.php';
+require_once __DIR__ . '/../../../app/helpers/agt_credit_note.php';
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -10,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $invoiceId = (int)($_POST['invoice_id'] ?? 0);
 $reason = trim($_POST['reason'] ?? '');
+$companyId = (int)($_SESSION['user']['company_id'] ?? 0);
 
 if (!$invoiceId) {
   http_response_code(422);
@@ -21,8 +23,8 @@ try {
   $pdo->beginTransaction();
 
   // Serializa a emissão de documentos associados a esta fatura.
-  $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = :id LIMIT 1 FOR UPDATE");
-  $stmt->execute([':id' => $invoiceId]);
+  $stmt = $pdo->prepare("SELECT * FROM invoices WHERE id = :id AND company_id = :company LIMIT 1 FOR UPDATE");
+  $stmt->execute([':id' => $invoiceId, ':company' => $companyId]);
   $inv = $stmt->fetch(PDO::FETCH_ASSOC);
   if (!$inv) {
     throw new RuntimeException('Fatura não encontrada.', 404);
@@ -52,6 +54,27 @@ try {
     throw new RuntimeException('O estado Cancelada não está configurado.', 500);
   }
 
+  // Fatura com numeração AGT → NC da série AGT ("NC <série>/<n>"), enviada à AGT depois do commit.
+  $agtNote = agt_credit_note_required($pdo, $inv);
+  $noteReference = null;
+  $noteSeriesId = null;
+  if ($agtNote) {
+    if ($inv['agt_status'] !== 'valid') {
+      throw new RuntimeException(
+        $inv['agt_status'] === 'sent'
+          ? 'A fatura ainda está a aguardar validação da AGT. Tente a nota de crédito daqui a pouco.'
+          : 'A fatura não foi validada pela AGT; só se emite nota de crédito sobre uma fatura válida.',
+        422
+      );
+    }
+    if ($reason === '') {
+      throw new RuntimeException('Indique o motivo da nota de crédito (obrigatório na AGT).', 422);
+    }
+    $nc = agt_credit_note_next_number($pdo, $companyId);
+    $noteReference = $nc['reference'];
+    $noteSeriesId = $nc['series_id'];
+  }
+
   // Itens da fatura
   $stmt = $pdo->prepare("SELECT * FROM invoice_items WHERE invoice_id = :id");
   $stmt->execute([':id' => $invoiceId]);
@@ -59,13 +82,13 @@ try {
 
   // Cria a nota de crédito
   $stmt = $pdo->prepare("INSERT INTO credit_notes (
-      invoice_id, contact_id, company_id, issue_date, reason,
+      invoice_id, reference, agt_series_id, contact_id, company_id, issue_date, reason,
       currency, retention, retention_value, total_sum, total_discount,
       subtotal_without_tax, total_tax, final_total, tax_withholding_type,
       tax_withholding_rate, tax_withholding_base, tax_withholding_amount,
       tax_withholding_description, tax_withholding_confirmed, gross_total, user_id
     ) VALUES (
-      :invoice_id, :contact_id, :company_id, :issue_date, :reason,
+      :invoice_id, :reference, :agt_series_id, :contact_id, :company_id, :issue_date, :reason,
       :currency, :retention, :retention_value, :total_sum, :total_discount,
       :subtotal_without_tax, :total_tax, :final_total, :tax_withholding_type,
       :tax_withholding_rate, :tax_withholding_base, :tax_withholding_amount,
@@ -74,6 +97,8 @@ try {
 
   $stmt->execute([
     ':invoice_id' => $inv['id'],
+    ':reference' => $noteReference,
+    ':agt_series_id' => $noteSeriesId,
     ':contact_id' => $inv['contact_id'],
     ':company_id' => $inv['company_id'],
     ':issue_date' => date('Y-m-d'),
@@ -127,7 +152,9 @@ try {
   ]);
 
   $pdo->commit();
-  echo json_encode(['success' => true, 'credit_note_id' => $cnId]);
+
+  $agt = $agtNote ? agt_submit_credit_note($pdo, $cnId) : null;
+  echo json_encode(['success' => true, 'credit_note_id' => $cnId, 'reference' => $noteReference, 'agt' => $agt], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) {

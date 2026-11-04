@@ -3,6 +3,8 @@
 require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once '../../../app/helpers/company_logo.php';
 require_once '../../../app/helpers/document_tax.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../app/helpers/agt.php';
 $sessionCompanyId = session_company_id();
 
 /*
@@ -58,10 +60,12 @@ if ($id <= 0) {
 $sql = "
 SELECT 
     cn.*,
+    cn.reference AS note_reference,
 
     i.issue_date AS invoice_issue_date,
     i.id AS invoice_id,
     i.reference,
+    i.subtotal_without_tax AS invoice_subtotal,
 
     comp.name AS company_name,
     comp.address AS company_address,
@@ -114,6 +118,16 @@ if (!$cn) {
   http_response_code(404);
   exit('<h3>Nota de crédito não encontrada.</h3>');
 }
+
+// Número AGT ("NC <série>/<n>") e QR de consulta; NC antigas mantêm "<ano>/<id>".
+$noteNumber = agt_parse_document_no($cn['note_reference'] ?? null)
+  ? $cn['note_reference']
+  : date('Y', strtotime($cn['issue_date'])) . '/' . (int)$cn['id'];
+$noteQrUrl = agt_parse_document_no($cn['note_reference'] ?? null)
+  ? agt_qr_url((string)($cn['registration_number'] ?? ''), $cn['note_reference'])
+  : null;
+$noteQrSrc = $noteQrUrl ? agt_qr_image($noteQrUrl) : null;
+$noteIsPartial = (float)$cn['subtotal_without_tax'] < (float)$cn['invoice_subtotal'] - 0.005;
 
 /*
 |--------------------------------------------------------------------------
@@ -223,7 +237,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
   <title>
     Nota de Crédito
-    <?= htmlspecialchars(date('Y', strtotime($cn['issue_date'])) . '/' . $cn['id']) ?>
+    <?= htmlspecialchars($noteNumber) ?>
   </title>
 
   <style>
@@ -546,8 +560,8 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
     ========================= -->
 
     <div class="title-line" style="margin-top: 50px;">
-      Nota de Crédito (ANULAÇÃO INTEGRAL) n.º
-      <?= date('Y', strtotime($cn['issue_date'])) ?>/<?= (int)$cn['id'] ?>
+      Nota de Crédito (<?= $noteIsPartial ? 'CRÉDITO PARCIAL' : 'ANULAÇÃO INTEGRAL' ?>) n.º
+      <?= htmlspecialchars($noteNumber) ?>
     </div>
 
     <!-- =========================
@@ -903,6 +917,18 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
       <?= htmlspecialchars($cn['reference'] ?? '-') ?>
 
     </div>
+
+    <?php if ($noteQrSrc): ?>
+    <table style="margin-top:14px;width:auto">
+      <tr>
+        <td style="width:100px;vertical-align:middle"><img src="<?= $noteQrSrc ?>" alt="QR" style="width:90px;height:90px"></td>
+        <td style="vertical-align:middle;font-size:10px;padding-left:8px">
+          Documento emitido no âmbito da faturação eletrónica da AGT.<br>
+          Consulte a autenticidade lendo o código QR.
+        </td>
+      </tr>
+    </table>
+    <?php endif; ?>
 
     <!-- =========================
          ASSINATURA

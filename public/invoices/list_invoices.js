@@ -300,29 +300,32 @@ $(document).ready(function () {
     },
 
     credit_notes: {
-      colspan: 6,
+      colspan: 8,
       title: "Notas de crédito",
       emptyLabel: "Nenhuma nota de crédito encontrada",
       defaultSort: { key: "issue_date", dir: "desc" },
       hasStatusFilter: false,
-      clientLabel: "Fatura (ref.)",
-      clientField: "invoice_id",
+      clientLabel: "Cliente",
+      clientField: "client_name",
       statusField: null,
       dateField: "issue_date",
       headerHtml: `
         <tr>
-          <th data-key="id">Documento ${SORT}</th>
-          <th data-key="invoice_id">Fatura ${SORT}</th>
+          <th data-key="reference">Documento ${SORT}</th>
+          <th data-key="client_name">Cliente ${SORT}</th>
+          <th data-key="invoice_reference">Fatura ${SORT}</th>
           <th data-key="issue_date">Emissão ${SORT}</th>
+          <th>Motivo</th>
           <th>Moeda</th>
           <th data-key="final_total" class="bx-num">Total ${SORT}</th>
-          <th class="text-end">Motivo</th>
+          <th class="text-end">Ações</th>
         </tr>
       `,
       renderRow: renderCreditNoteRow,
       exportColumns: [
-        ["Documento", (r) => r.id],
-        ["Fatura", (r) => r.invoice_id],
+        ["Documento", (r) => creditNoteNumber(r)],
+        ["Cliente", (r) => r.client_name],
+        ["Fatura", (r) => r.invoice_reference || r.invoice_id],
         ["Emissão", (r) => fmtDate(r.issue_date)],
         ["Moeda", (r) => r.currency],
         ["Total", (r) => bxMoney(r.final_total), (r) => Number(r.final_total || 0).toFixed(2).replace(".", ",")],
@@ -949,18 +952,47 @@ $(document).ready(function () {
     `;
   }
 
+  function creditNoteNumber(row) {
+    return row.reference || `${String(row.issue_date || "").slice(0, 4)}/${row.id}`;
+  }
+
   function renderCreditNoteRow(row) {
+    const number = creditNoteNumber(row);
+    const pdfUrl = `/api/documents/credit-notes/${encodeURIComponent(row.id)}/pdf`;
+    const agt = RECEIPT_AGT[row.agt_status];
+    const agtBadge = agt
+      ? `<span class="badge rounded-pill mt-1" style="color:${agt[1]};background:${agt[2]};font-weight:600">${agt[0].replace("Validado", "Validada").replace("Rejeitado", "Rejeitada").replace("Não enviado", "Não enviada")}</span>`
+      : "";
+    const invoiceLink = row.invoice_id
+      ? `<a href="/invoices/view?id=${encodeURIComponent(row.invoice_id)}" data-spa
+           data-bs-toggle="tooltip" data-bs-title="Abrir a fatura">${esc(row.invoice_reference || "#" + row.invoice_id)}</a>`
+      : "-";
     return `
       <tr class="invoice-row" data-id="${esc(row.id)}">
-        <td class="bx-td-doc">${docCell("credit_notes", "Nota de crédito", row.id)}</td>
-        <td class="bx-td-client" data-label="Fatura">${esc(row.invoice_id || "-")}</td>
+        <td class="bx-td-doc">${docCell("credit_notes", "Nota de crédito", number)}${agtBadge}</td>
+        <td class="bx-td-client" data-label="Cliente">${esc(row.client_name || "-")}</td>
+        <td data-label="Fatura">${invoiceLink}</td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
+        <td data-label="Motivo">${esc(row.reason || "-")}</td>
         <td data-label="Moeda">${esc(row.currency || "-")}</td>
         <td class="bx-num bx-money bx-td-total" data-label="Total">${bxMoney(row.final_total)}</td>
-        <td class="text-end" data-label="Motivo">${esc(row.reason || "-")}</td>
+        <td class="bx-td-actions">
+          <div class="bx-actions">
+            <button type="button" class="bx-icon-btn js-pdf-open" data-url="${pdfUrl}"
+              data-bs-toggle="tooltip" data-bs-title="Visualizar nota de crédito" aria-label="Visualizar nota de crédito ${esc(number)}">
+              <i class="bi bi-eye" aria-hidden="true"></i><span class="bx-btn__label">Visualizar</span>
+            </button>
+            ${pdfBtn(
+              `data-url="${pdfUrl}" data-filename="NotaCredito_${esc(String(number).replace(/[^A-Za-z0-9_-]+/g, "-"))}.pdf"`,
+              `Baixar PDF da nota de crédito ${number}`,
+              "js-pdf-url",
+            )}
+          </div>
+        </td>
       </tr>
     `;
   }
+
 
   function renderDebitNoteRow(row) {
     const number = `${row.serie ?? ""} ${row.number ?? ""}`.trim();

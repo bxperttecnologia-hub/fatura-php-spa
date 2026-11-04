@@ -75,8 +75,13 @@ try {
   $finalTotal = round((float)$invoice['final_total'], 2);
   $paidTotal  = round((float)$invoice['paid_total'], 2);
 
+  // Notas de crédito (parciais) já emitidas reduzem o valor em dívida.
+  $creditedStmt = $pdo->prepare('SELECT COALESCE(SUM(final_total), 0) FROM credit_notes WHERE invoice_id = ?');
+  $creditedStmt->execute([$invoice_id]);
+  $creditedTotal = round((float)$creditedStmt->fetchColumn(), 2);
+
   $currentPending = round(
-    max(0, $finalTotal - $paidTotal),
+    max(0, $finalTotal - $paidTotal - $creditedTotal),
     2
   );
 
@@ -101,7 +106,7 @@ try {
   );
 
   $newPendingAmount = round(
-    max(0, $finalTotal - $newPaidTotal),
+    max(0, $finalTotal - $newPaidTotal - $creditedTotal),
     2
   );
 

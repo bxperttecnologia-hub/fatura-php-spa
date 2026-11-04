@@ -250,8 +250,13 @@ try {
 
         $document['paid_total'] = $paid;
 
+        // Notas de crédito parciais reduzem o valor em dívida.
+        $stmtCredited = $pdo->prepare('SELECT COALESCE(SUM(final_total), 0) FROM credit_notes WHERE invoice_id = ?');
+        $stmtCredited->execute([$documentId]);
+        $document['credited_total'] = round((float)$stmtCredited->fetchColumn(), 2);
+
         $document['saldo'] =
-            (float)$document['final_total'] - $paid;
+            (float)$document['final_total'] - $paid - $document['credited_total'];
 
         $document['pay_status'] =
             $paid <= 0
