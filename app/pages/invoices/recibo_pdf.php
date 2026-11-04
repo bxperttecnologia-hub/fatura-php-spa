@@ -40,6 +40,15 @@ SELECT
     i.issue_date,
     i.reference AS invoice_reference,
     i.final_total,
+    i.gross_total,
+    i.subtotal_without_tax,
+    i.total_tax,
+    i.retention_value,
+    i.tax_withholding_type,
+    i.tax_withholding_rate,
+    i.tax_withholding_base,
+    i.tax_withholding_amount,
+    i.tax_withholding_description,
     i.currency AS invoice_currency,
 
     cr.symbol AS moneySymbol,
@@ -155,11 +164,25 @@ $logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
 |--------------------------------------------------------------------------
 */
 
-$facturado = (float)$d['final_total'];
+$facturado = (float)($d['gross_total'] ?? 0);
+if ($facturado <= 0) {
+  $facturado = (float)($d['subtotal_without_tax'] ?? 0) + (float)($d['total_tax'] ?? 0);
+}
+if ($facturado <= 0) {
+  $facturado = (float)$d['final_total'];
+}
 $pago = (float)$d['amount_paid'];
-
-$retencaoPercent = 6.5;
-$retencaoValor = ($facturado * $retencaoPercent) / 100;
+$retencaoValor = max(0.0, (float)($d['retention_value'] ?? 0));
+$impostoRetidoValor = max(0.0, (float)($d['tax_withholding_amount'] ?? 0));
+$impostoRetidoBase = max(0.0, (float)($d['tax_withholding_base'] ?? 0));
+$impostoRetidoDescricao = match ((string)($d['tax_withholding_type'] ?? 'none')) {
+  'withholding_6_5' => 'Retenção na Fonte',
+  'ipu_rent' => 'IPU — Rendas',
+  default => trim((string)($d['tax_withholding_description'] ?? '')) ?: 'Imposto / retenção',
+};
+if ($impostoRetidoValor > 0 && (float)($d['tax_withholding_rate'] ?? 0) > 0) {
+  $impostoRetidoDescricao .= ' (' . number_format((float)$d['tax_withholding_rate'], 2, ',', '.') . '%)';
+}
 
 $valorPendente = (float)$d['pending_amount'];
 
@@ -601,7 +624,7 @@ $html .= '
         <tr>
 
           <th width="35%">
-            Imposto/IVA %
+            Componente fiscal
           </th>
 
           <th width="35%">
@@ -617,15 +640,15 @@ $html .= '
         <tr>
 
           <td>
-            Isento - 0
+            Retenção por artigo
           </td>
 
           <td>
-            ' . money($facturado) . ' Kz
+            —
           </td>
 
           <td class="right">
-            0,00 Kz
+            ' . money($retencaoValor) . ' Kz
           </td>
 
         </tr>
@@ -633,15 +656,15 @@ $html .= '
         <tr>
 
           <td>
-            Retenção (6,50%)
+            ' . h($impostoRetidoDescricao) . '
           </td>
 
           <td>
-            ' . money($facturado) . ' Kz
+            ' . ($impostoRetidoBase > 0 ? money($impostoRetidoBase) . ' ' . h($d['moneySymbol']) : '—') . '
           </td>
 
           <td class="right">
-            ' . money($retencaoValor) . ' Kz
+            ' . money($impostoRetidoValor) . ' ' . h($d['moneySymbol']) . '
           </td>
 
         </tr>

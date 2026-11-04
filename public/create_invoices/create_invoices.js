@@ -1278,6 +1278,58 @@ $(document).ready(function () {
 
   let finalTotal = 0;
 
+<<<<<<< Updated upstream
+=======
+  function showDocumentTaxWarning(message) {
+    $("#tax_withholding_warning").text(message).toggleClass("d-none", !message);
+  }
+
+  function loadDocumentTaxConfiguration(date = $("#issue_date").val()) {
+    const requestId = ++documentTaxConfigRequest;
+    documentTaxConfigLoaded = false;
+    documentTaxConfigError = false;
+    return $.getJSON("/document_tax/ajax/options.php", { date: date || new Date().toISOString().slice(0, 10) })
+      .then((response) => {
+        if (requestId !== documentTaxConfigRequest) return;
+        if (!response?.success || !response.options) throw new Error(response?.error || "Configuração fiscal indisponível.");
+        Object.assign(documentTaxConfigurations, response.options);
+        documentTaxConfigLoaded = true;
+        const labels = {
+          withholding_6_5: "Retenção na Fonte",
+          ipu_rent: "IPU — Rendas",
+        };
+        Object.entries(labels).forEach(([type, label]) => {
+          const option = $(`#tax_withholding_type option[value='${type}']`);
+          const config = documentTaxConfigurations[type];
+          const configured = config?.configured === true;
+          const rateLabel = configured
+            ? ` (${Number(config.rate).toLocaleString("pt-PT")}%)`
+            : "";
+          const statusLabel = !configured
+            ? " — sem configuração"
+            : config.enabled
+              ? ""
+              : " — configuração inactiva";
+          option.text(`${label}${rateLabel}${statusLabel}`);
+        });
+        updateInvoiceSummary();
+      })
+      .catch((error) => {
+        if (requestId !== documentTaxConfigRequest) return;
+        documentTaxConfigLoaded = true;
+        documentTaxConfigError = true;
+        console.error("Erro ao carregar configuração de impostos:", error);
+        updateInvoiceSummary();
+      });
+  }
+
+  $(document).on("change", "#tax_withholding_type, #tax_withholding_confirmed", updateInvoiceSummary);
+  $(document).on("change", "#issue_date", function () {
+    loadDocumentTaxConfiguration($(this).val());
+  });
+  loadDocumentTaxConfiguration();
+
+>>>>>>> Stashed changes
   // ao mudar a moeda, recalcula com o símbolo correto
   $(document).on("change", "#currency", function () {
     const iso = $(this).val() || "AOA";

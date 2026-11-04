@@ -1,13 +1,63 @@
 <?php
+<<<<<<< Updated upstream
 /*  invoice_public.php
  *  Gera a fatura completa em HTML (modelo Personalité‑like) 
+=======
+/*  proform_public.php
+ *  Pré-visualização HTML da PROFORMA — réplica fiel do PDF (invoicePdfService.js).
+ *
+ *  Todas as posições estão em pontos (pt) e são as MESMAS do PDF:
+ *  - logo na caixa 105x55 · empresa (x45,y100) · cliente (x435,y100)
+ *  - "Original" y245 · título y263 · linha y288 · linhas de dados y298/316/334
+ *  - tabela: itens em colunas fixas, máx. 10 por página, "Subtotal da página" + "A transportar…"
+ *  - totais logo a seguir aos itens (Dados fiscais e bancários | Sumário), sem espaço vazio
+ *  - rodapé: QR, texto AGT, "Powered by BXPERT" e "Página n de N"
+>>>>>>> Stashed changes
  */
 require_once '../../../vendor/autoload.php';
 
 use chillerlan\QRCode\{QRCode, QROptions};
 
 require_once '../../../app/config/db.php';
+<<<<<<< Updated upstream
 require_once __DIR__ . '/../../../../app/helpers/document_tax.php';
+=======
+// document_tax.php: procura nas localizações possíveis (local XAMPP / produção)
+foreach (
+  [
+    __DIR__ . '/../../../app/helpers/document_tax.php',
+    __DIR__ . '/../../../helpers/document_tax.php',
+    __DIR__ . '/../../app/helpers/document_tax.php',
+    __DIR__ . '/../../../../app/helpers/document_tax.php',
+  ] as $bxHelperFile
+) {
+  if (is_file($bxHelperFile)) {
+    require_once $bxHelperFile;
+    break;
+  }
+}
+if (!function_exists('bx_document_tax_summary')) {
+  die('<h3>Não foi possível carregar o ficheiro document_tax.php.</h3>');
+}
+
+// ---------- configuração (igual ao PDF) ----------
+const AGT_CERTIFICATE = 'FE/344/AGT/2026';
+const ITEMS_PER_PAGE  = 10;
+const ITEMS_BOTTOM    = 588;   // limite vertical (pt) das linhas: deixa espaço p/ "A transportar…", totais (136pt) e rodapé (QR em y776)
+const LH              = 1.156; // altura de linha da Helvetica (pdfkit): 1,156 x tamanho
+$copies = ['Original']; // para ver as duas cópias: ['Original', 'Duplicado']
+
+// Colunas da tabela (x, largura) — iguais às do PDF
+const COL = [
+  'code'     => [50, 70],
+  'desc'     => [125, 115],
+  'price'    => [243, 80],
+  'qty'      => [327, 28],
+  'tax'      => [358, 38],
+  'discount' => [399, 32],
+  'total'    => [436, 109],
+];
+>>>>>>> Stashed changes
 
 // ---------- utils ----------
 function formatCurrency(float $value, string $currencySymbol, string $currencyPosition = 'left'): string
@@ -98,7 +148,13 @@ function extenso_pt(int $n): string
   return implode(' ', $parts) . ' e ' . $last;
 }
 
+<<<<<<< Updated upstream
 function moneyToWords(float $value, string $currencyIso = 'AOA'): string
+=======
+// ---------- helpers de desenho (coordenadas da PÁGINA, em pt) ----------
+// texto absoluto: proformText(x, y, html, classes, largura opcional)
+function proformText(float $x, float $y, string $html, string $class = '', ?float $w = null): string
+>>>>>>> Stashed changes
 {
   $value = round($value, 2);
   $int = (int)floor($value);
@@ -137,7 +193,12 @@ function moneyToWords(float $value, string $currencyIso = 'AOA'): string
   return $out;
 }
 // ---------- input ----------
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$rawId = trim((string)($_GET['id'] ?? ''), '/');
+if (!preg_match('~(?:^|/)(\d+)$~', $rawId, $idMatch)) {
+  $id = 0;
+} else {
+  $id = (int)$idMatch[1];
+}
 if (!$id) {
   die('<h3>Fatura não encontrada.</h3>');
 }
@@ -376,20 +437,183 @@ if ($paid_total >= $inv['final_total']) {  // quitada
     .document-tax-summary td:first-child {
       text-align: left;
     }
+<<<<<<< Updated upstream
     @media (max-width: 640px) {
       .document-tax-summary table {
         min-width: 520px;
       }
+=======
+
+    .logo-box img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      object-position: left top;
+    }
+
+    .blk {
+      position: absolute;
+      top: 100pt;
+    }
+
+    .blk>div {
+      margin-bottom: 3pt;
+    }
+
+    .company {
+      left: 45pt;
+      width: 365pt;
+    }
+
+    .client {
+      left: 435pt;
+      width: calc(115pt - .278 * 9pt);
+      overflow-wrap: anywhere;
+    }
+
+    .company .addr {
+      width: 190pt;
+    }
+
+    /* ---------- tabela (fluxo) ---------- */
+    .flow {
+      position: absolute;
+      left: 0;
+      top: 334pt;
+      width: 595.28pt;
+    }
+
+    .obs {
+      position: relative;
+      min-height: 12pt;
+      margin-bottom: 15pt;
+      font-size: 9pt;
+    }
+
+    .obs .lab {
+      position: absolute;
+      left: 45pt;
+      top: 0;
+    }
+
+    .obs .val {
+      margin-left: 145pt;
+      width: calc(405pt - .278em);
+      overflow-wrap: anywhere;
+    }
+
+    .th {
+      position: relative;
+      height: 20pt;
+      margin-top: -.5pt;
+      margin-bottom: 16.5pt;
+    }
+
+    .th::before,
+    .th::after {
+      content: "";
+      position: absolute;
+      left: 45pt;
+      width: 505pt;
+    }
+
+    .th::before {
+      top: 0;
+      height: 1pt;
+      background: #8C8C8C;
+    }
+
+    .th::after {
+      top: 20.1pt;
+      height: .8pt;
+      background: #D2D2D2;
+    }
+
+    .th span {
+      position: absolute;
+      top: 10.5pt;
+      font-size: 8pt;
+      font-weight: bold;
+      color: #555;
+      white-space: nowrap;
+      transform: translateY(-.09em);
+    }
+
+    .irow {
+      position: relative;
+      display: block;
+      min-height: 17pt;
+      padding-bottom: 7pt;
+      font-size: 8pt;
+      color: #666;
+    }
+
+    .irow .desc {
+      margin-left: 125pt;
+      width: calc(115pt - .278em);
+      overflow-wrap: anywhere;
+      transform: translateY(-.09em);
+    }
+
+    .irow .c {
+      position: absolute;
+      top: 0;
+      white-space: nowrap;
+      transform: translateY(-.09em);
+    }
+
+    .irow .c.code {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .carry-wrap {
+      position: relative;
+      height: 36pt;   /* subtotal + "A transportar…" + folga até aos totais */
+    }
+
+    /* bloco de totais: em fluxo, logo a seguir aos itens */
+    .tot {
+      position: relative;
+      height: 136pt;
+    }
+
+    .tot-last {
+      margin-top: 14pt;
+    }
+
+    /* ---------- rodapé ---------- */
+    .qr {
+      position: absolute;
+      left: 49.2pt;
+      top: 776.7pt;
+      width: 45pt;
+      height: 45pt;
+>>>>>>> Stashed changes
     }
   </style>
 </head>
 
 
+<<<<<<< Updated upstream
 <body>
   <main class="invoice-page">
 
     <!-- ===== HEADER (100% flex) ===== -->
     <div class="inv-header d-flex justify-content-between pb-2">
+=======
+      // subtotal (incidência) desta página e acumulado até aqui
+      $pageSubtotal = 0.0;
+      foreach ($pageItems as $it) $pageSubtotal += lineSubtotal($it);
+      $carried += $pageSubtotal;
+      $sy = 8 + 16 + 10; // 34: início das linhas, relativo ao topo do bloco de totais
+  ?>
+
+      <section class="page invoice-page">
+>>>>>>> Stashed changes
 
       <!-- ESQUERDA: logo + dados empresa -->
       <div class="inv-left d-flex flex-column align-items-start">
@@ -460,6 +684,7 @@ if ($paid_total >= $inv['final_total']) {  // quitada
 
         </div>
 
+<<<<<<< Updated upstream
         <!-- ===== COLUNA DIREITA – OBSERVAÇÕES ===== -->
         <div class="meta-mini mt-2">
           <div class="vals">
@@ -476,6 +701,22 @@ if ($paid_total >= $inv['final_total']) {  // quitada
       </div>
     </section>
 
+=======
+        <!-- DOCUMENTO -->
+        <?= proformText(45, 245, e($copyLabel), 'f10 cg') ?>
+        <?= proformText(45, 263, e($docTitle), 'f12 b c0') ?>
+        <?= HL(45, 550, 288, 1.5, '#8C8C8C') ?>
+
+        <?= proformText(45, 298, 'Cliente:', 'f9 cg') ?>
+        <?= proformText(145, 298, e($clientName), 'f9 b c4', 200) ?>
+        <?= proformText(365, 298, 'Data de emissão:', 'f9 cg') ?>
+        <?= proformText(455, 298, e($issueBr), 'f9 cg') ?>
+
+        <?= proformText(45, 316, 'Contribuinte:', 'f9 cg') ?>
+        <?= proformText(145, 316, e($clientNif), 'f9 cg') ?>
+        <?= proformText(365, 316, 'Vencimento:', 'f9 cg') ?>
+        <?= proformText(455, 316, e($dueBr), 'f9 cg') ?>
+>>>>>>> Stashed changes
 
     <!-- ===== ITENS (sem <table>) ===== -->
     <div class="items-grid mt-4 title-line pb-5 lh-1" style="border-bottom: 2.5px solid #8b8b8b !important; border-top: 2.5px solid #8b8b8b !important; border-bottom: 2.5px solid #8b8b8b !important">
@@ -670,6 +911,7 @@ if ($paid_total >= $inv['final_total']) {  // quitada
               </span>
             </div>
 
+<<<<<<< Updated upstream
             <?php if ($saldo > 0): // só mostra saldo se ainda houver 
             ?>
               <div class="sum-row">
@@ -688,6 +930,60 @@ if ($paid_total >= $inv['final_total']) {  // quitada
     </div><!-- /.totals-wrap -->
 
     <!-- ===== REGIME IVA / BENS E SERVIÇOS / DADOS BANCÁRIOS ===== -->
+=======
+
+        <div class="tot<?= $isLast ? ' tot-last' : '' ?>">
+          <!-- DADOS FISCAIS E SUMÁRIO: seguem logo a seguir aos itens (sem espaço vazio) -->
+          <?= HL(45, 550, 0, 1.5, '#8C8C8C') ?>
+          <?= proformText(45, 8, 'Dados fiscais e bancários', 'f10 b c5') ?>
+          <?= proformText(365, 8, 'Sumário', 'f10 b c5') ?>
+          <?= HL(45, 340, 24, .8, '#C4C4C4') ?>
+          <?= HL(365, 550, 24, .8, '#C4C4C4') ?>
+
+          <!-- esquerda -->
+          <?= proformText(45, $sy, 'Regime de IVA:', 'f85 cg') ?>
+          <?= proformText(145, $sy, e($vatRegime), 'f85 cg', 180) ?>
+          <?= proformText(45, $sy + 20, 'Bens e serviços:', 'f85 cg') ?>
+          <?= proformText(145, $sy + 20, e($goodsServicesText), 'f85 cg wrap', 180 - 0.278 * 8.5) ?>
+          <?= proformText(45, $sy + 62, 'Dados bancários:', 'f85 cg') ?>
+          <?= proformText(145, $sy + 62, e($iban), 'f85 cg', 190) ?>
+
+          <!-- direita -->
+          <?php if (!$isLast): ?>
+            <?= proformText(365, $sy + 14, 'Subtotal da página:', 'f85 cg') ?>
+            <?= proformText(450, $sy + 14, e($money($pageSubtotal)), 'f85 cg r', 100) ?>
+            <?= HL(365, 545, $sy + 72, 1, '#555') ?>
+            <?= proformText(365, $sy + 82, 'A transportar:', 'f10 b c0') ?>
+            <?= proformText(440, $sy + 82, e($money($carried)), 'f10 b c0 r', 110) ?>
+            <?= HL(365, 545, $sy + 100, 2, '#555') ?>
+          <?php else: ?>
+            <?php foreach (
+              [
+                ['Total líquido:', $inv['total_sum'], -2],
+                ['Desconto:', $inv['total_discount'], 14],
+                ['Sem Imposto/IVA c.Desc.:', $inv['total_sum'] - $inv['total_discount'], 28],
+                ['Imposto/IVA:', $inv['total_tax'], 42],
+                ['Retenção:', $inv['retention_value'], 56],
+              ] as [$label, $value, $dy]
+            ): ?>
+              <?= proformText(365, $sy + $dy, e($label), 'f85 cg') ?>
+              <?= proformText(450, $sy + $dy, e($money($value)), 'f85 cg r', 100) ?>
+            <?php endforeach; ?>
+            <?= HL(365, 545, $sy + 72, 1, '#555') ?>
+            <?= proformText(365, $sy + 82, 'Total:', 'f12 b c0') ?>
+            <?= proformText(440, $sy + 82, e($money($inv['final_total'])), 'f12 b c0 r', 110) ?>
+            <?= HL(365, 545, $sy + 100, 2, '#555') ?>
+          <?php endif; ?>
+        </div>
+
+        </div><!-- /.flow -->
+
+        <!-- RODAPÉ (em todas as páginas) -->
+        <img class="qr" src="<?= $qrSrc ?>" alt="QR">
+        <?= proformText(112.3, 795.5, 'Software certificado pela AGT | Nº ' . e(AGT_CERTIFICATE), 'f8 c0') ?>
+        <?= proformText(112.3, 804.75, 'Powered by BXPERT', 'f8 c0') ?>
+        <?= proformText(450, 795.5, 'Página ' . ($pageIndex + 1) . ' de ' . $pageCount, 'f8 c0 r', 100) ?>
+>>>>>>> Stashed changes
 
 
     <!-- ===== RODAPÉ (dados da empresa emissora) ===== -->

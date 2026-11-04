@@ -90,8 +90,11 @@ $(function () {
         cache: false,
       }).then((html) => {
         const parsed = new DOMParser().parseFromString(html, "text/html");
-        if (!parsed.querySelector(".invoice-page")) {
-          throw new Error("O servidor não devolveu o documento da proforma.");
+        if (!parsed.querySelector(".page, .invoice-page")) {
+          const message = parsed.body?.textContent?.trim().slice(0, 200);
+          throw new Error(
+            message || "O servidor não devolveu o documento da proforma.",
+          );
         }
         return html;
       }),

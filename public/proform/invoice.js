@@ -18,9 +18,42 @@ $(function () {
   // 2. CARREGAR DADOS JSON
   // =========================
   function loadInvoice() {
+<<<<<<< Updated upstream
     $.get("/proform/ajax/get_proform.php", { id: invoiceId })
       .done((inv) => {
         currentInvoice = inv?.data;
+=======
+    $preloader.text("Carregando...").show();
+    $container.hide().empty();
+    const query = `id=${encodeURIComponent(invoiceId)}`;
+    const requests = [
+      requestWithRetry({
+        url: `${endpointUrl("proform/ajax/get_proform.php")}?${query}`,
+        dataType: "json",
+        cache: false,
+      }).then((response) => {
+        if (!response?.success || !response.data) {
+          throw new Error(response?.error || "Resposta inválida dos dados da proforma.");
+          console.log(response)
+        }
+        return response.data;
+      }),
+      requestWithRetry({
+        url: `${endpointUrl("proform/ajax/proform_public.php")}?${query}`,
+        dataType: "html",
+        cache: false,
+      }).then((html) => {
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        if (!parsed.querySelector(".page, .invoice-page")) {
+          const message = parsed.body?.textContent?.trim().slice(0, 200);
+          throw new Error(
+            message || "O servidor não devolveu o documento da proforma.",
+          );
+        }
+        return html;
+      }),
+    ];
+>>>>>>> Stashed changes
 
         $("#fatura-id").text(`${inv.data?.reference}`);
         $("#action-proform-number").text(inv.data?.reference || "-");

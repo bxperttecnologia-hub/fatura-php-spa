@@ -1219,6 +1219,24 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 
                     <div class="inv-summary" role="complementary" aria-label="<?= t('Resumo do documento') ?>">
                         <div class="inv-sum-row">
+<<<<<<< Updated upstream
+=======
+                            <label for="tax_withholding_type"><?= t('Imposto / Retenção na Fonte') ?></label>
+                            <select class="inv-input" id="tax_withholding_type" name="tax_withholding_type">
+                                <option value="none">Sem imposto adicional — 0%</option>
+                                <option value="withholding_6_5">Retenção na Fonte</option>
+                                <option value="ipu_rent">IPU — Rendas</option>
+                            </select>
+                        </div>
+                        <div id="tax_withholding_confirm_row" class="inv-sum-row d-none">
+                            <label class="form-check">
+                                <input class="form-check-input" id="tax_withholding_confirmed" name="tax_withholding_confirmed" type="checkbox" value="1">
+                                <span class="form-check-label">Confirmo que a operação, a natureza do serviço/renda, o regime fiscal, o imóvel (quando aplicável) e os intervenientes estão abrangidos.</span>
+                            </label>
+                        </div>
+                        <div id="tax_withholding_warning" class="alert alert-warning d-none" role="alert"></div>
+                        <div class="inv-sum-row">
+>>>>>>> Stashed changes
                             <span><?= t('Soma') ?></span>
                             <span id="total_sum">0,00</span>
                         </div>

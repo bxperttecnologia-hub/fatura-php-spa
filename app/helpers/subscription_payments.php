@@ -104,8 +104,8 @@ function subscription_payment_build_payment_info(string $method, string $phone =
     return ['phoneNumber' => $phone];
   }
   if ($method === 'REF') {
+    // A referência (entidade + número) é gerada pela AppyPay; nunca inventada localmente.
     return [
-      'referenceNumber' => (string)random_int(100000000, 999999999),
       'dueDate' => (new DateTimeImmutable('+7 days'))->format('Y-m-d\TH:i:s'),
     ];
   }
@@ -152,6 +152,28 @@ function subscription_payment_remote_charge(array $response): array
     'amount' => $charge['amount'] ?? null,
     'currency' => $charge['currency'] ?? null,
     'payment_method' => (string)($charge['paymentMethod'] ?? ''),
+  ];
+}
+
+function subscription_payment_extract_reference(array $response): array
+{
+  $charge = $response['data'] ?? [];
+  if (isset($charge['data']) && is_array($charge['data'])) {
+    $charge = $charge['data'];
+  }
+  if (isset($charge['payment']) && is_array($charge['payment'])) {
+    $charge = $charge['payment'];
+  }
+  $status = is_array($charge) ? ($charge['responseStatus'] ?? []) : [];
+  $reference = is_array($status) ? ($status['reference'] ?? []) : [];
+  if (!is_array($reference) || empty($reference)) {
+    $reference = is_array($charge) && is_array($charge['reference'] ?? null) ? $charge['reference'] : [];
+  }
+
+  return [
+    'entity' => (string)($reference['entity'] ?? ''),
+    'referenceNumber' => (string)($reference['referenceNumber'] ?? ''),
+    'dueDate' => (string)($reference['dueDate'] ?? ''),
   ];
 }
 
@@ -658,15 +680,7 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
     $chargeId = (string)($charge['id'] ?? $charge['chargeId'] ?? '');
     $gatewayStatus = (string)($responseStatus['status'] ?? $charge['status'] ?? 'unknown');
     $successful = is_array($responseStatus) ? ($responseStatus['successful'] ?? null) : null;
-    $reference = is_array($responseStatus) ? ($responseStatus['reference'] ?? []) : [];
-    $referenceData = is_array($reference) ? [
-      'entity' => (string)($reference['entity'] ?? ''),
-      'referenceNumber' => (string)($reference['referenceNumber'] ?? $paymentInfo['referenceNumber'] ?? ''),
-      'dueDate' => (string)($reference['dueDate'] ?? $paymentInfo['dueDate'] ?? ''),
-    ] : [];
-    $paymentRef = $method === 'REF'
-      ? json_encode($referenceData, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)
-      : null;
+    $referenceData = $method === 'REF' ? subscription_payment_extract_reference($response) : [];
 
     if ((int)($response['code'] ?? 0) < 200 || (int)($response['code'] ?? 0) >= 300 || $successful === false) {
       $update = $pdo->prepare(
@@ -689,6 +703,25 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
         'order_id' => $orderId,
       ], 202);
     }
+
+    if ($method === 'REF' && ($referenceData['entity'] === '' || $referenceData['referenceNumber'] === '')) {
+      // Cobrança assíncrona: a referência pode só estar disponível ao consultar a cobrança.
+      try {
+        $lookup = appypay_get_charge($chargeId);
+        $found = subscription_payment_extract_reference($lookup);
+        if ($found['entity'] !== '' && $found['referenceNumber'] !== '') {
+          $referenceData = $found;
+        }
+      } catch (Throwable $e) {
+        error_log('[subscription_payment] Reference lookup failed for order ' . $orderId . ': ' . $e->getMessage());
+      }
+    }
+    if ($referenceData && $referenceData['dueDate'] === '' && !empty($paymentInfo['dueDate'])) {
+      $referenceData['dueDate'] = (string)$paymentInfo['dueDate'];
+    }
+    $paymentRef = $method === 'REF'
+      ? json_encode($referenceData, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)
+      : null;
 
     $update = $pdo->prepare(
       "UPDATE subscription_orders

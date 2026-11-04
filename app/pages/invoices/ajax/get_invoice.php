@@ -3,40 +3,46 @@
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../helpers/document_tax.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+function bx_json_fail(int $status, string $message): void
+{
+    http_response_code($status);
+    // 'message' é o campo que o front lê; 'error' mantém compatibilidade com código antigo.
+    echo json_encode(['success' => false, 'message' => $message, 'error' => $message], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (!isset($_SESSION['user']['company_id'])) {
+    bx_json_fail(401, 'Sessão expirada. Inicie sessão novamente.');
+}
+$companyId = (int)$_SESSION['user']['company_id'];
 
 $documentId = (int)($_GET['id'] ?? 0);
+if ($documentId <= 0) {
+    bx_json_fail(400, 'Documento não informado.');
+}
 
-if (!$documentId) {
-    echo json_encode([
-        'success' => false,
-        'error'   => 'Documento não informado.'
-    ]);
-    exit;
+// O TIPO É EXPLÍCITO. Nunca se deduz pelo id: invoices.id e proformas.id são
+// sequências independentes e colidem (a fatura nº 5 e a proforma nº 5 coexistem).
+$kind = strtolower((string)($_GET['kind'] ?? 'invoice'));
+if (!in_array($kind, ['invoice', 'proforma'], true)) {
+    bx_json_fail(400, 'Tipo de documento inválido.');
 }
 
 try {
 
     /*
     |--------------------------------------------------------------------------
-    | DETECTAR TIPO DE DOCUMENTO
+    | TIPO DE DOCUMENTO (vem do pedido, nunca do id)
     |--------------------------------------------------------------------------
     */
 
-    $isProforma = false;
-
-    $check = $pdo->prepare("
-        SELECT id
-        FROM proformas
-        WHERE id = ?
-        LIMIT 1
-    ");
-
-    $check->execute([$documentId]);
-
-    if ($check->fetch()) {
-        $isProforma = true;
-    }
+    $isProforma = ($kind === 'proforma');
 
     /*
     |--------------------------------------------------------------------------
@@ -130,16 +136,17 @@ try {
             ON cr2.iso_code = comp.currency
 
         WHERE d.id = ?
+          AND d.company_id = ?
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$documentId]);
+    $stmt->execute([$documentId, $companyId]);
 
     $document = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$document) {
-        throw new Exception('Documento não encontrado.');
+        bx_json_fail(404, $isProforma ? 'Proforma não encontrada.' : 'Factura não encontrada.');
     }
 
     /*
@@ -269,6 +276,7 @@ try {
     */
 
     $document['is_proforma'] = $isProforma;
+    $document['kind']        = $kind;
 
     echo json_encode([
         'success' => true,
@@ -276,10 +284,6 @@ try {
     ]);
 } catch (Throwable $e) {
 
-    http_response_code(500);
-
-    echo json_encode([
-        'success' => false,
-        'error'   => $e->getMessage()
-    ]);
+    error_log('[get_invoice] ' . $e->getMessage());
+    bx_json_fail(500, 'Não foi possível carregar o documento.');
 }

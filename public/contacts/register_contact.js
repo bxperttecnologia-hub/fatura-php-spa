@@ -671,11 +671,25 @@ $(document).ready(function () {
           });
         }
       },
-      error: function () {
+      error: function (xhr) {
+        let res = xhr.responseJSON || null;
+        if (!res && xhr.responseText) {
+          try {
+            res = JSON.parse(xhr.responseText);
+          } catch (e) {
+            res = null;
+          }
+        }
+
         Swal.fire({
           icon: "error",
-          title: "Erro!",
-          text: "Erro ao tentar salvar os dados. Tente novamente.",
+          title:
+            res && res.code === "duplicate_nif_address"
+              ? "NIF e endereço duplicados"
+              : "Erro!",
+          text:
+            (res && res.message) ||
+            "Erro ao tentar salvar os dados. Tente novamente.",
         });
       },
       complete: function () {
