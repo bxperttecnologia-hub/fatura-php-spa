@@ -1077,11 +1077,6 @@ $invTheme      = 'dark';
                 <hr class="inv-divider">
 
                 <div class="inv-terms">
-                    <div class="inv-field">
-                        <span class="inv-label"><?= t('Retenção na Fonte') ?></span>
-                        <span><?= t('A taxa configurada em cada artigo será aplicada. Não é usada uma taxa global.') ?></span>
-                    </div>
-
                     <div class="inv-chips" id="due_chips" role="group" aria-label="<?= t('Prazo de validade') ?>">
                         <span><?= t('Validade') ?>:</span>
                         <button type="button" class="inv-chip" data-days="0"><?= t('No próprio dia') ?></button>
