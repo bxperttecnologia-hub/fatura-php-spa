@@ -1095,8 +1095,9 @@ $invTheme      = 'dark';
 
                             <!-- Novo cliente -->
                             <a
-                                href="/contacts/create"
-                                data-spa
+                                href="#"
+                                role="button"
+                                data-contact-new
                                 class="inv-icon-btn"
                                 title="<?= t('Novo cliente') ?>"
                                 aria-label="<?= t('Novo cliente') ?>">
@@ -1454,4 +1455,4 @@ $invTheme      = 'dark';
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_proform/create_proform.js?v=3.2" data-spa-repeat></script>
+<script src="create_proform/create_proform.js?v=3.3" data-spa-repeat></script>

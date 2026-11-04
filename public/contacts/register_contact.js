@@ -557,7 +557,9 @@ $(document).ready(function () {
     }
   };
 
-  $(document).on("click", "#newContact", function (e) {
+  // Qualquer botão/entrada com data-contact-new abre o formulário (menu, fatura, Clientes).
+  // Não usa o id #newContact: a página de Itens tem um botão com esse id.
+  $(document).on("click", "[data-contact-new]", function (e) {
     e.preventDefault();
     window.openContactForm();
   });

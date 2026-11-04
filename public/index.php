@@ -64,6 +64,9 @@ $boot = [
     <?php include ROOT . '/app/models/modal_contacts.php'; ?>
     <?php include ROOT . '/app/models/modal_item.php'; ?>
     <?php include ROOT . '/app/models/modal_editItem.php'; ?>
+    <?php // Novo/editar cliente: disponível em todas as páginas (menu, fatura, proforma, Clientes) ?>
+    <?php include ROOT . '/app/pages/contacts/partials/contact_form_modal.php'; ?>
+    <script src="/contacts/register_contact.js?v=1.2"></script>
   <?php endif; ?>
 
   <script>

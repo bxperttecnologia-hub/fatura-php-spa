@@ -848,6 +848,16 @@ $(document).ready(function () {
     });
   }
 
+  // Cliente criado no modal (botão + ao lado do cliente): recarrega a lista e escolhe-o.
+  $(document).on("contact:saved", async function (_event, info) {
+    if (info?.mode !== "create" || !info.id) return;
+    await loadContacts();
+    $("#contact_id").val(info.id);
+    $("#contact-select").val(String(info.id)).trigger("change");
+    if (typeof renderClientTrigger === "function") renderClientTrigger();
+    if (typeof saveDraft === "function") saveDraft();
+  });
+
   async function loadContacts() {
     const select = $("#contact-select");
 

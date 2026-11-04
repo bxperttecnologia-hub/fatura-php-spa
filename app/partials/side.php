@@ -441,7 +441,7 @@
             <i class="text-white menu-link-icon" data-lucide="chevron-down"></i>
         </button>
         <div class="submenu" id="clientes">
-            <a href="/contacts/create" data-spa><i data-lucide="plus"></i> Adicionar Cliente/Empresa</a>
+            <a href="#" role="button" data-contact-new><i data-lucide="plus"></i> Adicionar Cliente/Empresa</a>
             <a href="/contacts" data-spa><i data-lucide="list"></i> Lista de Clientes/Empresas</a>
         </div>
 
