@@ -128,6 +128,16 @@ function agt_sync_series(PDO $pdo, int $companyId, string $environment, array $c
     return count($series);
 }
 
+/** Tipos base que ainda não têm série normal ativa (não fechada) no ano indicado. */
+function agt_missing_default_types(PDO $pdo, int $companyId, string $environment, int $year): array
+{
+    $existing = array_column(array_filter(
+        agt_list_local_series($pdo, $companyId, $environment),
+        static fn ($s) => (int) $s['series_year'] === $year && $s['contingency'] === 'N' && $s['status'] !== 'F'
+    ), 'document_type');
+    return array_values(array_diff(agt_default_document_types(), $existing));
+}
+
 function agt_status_payload(PDO $pdo, int $companyId, string $environment): array
 {
     $settings = agt_settings($pdo, $companyId);
@@ -218,14 +228,8 @@ try {
 
                 // Cria as séries base que ainda não existam para o ano corrente.
                 $year = (int) date('Y');
-                $existing = array_column(array_filter(
-                    agt_list_local_series($pdo, $companyId, $environment),
-                    static fn($s) => (int) $s['series_year'] === $year && $s['contingency'] === 'N' && $s['status'] !== 'F'
-                ), 'document_type');
-                foreach (agt_default_document_types() as $type) {
-                    if (!in_array($type, $existing, true)) {
-                        $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, 'N');
-                    }
+                foreach (agt_missing_default_types($pdo, $companyId, $environment, $year) as $type) {
+                    $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, 'N');
                 }
             } catch (AgtUnavailableException $e) {
                 // A AGT não respondeu: não se sabe se a chave é válida, por isso não fica guardada.
@@ -270,21 +274,32 @@ try {
 
         case 'create_series':
             $creds = agt_credentials($pdo, $companyId);
-            $types = array_values(array_unique(array_map('strtoupper', (array) ($_POST['types'] ?? []))));
-            $valid = agt_default_document_types();
-            if ($types === [] || array_diff($types, $valid)) {
-                agt_respond(422, [
-                    'success' => false,
-                    'message' => 'A criação de séries neste software está limitada a FT e FR até haver autorização AGT validada para outros tipos.',
-                ]);
-            }
             $year = (int) ($_POST['year'] ?? date('Y'));
             $allowedYears = (int) date('md') > 1215 ? [(int) date('Y'), (int) date('Y') + 1] : [(int) date('Y')];
             if (!in_array($year, $allowedYears, true)) {
                 agt_respond(422, ['success' => false, 'message' => 'A AGT só aceita séries do ano corrente (e do seguinte, depois de 15 de dezembro).']);
             }
+            $defaults = ($_POST['defaults'] ?? '') === '1';
+            if ($defaults) {
+                $types = agt_missing_default_types($pdo, $companyId, $environment, $year);
+                if ($types === []) {
+                    agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
+                        'created' => [],
+                        'message' => 'Todos os tipos de documento já têm série em ' . $year . '.',
+                    ]);
+                }
+            } else {
+                $types = array_values(array_unique(array_map('strtoupper', (array) ($_POST['types'] ?? []))));
+                $valid = array_keys(agt_document_types());
+                if ($types === [] || array_diff($types, $valid)) {
+                    agt_respond(422, [
+                        'success' => false,
+                        'message' => 'Escolha pelo menos um tipo de documento válido (' . implode(', ', $valid) . ').',
+                    ]);
+                }
+            }
             $establishment = trim((string) ($_POST['establishment'] ?? '')) ?: $creds['establishment'];
-            $contingency = ($_POST['contingency'] ?? 'N') === 'C' ? 'C' : 'N';
+            $contingency = !$defaults && ($_POST['contingency'] ?? 'N') === 'C' ? 'C' : 'N';
 
             $created = [];
             foreach ($types as $type) {

@@ -32,7 +32,7 @@ function agt_config_value(string $key): string
     return $value === false ? '' : trim((string) $value);
 }
 
-/** Tipos de documento aceites pela AGT (solicitarSerie / listarSeries). */
+/** Tipos de documento para os quais o BXpert pede séries à AGT (solicitarSerie / listarSeries). */
 function agt_document_types(): array
 {
     return [
@@ -40,28 +40,15 @@ function agt_document_types(): array
         'FR' => 'Fatura/Recibo',
         'NC' => 'Nota de Crédito',
         'ND' => 'Nota de Débito',
-        'RG' => 'Recibo',
-        'RC' => 'Recibo de Caixa',
         'FA' => 'Fatura de Adiantamento',
-        'FG' => 'Fatura Global',
-        'GF' => 'Fatura Genérica',
-        'AC' => 'Aviso de Cobrança',
-        'AR' => 'Aviso de Cobrança/Recibo',
-        'TV' => 'Talão de Venda',
-        'RE' => 'Estorno ou Recibo de Estorno',
         'AF' => 'Fatura/Recibo de Autofaturação',
-        'RP' => 'Recibo de Prémio',
-        'RA' => 'Resseguro Aceite',
-        'CS' => 'Imputação a Cosseguradoras',
-        'LD' => 'Imputação a Cosseguradora Líder',
     ];
 }
 
 /** Séries criadas automaticamente quando o cliente carrega a chave: os documentos que o BXpert emite. */
 function agt_default_document_types(): array
 {
-    // NC/ND/RG ficam de fora enquanto a certificação em uso (C_134) não os autorizar na AGT (E39).
-    return ['FT', 'FR'];
+    return array_keys(agt_document_types());
 }
 
 function agt_environment(): string
