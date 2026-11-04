@@ -335,17 +335,6 @@ require_once '../app/views/layout_creation.php';
                     Enviar Proforma
                 </button>
             </div>
-
-            <div class="invoice-actions" id="moreActionsDropdown">
-                <span class="pp-label">Mais ações</span>
-                <button type="button" class="dropdown-item d-none" id="btnDocumentHistory"
-                    data-history-endpoint="/proform/ajax/document_history.php"
-                    data-hide-when-alone="true" data-bs-toggle="modal"
-                    data-bs-target="#documentHistoryModal" aria-label="Histórico documental">
-                    <i class="bi bi-clock-history" aria-hidden="true"></i>
-                    Histórico documental
-                </button>
-            </div>
         </aside>
     </div>
 
@@ -622,11 +611,9 @@ require_once '../app/views/layout_creation.php';
     </div>
 </main>
 
-<?php require __DIR__ . '/partials/document_history_modal.php'; ?>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="/assets/js/document-history.js?v=1.0" data-spa-repeat></script>
-<script src="proform/invoice.js?v=0.7"></script>
+<script src="proform/invoice.js?v=0.8"></script>
 
 <?php require_once '../app/views/footer.php'; ?>

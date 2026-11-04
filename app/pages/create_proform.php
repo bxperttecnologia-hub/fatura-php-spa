@@ -1068,8 +1068,7 @@ $invTheme      = 'dark';
                         <input
                             type="date"
                             class="inv-input"
-                            id="due_date_picker"
-                            name="due_date">
+                            id="due_date_picker">
 
                     </div>
 

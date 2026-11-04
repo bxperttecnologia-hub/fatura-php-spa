@@ -127,6 +127,8 @@ try {
         'reference' => $fatura['reference'] ?? null,
         'observation' => $fatura['observation'] ?? null,
         'series' => $fatura['series'] ?? null,
+        // Tipo escolhido no formulário (FT/FR): sem isto a FR ficava gravada como FT.
+        'document_type' => strtoupper((string)($fatura['document_type'] ?? '')) === 'FR' ? 'FR' : 'FT',
         'retention' => 0.0,
         'currency' => $fatura['currency'],
         'manual_exchange_rate' => (float)($fatura['manual_exchange_rate'] ?? 1),

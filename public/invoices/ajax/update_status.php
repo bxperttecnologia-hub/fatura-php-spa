@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 header('Content-Type: application/json');
 
 require_once '../../../app/config/db.php';
-require_once '../../../app/helpers/invoice_helper.php';
+require_once '../../../app/helpers/invoice_emit.php';
 
 session_start();
 $companyIdSession = (int)($_SESSION['user']['company_id'] ?? 0);
@@ -25,182 +25,34 @@ if (
     exit;
 }
 
-// 🔐 FUNÇÃO HASH
-function gerarHash($invoiceDate, $systemEntryDate, $invoiceNo, $grossTotal, $previousHash = "")
-{
-    $string = $invoiceDate . ";" .
-        $systemEntryDate . ";" .
-        $invoiceNo . ";" .
-        number_format($grossTotal, 2, '.', '') . ";" .
-        $previousHash;
-
-    return strtoupper(sha1($string));
-}
-
 try {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception("Método inválido");
     }
 
-    $invoiceId = $_POST['invoice_id'] ?? null;
-    $newStatusName = $_POST['new_status'] ?? 'Pendente';
-    $documentType = $_POST['document_type'] ?? 'FT';
+    $invoiceId = (int)($_POST['invoice_id'] ?? 0);
+    $newStatusName = (string)($_POST['new_status'] ?? 'Pendente');
+    $documentType = (string)($_POST['document_type'] ?? 'FT');
 
-    if (!$invoiceId) {
+    if ($invoiceId <= 0) {
         throw new Exception("ID inválido");
     }
 
     $pdo->beginTransaction();
-
-    //  LOCK DA FATURA
-    $stmt = $pdo->prepare("
-        SELECT *
-        FROM invoices
-        WHERE id = :id AND company_id = :company_id
-        FOR UPDATE
-    ");
-    $stmt->execute([
-        ':id' => $invoiceId,
-        ':company_id' => $companyIdSession,
-    ]);
-
-    $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$invoice) {
-        throw new Exception("Fatura não encontrada");
-    }
-
-    // ❌ NÃO PERMITIR DUPLA EMISSÃO
-    if (!empty($invoice['hash'])) {
-        throw new Exception("Fatura já finalizada (hash existente)");
-    }
-
-    $docType = !empty($invoice['document_type'])
-        ? $invoice['document_type']
-        : $documentType;
-
-    $docType = strtoupper(trim($docType));
-    if (!in_array($docType, ['FT', 'FR'], true)) {
-        throw new Exception("Tipo de documento inválido");
-    }
-
-    $statusMap = invoice_status_map();
-
-    if (!isset($statusMap[$newStatusName])) {
-        throw new Exception("Status inválido");
-    }
-
-    $statusId = $statusMap[$newStatusName];
-
-    $currentReference = $invoice['reference'];
-    $hadDuplicateReference = $currentReference !== null
-        && $currentReference !== ''
-        && reference_exists(
-            $pdo,
-            (int)$invoice['company_id'],
-            (string)$currentReference,
-            (int)$invoiceId
-        );
-    if ($hadDuplicateReference) {
-        $currentReference = null;
-    }
-
-    //  GERAR NUMERAÇÃO
-    $result = apply_invoice_number_rules(
-        $pdo,
-        (int)$invoice['company_id'],
-        $newStatusName,
-        $currentReference,
-        $docType
-    );
-
-    $newReference = $result['reference'];
-    $series = (string)($invoice['series'] ?? '');
-    if (
-        $statusId !== 1
-        && (
-            preg_match('/^RASCUNHO-(?:FT|FR)-\d{4}$/', $series)
-            || $hadDuplicateReference
-        )
-    ) {
-        $agtDocumentNumber = agt_parse_document_no($newReference);
-        $series = $agtDocumentNumber[1] ?? date('Y', strtotime((string)$invoice['issue_date']));
-    }
-
-    // 🔹 ATUALIZAR NUMERO E STATUS
-    $update = $pdo->prepare("
-        UPDATE invoices 
-        SET status = ?, reference = ?, series = ?, document_type = ?
-        WHERE id = ? AND company_id = ?
-    ");
-    $update->execute([
-        $statusId,
-        $newReference,
-        $series,
-        $docType,
-        $invoiceId,
-        $companyIdSession
-    ]);
-
-    // =========================
-    // 🔗 HASH ENCADEADO
-    // =========================
-
-    // 🔹 buscar último hash da mesma série
-    $stmtHash = $pdo->prepare("
-        SELECT hash 
-        FROM invoices
-        WHERE company_id = ?
-        AND document_type = ?
-        AND hash IS NOT NULL
-        ORDER BY issue_date DESC, id DESC
-        LIMIT 1
-    ");
-
-    $stmtHash->execute([
-        $invoice['company_id'],
-        $docType
-    ]);
-
-    $previousHash = $stmtHash->fetchColumn() ?? "";
-
-    // 🔹 gerar hash
-    // 🔹 gerar hash
-    $systemEntryDate = date('Y-m-d\TH:i:s');
-
-    $hash = gerarHash(
-        $invoice['issue_date'],
-        $systemEntryDate,
-        $newReference,
-        $invoice['final_total'],
-        $previousHash
-    );
-
-    // 🔹 guardar hash
-    $updateHash = $pdo->prepare("
-        UPDATE invoices 
-        SET hash = ?, hash_control = '1'
-        WHERE id = ?
-    ");
-    $updateHash->execute([$hash, $invoiceId]);
-
-    //  OPCIONAL: guardar system_entry_date
-    $updateDate = $pdo->prepare("
-        UPDATE invoices 
-        SET created_at = ?
-        WHERE id = ?
-    ");
-    $updateDate->execute([$systemEntryDate, $invoiceId]);
-
+    $result = bx_invoice_emit($pdo, $companyIdSession, $invoiceId, $newStatusName, $documentType);
     $pdo->commit();
+
+    // Faturação eletrónica: envia à AGT depois de emitida (não bloqueia a emissão se falhar).
+    $agt = bx_invoice_send_agt($pdo, $invoiceId, $newStatusName);
 
     $output = ob_get_clean();
 
     echo json_encode([
         'success' => true,
-        'reference' => $newReference,
-        'hash' => $hash,
+        'reference' => $result['reference'],
+        'hash' => $result['hash'],
+        'agt' => $agt,
         'debug' => $output
     ]);
 } catch (Throwable $e) {

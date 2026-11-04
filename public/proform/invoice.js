@@ -81,7 +81,6 @@ $(function () {
       }).then((response) => {
         if (!response?.success || !response.data) {
           throw new Error(response?.error || "Resposta inválida dos dados da proforma.");
-          console.log(response)
         }
         return response.data;
       }),
@@ -361,8 +360,7 @@ $(function () {
 
     const $btn = $(this);
 
-    // CORRIGIDO: evita cliques duplicados a abrir vários
-    // diálogos de confirmação antes do primeiro ser respondido.
+    // Evita cliques duplicados a abrir vários diálogos antes do primeiro ser respondido.
     if ($btn.prop("disabled")) return;
 
     const proformaId = currentInvoice?.id;
@@ -375,21 +373,48 @@ $(function () {
       });
     }
 
+    const openInvoice = (id) => {
+      const invoiceUrl = `/invoices/view?id=${encodeURIComponent(id)}`;
+      if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
+      else window.location.href = invoiceUrl;
+    };
+
+    const documentLabels = { FT: "Fatura", FR: "Fatura/Recibo" };
+    const buttonHtml = $btn.html();
+
+    // Situação da faturação eletrónica devolvida pelo servidor depois da emissão.
+    const agtSummary = (agt) => {
+      if (!agt) return "";
+      const errors = (agt.errors || []).map((e) => `<li>${$("<div>").text(e).html()}</li>`).join("");
+      return `<div class="mt-2 small text-start"><strong>AGT:</strong> ${$("<div>").text(agt.label || "").html()}${
+        errors ? `<ul class="mb-0 mt-1">${errors}</ul>` : ""
+      }</div>`;
+    };
+
     $btn.prop("disabled", true);
 
     Swal.fire({
-      title: "Converter em Factura?",
-      text: "A Proforma será convertida numa Factura.",
-      icon: "warning",
+      title: "Emitir a partir da proforma",
+      html:
+        "Escolha o documento a emitir.<br>" +
+        "<small><b>Fatura</b>: fica por pagar até registar o pagamento.<br>" +
+        "<b>Fatura/Recibo</b>: o cliente paga no acto.</small>",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonText: "Sim, converter",
+      showDenyButton: true,
+      confirmButtonText: "Fatura/Recibo",
+      denyButtonText: "Fatura",
       cancelButtonText: "Cancelar",
+      denyButtonColor: "#0d6efd",
       reverseButtons: true,
     }).then((result) => {
-      if (!result.isConfirmed) {
+      if (!result.isConfirmed && !result.isDenied) {
         $btn.prop("disabled", false);
         return;
       }
+
+      const documentType = result.isConfirmed ? "FR" : "FT";
+      const label = documentLabels[documentType];
 
       $.ajax({
         url: "proform/ajax/convert_proforma.php",
@@ -397,12 +422,13 @@ $(function () {
         dataType: "json",
         data: {
           invoice_id: proformaId,
+          document_type: documentType,
         },
 
         beforeSend: function () {
           $btn.html(`
           <span class="spinner-border spinner-border-sm"></span>
-          Convertendo...
+          A emitir...
         `);
         },
 
@@ -411,44 +437,37 @@ $(function () {
             Swal.fire({
               icon: "error",
               title: "Erro",
-              text: response.error || "Falha ao converter a Proforma.",
+              text: response.error || "Falha ao converter a proforma.",
             });
             return;
           }
 
-          // Já existe uma factura gerada
           if (response.already_converted) {
+            const existingLabel = documentLabels[response.document_type] || "Fatura";
             Swal.fire({
               icon: "info",
-              title: "Factura já existente",
-              text: `A Factura ${response.reference} já foi emitida anteriormente.`,
-              confirmButtonText: "Abrir Factura",
+              title: `${existingLabel} já emitida`,
+              text: `Esta proforma já deu origem à ${existingLabel} ${response.reference}.`,
+              confirmButtonText: "Abrir documento",
+              showCancelButton: true,
+              cancelButtonText: "Fechar",
             }).then((r) => {
-              // CORRIGIDO: só redireciona se o utilizador
-              // clicar mesmo em "Abrir Factura".
-              if (r.isConfirmed) {
-                const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.new_invoice_id)}`;
-                if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
-                else window.location.href = invoiceUrl;
-              }
+              if (r.isConfirmed) openInvoice(response.new_invoice_id);
             });
-
             return;
           }
 
-          // Nova factura criada
+          const agtFailed = response.agt && ["error", "invalid"].includes(response.agt.status);
           Swal.fire({
-            icon: "success",
-            title: "Sucesso",
-            text: `Factura Recibo ${response.reference} criada com sucesso.`,
-            confirmButtonText: "Abrir Factura",
+            icon: agtFailed ? "warning" : "success",
+            title: `${label} emitida`,
+            html: `${label} <b>${$("<div>").text(response.reference).html()}</b> emitida com sucesso.${agtSummary(response.agt)}`,
+            confirmButtonText: "Abrir documento",
+            showCancelButton: true,
+            cancelButtonText: "Fechar",
           }).then((r) => {
-            // CORRIGIDO: mesma verificação aqui.
-            if (r.isConfirmed) {
-              const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.new_invoice_id)}`;
-              if (typeof window.navigateSPA === "function") window.navigateSPA(invoiceUrl);
-              else window.location.href = invoiceUrl;
-            }
+            if (r.isConfirmed) openInvoice(response.new_invoice_id);
+            else loadInvoice();
           });
         },
 
@@ -456,17 +475,12 @@ $(function () {
           Swal.fire({
             icon: "error",
             title: "Erro",
-            text:
-              xhr.responseJSON?.error ||
-              "Erro interno ao converter a Proforma.",
+            text: xhr.responseJSON?.error || "Erro interno ao converter a proforma.",
           });
         },
 
         complete: function () {
-          $btn.prop("disabled", false).html(`
-          <span class="material-icons-outlined">receipt_long</span>
-          Emitir Factura Recibo
-        `);
+          $btn.prop("disabled", false).html(buttonHtml);
         },
       });
     });
