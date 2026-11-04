@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $item_id = (int)($_POST['item_id'] ?? 0);
 $from_stock = (int)($_POST['from_stock'] ?? 0);

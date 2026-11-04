@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json'); 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 try { 
     $sql = "SELECT p.id, p.company_id, ps.name as status_invoice, ps.color, ps.text_color,

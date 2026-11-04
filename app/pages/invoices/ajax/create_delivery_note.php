@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function fail_delivery_request(PDO $pdo, int $code, string $message): void
 {

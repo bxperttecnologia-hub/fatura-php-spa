@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if ($_FILES['profileImage']['error'] === UPLOAD_ERR_OK) {
     $ext = pathinfo($_FILES['profileImage']['name'], PATHINFO_EXTENSION);

@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 require '../../../vendor/autoload.php'; // Autoload do PhpSpreadsheet
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 use Dompdf\Dompdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;

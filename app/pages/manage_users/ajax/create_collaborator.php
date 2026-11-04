@@ -3,7 +3,9 @@ require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/subscription.php';
 require_once '../../../vendor/autoload.php';
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: application/json');
 
 use PHPMailer\PHPMailer\PHPMailer;

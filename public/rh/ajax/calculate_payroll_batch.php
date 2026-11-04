@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 require_once '../helpers/payroll_calc.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $company_id       = (int)($_SESSION['user']['company_id'] ?? 0);
 $reference_month  = $_POST['reference_month'] ?? '';

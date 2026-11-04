@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '../../../../app/config/db.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Verifique se o company_id está na sessão
 if (!isset($_SESSION['user']['company_id'])) {

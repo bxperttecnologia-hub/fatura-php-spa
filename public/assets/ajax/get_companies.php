@@ -2,7 +2,9 @@
 require_once dirname(__DIR__, 3) . '/app/config/db.php';
 require_once dirname(__DIR__, 3) . '/app/helpers/subscription.php';
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $userId = (int)($_SESSION['user']['id'] ?? 0);
 $activeCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);

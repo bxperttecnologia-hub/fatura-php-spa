@@ -22,7 +22,9 @@
  * Uso: rh/export/provisoes.php?mes=2026-09&format=pdf   (ou format=xlsx)
  */
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once '../../../app/config/db.php';
 require_once '../../../vendor/autoload.php';
 

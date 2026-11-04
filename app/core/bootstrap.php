@@ -38,7 +38,9 @@ if (PHP_SAPI !== 'cli') {
             'samesite' => 'Lax',
             'secure'   => !empty($_SERVER['HTTPS']),
         ]);
-        session_start();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
     }
 
     // Helpers legados do ERP (t(), formatName(), currencySelects(), $paises...). Têm de existir uma só vez:

@@ -5,7 +5,9 @@ require_once '../../../app/helpers/subscription.php';
 
 header('Content-Type: application/json');
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 try {
 

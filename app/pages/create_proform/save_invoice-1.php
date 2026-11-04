@@ -5,7 +5,9 @@ require_once '../../../app/helpers/subscription.php';
 require_once '../../../app/helpers/invoice_helper.php';
 
 header('Content-Type: application/json');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 ini_set('display_errors', 0);
 error_reporting(E_ALL);

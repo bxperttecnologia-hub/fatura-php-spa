@@ -6,7 +6,9 @@ require_once '../../../vendor/autoload.php';
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $id = $_GET['id'] ?? null;
 $company_id = $_SESSION['user']['company_id'] ?? null;

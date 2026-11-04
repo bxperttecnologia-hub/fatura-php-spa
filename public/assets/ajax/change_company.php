@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json'); 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['company_id'])) {
     $_SESSION['user']['company_id'] = $_POST['company_id'];

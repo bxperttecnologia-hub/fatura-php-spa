@@ -16,7 +16,9 @@ ob_start(); // segurança extra: qualquer warning/notice acidental do PHP fica
             // retido aqui em vez de se misturar com o JSON de saída.
 
 require_once '../../../app/config/db.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: application/json');
 
 $company_id = $_SESSION['user']['company_id'] ?? null;

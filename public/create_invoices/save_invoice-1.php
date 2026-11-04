@@ -6,7 +6,9 @@ require_once '../../../app/helpers/invoice_helper.php';
 require_once '../../../app/helpers/anonymous_contact.php';
 
 header('Content-Type: application/json');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 ini_set('display_errors', 0);
 error_reporting(E_ALL);

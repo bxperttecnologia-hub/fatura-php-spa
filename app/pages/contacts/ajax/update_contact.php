@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/contact_nif_guard.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Nota: esta resposta continua SEM header "application/json" de propósito —
 // o JS que a consome faz JSON.parse() ao texto recebido.

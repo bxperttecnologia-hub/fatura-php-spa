@@ -1,7 +1,9 @@
 <?php
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json'); 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
  
 
 $query = "SELECT i.id, i.code, i.description, i.unit_price, i.tax

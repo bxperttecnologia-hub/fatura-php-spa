@@ -5,7 +5,9 @@ require_once __DIR__ . '/../../../helpers/env.php';
 ini_set('display_errors', '1');
 error_reporting(E_ALL);
 require_once '../../../app/config/db.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: text/plain; charset=utf-8');
 
 if (!(defined('APP_ENV') && APP_ENV === 'development') || empty($_SESSION['user'])) {

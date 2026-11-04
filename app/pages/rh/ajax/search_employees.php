@@ -1,6 +1,8 @@
 <?php
 require_once '../../../app/config/db.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $company_id = $_SESSION['user']['company_id'];
 $term = $_GET['term'] ?? '';

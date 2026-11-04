@@ -3,7 +3,9 @@ require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../helpers/company_logo.php';
 header('Content-Type: application/json');
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $sessionCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);
 if ($sessionCompanyId <= 0) {

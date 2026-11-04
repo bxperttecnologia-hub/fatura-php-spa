@@ -2,7 +2,9 @@
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/subscription.php';
 header('Content-Type: application/json');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $company_id = (int)($_GET['company_id'] ?? ($_SESSION['user']['company_id'] ?? 0));
 if (!$company_id) {

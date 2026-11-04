@@ -3,7 +3,9 @@
 require_once '../../../app/config/db.php';
 
 header('Content-Type: application/json');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $invoiceId = filter_input(INPUT_POST, 'invoice_id', FILTER_VALIDATE_INT);
 if (!isset($_SESSION['user']['company_id'])) {

@@ -13,7 +13,9 @@
  */
 
 require_once '../../../app/config/db.php';
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: application/json');
 
 function respond(array $payload, int $httpCode = 200): void

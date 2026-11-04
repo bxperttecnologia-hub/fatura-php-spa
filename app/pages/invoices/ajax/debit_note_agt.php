@@ -5,7 +5,9 @@ declare(strict_types=1);
 // POST action=send id=…     → (re)envia manualmente; exige CSRF
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function out(int $code, array $body): void
 {

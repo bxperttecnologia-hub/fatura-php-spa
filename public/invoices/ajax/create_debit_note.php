@@ -5,7 +5,9 @@ declare(strict_types=1);
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../app/helpers/debit_note_calculation.php';
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function fail(int $code, string $msg): void
 {

@@ -7,7 +7,9 @@ require_once __DIR__ . '/../../helpers/company_logo.php';
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
 if (!$companyId) {

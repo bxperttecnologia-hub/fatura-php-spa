@@ -34,7 +34,9 @@
  *    valores inesperados).
  */
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Ligado desde já: protege TODOS os header() seguintes contra qualquer
 // aviso/output acidental de ficheiros incluídos (db.php, autoload.php, etc.).

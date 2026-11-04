@@ -4,7 +4,9 @@ require_once '../../../app/helpers/subscription.php';
 require_once '../../../app/helpers/anonymous_contact.php';
 
 header('Content-Type: application/json');
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // 🔥 DEBUG (remove em produção)
 error_reporting(E_ALL);

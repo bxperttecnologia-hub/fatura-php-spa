@@ -9,7 +9,9 @@ header('Content-Type: application/json');
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/invoice_emit.php';
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 $companyIdSession = (int)($_SESSION['user']['company_id'] ?? 0);
 if ($companyIdSession <= 0) {
     http_response_code(401);
