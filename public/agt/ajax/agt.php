@@ -108,10 +108,15 @@ function agt_sync_series(PDO $pdo, int $companyId, string $environment, array $c
         throw new RuntimeException(agt_error_message($res['data']));
     }
     $series = $res['data']['resultado']['series'] ?? [];
+    // Só atualiza as séries que este software já tem. A AGT só aceita faturas do software que
+    // criou a série (E36), por isso séries criadas noutro software não são importadas.
+    $known = array_flip(array_column(agt_list_local_series($pdo, $companyId, $environment), 'series_code'));
+    $updated = 0;
     foreach ($series as $s) {
-        if (empty($s['seriesCode']) || empty($s['documentType'])) {
+        if (empty($s['seriesCode']) || empty($s['documentType']) || !isset($known[$s['seriesCode']])) {
             continue;
         }
+        $updated++;
         agt_upsert_series($pdo, $companyId, $environment, [
             'series_code' => $s['seriesCode'],
             'document_type' => strtoupper($s['documentType']),
@@ -125,7 +130,7 @@ function agt_sync_series(PDO $pdo, int $companyId, string $environment, array $c
             'last_document_created' => $s['lastDocumentCreated'] ?? null,
         ]);
     }
-    return count($series);
+    return $updated;
 }
 
 /** Tipos base que ainda não têm série normal ativa (não fechada) no ano indicado. */
@@ -314,7 +319,7 @@ try {
         case 'sync':
             $count = agt_sync_series($pdo, $companyId, $environment, agt_credentials($pdo, $companyId));
             agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
-                'message' => $count . ' série(s) recebida(s) da AGT.',
+                'message' => $count . ' série(s) atualizada(s) a partir da AGT.',
             ]);
 
         case 'set_default':
