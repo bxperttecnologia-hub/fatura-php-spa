@@ -49,6 +49,8 @@ try {
         SELECT
             id,
             name,
+            contributor,
+            address,
             email,
             telephone,
             country,

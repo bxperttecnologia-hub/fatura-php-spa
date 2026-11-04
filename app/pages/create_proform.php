@@ -36,7 +36,8 @@ $invTheme      = 'dark';
         --inv-radius-card: 24px;
         --inv-radius: 12px;
 
-        color-scheme: dark;
+        /* Tema claro: com "dark" o browser desenhava listas e campos nativos com texto branco */
+        color-scheme: light;
         background: transparent !important;
         color: var(--inv-text);
         padding: 3rem 0 4rem;
