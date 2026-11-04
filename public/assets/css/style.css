@@ -441,6 +441,11 @@ body .modal .contact-modal-header {
   color: #fff !important;
 }
 
+/* O cabeçalho do "Selecionar cliente" recebe texto branco (regra acima) mas não tinha o fundo azul */
+body .modal .contact-modal-header {
+  background: #007abd !important;
+}
+
 body .modal .modal-header *,
 body .modal .contact-modal-header * {
   color: #fff !important;
