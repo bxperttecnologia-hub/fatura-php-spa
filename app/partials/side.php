@@ -450,8 +450,9 @@
             <i class="text-white menu-link-icon" data-lucide="chevron-down"></i>
         </button>
         <div class="submenu" id="produtos">
-            <!-- sem id="newContact": esse id já existe no botão "Novo item" do items.php -->
-            <a href="items.php" data-drawer-open="create">
+            <!-- Abre o modal de novo item (#itemModal, incluído no layout em todas as páginas).
+                 Não é um link: um href relativo dava 404 fora da página de itens. -->
+            <a href="#" role="button" data-bs-toggle="modal" data-bs-target="#itemModal">
                 <i class="text-white" data-lucide="plus"></i> Adicionar
             </a>
             <a href="/items" data-spa> <i data-lucide="list"></i> Meus Itens </a>
