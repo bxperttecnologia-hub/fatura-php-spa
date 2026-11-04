@@ -379,6 +379,115 @@
         font-size: 0.95rem;
     }
 
+    /* ===== Tabela ao estilo da lista de Clientes (linhas em cartão, avatar, texto secundário) ===== */
+    #itemsPage #itemsTable {
+        min-width: 760px;
+        border-spacing: 0 8px;
+        table-layout: fixed; /* textos longos não esticam as colunas */
+    }
+
+    #itemsPage #itemsTable thead th {
+        padding: 14px 12px;
+        border-bottom: 0 !important;
+        background: #fff !important;
+        color: #5b6678;
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+    }
+
+    #itemsPage #itemsTable thead th:first-child,
+    #itemsPage #itemsTable tbody td:first-child {
+        border-radius: 12px 0 0 12px;
+    }
+
+    #itemsPage #itemsTable thead th:last-child,
+    #itemsPage #itemsTable tbody td:last-child {
+        border-radius: 0 12px 12px 0;
+    }
+
+    #itemsPage #itemsTable tbody td {
+        height: auto;
+        padding: 12px;
+        font-size: 0.93rem;
+    }
+
+    #itemsPage #itemsTable tbody tr:hover td {
+        background: #f1f1f1 !important;
+    }
+
+    #itemsPage #itemsTable tbody tr.is-selected td {
+        background: #e6f0fe !important;
+    }
+
+    @media (min-width: 768px) {
+        #itemsPage #itemsTable th+th,
+        #itemsPage #itemsTable td+td {
+            border-left: 1px solid #f1f1f1 !important;
+        }
+    }
+
+    #itemsPage #itemsTable .item-client {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    #itemsPage #itemsTable .item-avatar {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: #e0efff;
+        color: #025d8e;
+        font-size: 1.1rem;
+    }
+
+    #itemsPage #itemsTable .item-avatar.is-service {
+        background: #ecfdf3;
+        color: #166534;
+    }
+
+    #itemsPage #itemsTable .item-text {
+        min-width: 0;
+    }
+
+    #itemsPage #itemsTable .item-title {
+        display: block;
+        overflow: hidden;
+        color: #172033;
+        font-size: 0.97rem;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #itemsPage #itemsTable .item-meta,
+    #itemsPage #itemsTable .item-desc {
+        display: block;
+        color: #5b6678;
+        font-size: 0.82rem;
+    }
+
+    /* descrição: uma linha com "…"; o texto completo fica no tooltip da célula */
+    #itemsPage #itemsTable .item-desc {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #itemsPage #itemsTable .item-price,
+    #itemsPage #itemsTable .item-pvp,
+    #itemsPage #itemsTable .item-tax,
+    #itemsPage #itemsTable thead th.item-price-heading,
+    #itemsPage #itemsTable thead th.item-tax-heading,
+    #itemsPage #itemsTable .item-actions,
+    #itemsPage #itemsTable thead th.item-actions-heading {
+        text-align: right !important;
+    }
+
     @media (max-width: 767.98px) {
         #itemsPage .items-page-header {
             align-items: flex-start;
@@ -422,7 +531,7 @@
         }
 
         #itemsPage #itemsTable {
-            min-width: 790px;
+            min-width: 700px;
         }
 
         #itemsPage .items-selection {
@@ -517,25 +626,21 @@
             <div class="items-table-wrap">
                 <table id="itemsTable" class="table w-100 products-table">
                     <colgroup>
-                        <col style="width:40px;">
-                        <col style="width:40px;">
-                        <col style="width:22%; text-align: left !important;">
-                        <col style="width:25%; text-align: left !important;">
-                        <col style="width:15%; text-align: left !important;">
-                        <col style="width:10%; text-align: left !important;">
-                        <col style="width:15%; text-align: left !important;">
-                        <col style="width:96px; text-align: left !important;">
+                        <col style="width:52px;">
+                        <col>
+                        <col style="width:16%;">
+                        <col style="width:10%;">
+                        <col style="width:16%;">
+                        <col style="width:110px;">
                     </colgroup>
                     <thead>
                         <tr>
                             <th class="item-select-heading">
                                 <input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os produtos desta página">
                             </th>
-                            <th class="item-icon-heading" aria-label="Tipo"></th>
-                            <th data-key="name">Nome <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
-                            <th data-key="description">Descrição <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
-                            <th class="item-price-heading" data-key="unit_price">Preço Unitário <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
-                            <th class="item-tax-heading" data-key="tax">Taxa/IVA <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
+                            <th class="item-main-heading" data-key="name">Artigo <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
+                            <th class="item-price-heading" data-key="unit_price">Preço <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
+                            <th class="item-tax-heading" data-key="tax">IVA <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
                             <th class="item-price-heading" data-key="pvp">PVP <i class="sort-icon bi bi-arrow-down-up text-muted ms-1"></i></th>
                             <th class="item-actions-heading">Ações</th>
                         </tr>
@@ -568,7 +673,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <script src="items/items.js?v=1.0" data-spa-repeat></script>
+    <script src="items/items.js?v=1.2" data-spa-repeat></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

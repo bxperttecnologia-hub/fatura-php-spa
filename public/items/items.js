@@ -230,7 +230,7 @@ $(document).ready(function () {
     $tbody.empty();
 
     if (loadState === "loading") {
-      $tbody.html('<tr><td colspan="8" class="items-empty" aria-live="polite"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>A carregar produtos...</td></tr>');
+      $tbody.html('<tr><td colspan="6" class="items-empty" aria-live="polite"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>A carregar produtos...</td></tr>');
       $("#tableInfo").text("A carregar...");
       renderPagination(0);
       $("#selectAll").prop({ checked: false, indeterminate: false });
@@ -240,7 +240,7 @@ $(document).ready(function () {
     if (loadState === "error") {
       $tbody.html(`
         <tr>
-          <td colspan="8" class="items-empty" role="alert">
+          <td colspan="6" class="items-empty" role="alert">
             <div>Não foi possível carregar os produtos.</div>
             <button type="button" class="btn btn-sm btn-outline-primary" id="retryItems">Tentar novamente</button>
           </td>
@@ -257,7 +257,7 @@ $(document).ready(function () {
       const emptyContent = hasSearch
         ? `Nenhum produto corresponde à sua pesquisa.<br><button type="button" class="btn btn-sm btn-link" id="clearItemsSearch">Limpar pesquisa</button>`
         : `Nenhum produto ou serviço encontrado.<br><button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#itemModal"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Novo Produto</button>`;
-      $tbody.html(`<tr><td colspan="8" class="items-empty">${emptyContent}</td></tr>`);
+      $tbody.html(`<tr><td colspan="6" class="items-empty">${emptyContent}</td></tr>`);
       $("#tableInfo").text("Sem dados");
       renderPagination(0);
       updateSortIcons();
@@ -277,8 +277,10 @@ $(document).ready(function () {
 
     pageData.forEach((row) => {
       const rowData = encodeURIComponent(JSON.stringify(row));
-      const name = row.name || row.description || "-";
-      const description = row.description || "-";
+      const name = String(row.name || row.description || "-").trim();
+      // Sem nome, a descrição já aparece como nome: não a repete na coluna ao lado.
+      const rawDescription = String(row.description || "").trim();
+      const description = rawDescription && rawDescription !== name ? rawDescription : "—";
       const price = row.unit_price ?? row.cost_price ?? 0;
       const tax = row.tax || 0;
       const itemType = row.item_type === "service" ? "Serviço" : "Produto";
@@ -291,15 +293,15 @@ $(document).ready(function () {
             <input type="checkbox" class="item-checkbox form-check-input" value="${escapeHtml(row.id)}"
               aria-label="Selecionar ${itemType.toLowerCase()} ${escapeHtml(name)}" ${isSelected ? "checked" : ""}>
           </td>
-          <td data-label="Tipo" class="item-icon-cell">
-            <i class="bi ${itemIcon} me-1 text-secondary" aria-hidden="true"></i>
-          </td>
-          <td data-label="Nome" class="item-name" title="${escapeHtml(name)}">
-            ${escapeHtml(name)}
-            <small>${itemType}${row.code ? ` · ${escapeHtml(row.code)}` : ""}</small>
-          </td>
-          <td data-label="Descrição" class="item-description" title="${escapeHtml(description)}">
-            ${escapeHtml(description)}
+          <td data-label="Artigo" class="item-main" title="${escapeHtml(description === "—" ? name : `${name}\n\n${description}`)}">
+            <div class="item-client">
+              <span class="item-avatar ${row.item_type === "service" ? "is-service" : ""}" aria-hidden="true"><i class="bi ${itemIcon}"></i></span>
+              <div class="item-text">
+                <span class="item-title">${escapeHtml(name)}</span>
+                <span class="item-meta">${itemType}${row.code ? ` · ${escapeHtml(row.code)}` : ""}</span>
+                ${description !== "—" ? `<span class="item-desc">${escapeHtml(description)}</span>` : ""}
+              </div>
+            </div>
           </td>
           <td data-label="Preço Unitário" class="item-price">
             ${formatCurrency(price)}
