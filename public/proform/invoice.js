@@ -248,29 +248,12 @@ $(function () {
       button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Preparando PDF...';
     }
 
-    const hostname = window.location.hostname;
-    const apiBaseUrl = hostname === "api-crm.bxpert.co.ao" || hostname === "www.api-crm.bxpert.co.ao"
-      ? "https://api-crm.bxpert.co.ao"
-      : "http://localhost:3004";
-
-    const payload = {
-      ...currentInvoice,
-      id: documentId,
-      logo_url: currentInvoice.logo_url || currentInvoice.company?.logo_url || currentInvoice.company?.logo || "",
-      document_type: "PF",
-      document_url: new URL(
-        `proform/ajax/proform_public.php?id=${encodeURIComponent(documentId)}`,
-        window.location.href,
-      ).toString(),
-    };
-    console.log("Payload enviado à API de PDF:", payload);
-
     (async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/pdf" },
-          body: JSON.stringify(payload),
+        // PDF gerado no próprio site (/api/documents), a partir do modelo da pré-visualização.
+        const response = await fetch(`/api/documents/proformas/${encodeURIComponent(documentId)}/pdf`, {
+          credentials: "same-origin",
+          headers: { Accept: "application/pdf" },
         });
 
         if (!response.ok) {

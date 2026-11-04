@@ -1279,42 +1279,21 @@
     // Função principal
     // ---------------------------------------------------------------------------
 
-    // Pede o PDF à API e devolve o Blob. Não descarrega nada: a pré-visualização
+    // Pede o PDF ao próprio site (/api/documents, gerado em PHP a partir do mesmo modelo
+    // da pré-visualização) e devolve o Blob. Não descarrega nada: a pré-visualização
     // decide se mostra, imprime ou descarrega o mesmo ficheiro.
     async function fetchInvoicePdfBlob(invoiceData, copies = 2) {
-      const payload = {
-        ...invoiceData,
-        logo_url: invoiceData.logo_url || invoiceData.company?.logo_url || invoiceData.company?.logo || "",
-        copies: Number(copies) || 1,
-        document_url: new URL(
-          `invoices/ajax/invoice_public.php?id=${encodeURIComponent(invoiceData.id)}`,
-          window.location.href,
-        ).toString(),
-      };
-
-      console.debug("fetchInvoicePdfBlob payload:", payload);
-
-      const hostname = window.location.hostname;
-      const apiBaseUrl =
-        hostname === "api-sandibox.bxpert.co.ao" ||
-        hostname === "www.api-sandibox.bxpert.co.ao"
-          ? "https://api-sandibox.bxpert.co.ao"
-          : "http://localhost:3004";
+      const id = encodeURIComponent(invoiceData.id);
+      const count = Math.min(3, Math.max(1, Number(copies) || 1));
 
       let response;
       try {
-        response = await fetch(`${apiBaseUrl}/api/invoices/pdf`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/pdf",
-          },
-          body: JSON.stringify(payload),
+        response = await fetch(`/api/documents/invoices/${id}/pdf?copies=${count}`, {
+          credentials: "same-origin",
+          headers: { Accept: "application/pdf" },
         });
       } catch (_) {
-        throw new Error(
-          `Não foi possível conectar à API de PDF em ${apiBaseUrl}. Verifique se o bxintelligence-api-rest está em execução.`,
-        );
+        throw new Error("Não foi possível contactar o servidor para gerar o PDF.");
       }
 
       const contentType = response.headers.get("content-type") || "";

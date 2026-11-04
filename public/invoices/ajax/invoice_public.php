@@ -24,7 +24,8 @@ const ITEMS_PER_PAGE  = 10;
 const ITEMS_BOTTOM    = 588;   // limite vertical (pt) das linhas: deixa 26pt p/ "Subtotal da página" + "A transportar…" antes dos totais (y620)
 const TOTALS_Y        = 620;   // y (pt) do bloco de totais
 const LH              = 1.156; // altura de linha da Helvetica (pdfkit): 1,156 x tamanho
-$copies = ['Original']; // para ver as duas cópias: ['Original', 'Duplicado']
+// ?copies=1..3 (pedido pelo PDF); a pré-visualização no browser mostra só o Original.
+$copies = array_slice(['Original', 'Duplicado', 'Triplicado'], 0, max(1, min(3, (int)($_GET['copies'] ?? 1))));
 
 // Colunas da tabela (x, largura) — iguais às do PDF
 const COL = [
