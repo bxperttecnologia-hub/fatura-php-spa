@@ -371,9 +371,9 @@ $(document).ready(function () {
 // =============================================== //
 
 //  GLOBAL (fora da função)
-let selectedStock = null;
-let pieChartInstance = null;
-let barChartInstance = null;
+var selectedStock = null;
+var pieChartInstance = null;
+var barChartInstance = null;
 
 function carregarEstoques() {
   $.get(
@@ -486,7 +486,7 @@ function carregarEstoques() {
   });
 }
 
-const showChartModal = (id) => {
+var showChartModal = (id) => {
   selectedStock = id;
   const modalInsights = document.getElementById("modalInsights");
 

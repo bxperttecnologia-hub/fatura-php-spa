@@ -459,9 +459,9 @@ function gerarOpcoesMoeda(data, selectedIso) {
     .join("");
 }
 
-let saveTimeout = null;
-let statusAtual = "salvo";
-let mostrarBotaoTimeout = null;
+var saveTimeout = null;
+var statusAtual = "salvo";
+var mostrarBotaoTimeout = null;
 
 /**
  * UI BASE (reutilizável)
@@ -585,9 +585,9 @@ function mostrarErroAoSalvar(message = "Erro ao salvar dados") {
   });
 }
 
-let isSaving = false;
-let hasPendingChanges = false;
-let refreshTimeout = null;
+var isSaving = false;
+var hasPendingChanges = false;
+var refreshTimeout = null;
 
 function triggerAutoSave() {
   clearTimeout(saveTimeout);

@@ -1,5 +1,5 @@
-const get = new URLSearchParams(window.location.search).get("id");
-const guideId = get ? get.substring(get.lastIndexOf("/") + 1) : null;
+var get = new URLSearchParams(window.location.search).get("id");
+var guideId = get ? get.substring(get.lastIndexOf("/") + 1) : null;
 
 if (!guideId) {
   alert("Guia não encontrada!");
@@ -9,7 +9,7 @@ if (!guideId) {
 $('#guide-container').load(`/guides/ajax/guide_public.php?id=${guideId}`);
 
 // Carrega dados para autofill do e-mail
-let currentGuide = null;
+var currentGuide = null;
 function loadCurrentGuide(){
   return $.getJSON(`/guides/ajax/get_guide.php?id=${guideId}`)
     .then(res => {
@@ -22,7 +22,7 @@ function loadCurrentGuide(){
 }
 
 // Quill (modal de envio)
-let quill = null;
+var quill = null;
 function ensureQuill(){
   if(quill) return quill;
   if(!window.Quill) return null;

@@ -1,6 +1,6 @@
 // Cropper
-let cropper = null;
-let cropModal = null;
+var cropper = null;
+var cropModal = null;
 
 function openCropModalFromFile(file) {
   const imgEl = document.getElementById("cropImage");
@@ -241,7 +241,7 @@ $(document).ready(function () {
   });
 });
 
-let countryMap = {};
+var countryMap = {};
 
 function selectCountry(selectedCountry = "", selectedCity = "") {
   const username = "israelsouza";

@@ -2066,10 +2066,10 @@ function downloadPDF(invoiceId, opts = {}) {
 // ==================================================
 // ELIMINAR FATURA
 // ==================================================
-let invoiceToDelete = null;
-let invoice_companyId = null;
+var invoiceToDelete = null;
+var invoice_companyId = null;
 
-const deleteInvoice = (id, companyId) => {
+var deleteInvoice = (id, companyId) => {
   invoiceToDelete = id;
   invoice_companyId = companyId;
 

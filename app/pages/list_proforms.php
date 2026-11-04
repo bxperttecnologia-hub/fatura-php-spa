@@ -181,7 +181,7 @@ require_once '../app/views/layout_creation.php';
     </main>
 
     <script src="/assets/js/document-tax.js"></script>
-    <script src="proform/list_proforms.js?v=2.5"></script>
+    <script src="proform/list_proforms.js?v=spa-fix-20261104"></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

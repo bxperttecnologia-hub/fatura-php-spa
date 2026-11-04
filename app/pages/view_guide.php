@@ -262,7 +262,7 @@
     </div>
 </main>
 
-<script src="guides/view_guides.js?v=<?= filemtime(__DIR__ . '/guides/view_guides.js') ?>"></script>
+<script src="guides/view_guides.js?v=<?= filemtime(__DIR__ . '/guides/view_guides.js') ?>-spa2"></script>
 
 <!-- Biblioteca html2pdf.js para gerar PDF do HTML (Client-side) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>

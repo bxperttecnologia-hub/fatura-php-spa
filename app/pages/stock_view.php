@@ -441,7 +441,7 @@ if (!$stockId) {
       };
     }
   </script>
-  <script src="stock/view.js"></script>
+  <script src="stock/view.js?v=spa-fix-20261104"></script>
   <?php require_once '../app/views/footer.php'; ?>
 </body>
 

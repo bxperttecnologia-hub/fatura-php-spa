@@ -322,7 +322,7 @@ require_once '../app/views/layout_creation.php';
         </div>
     </div> -->
 
-    <script src="invoices/list_invoices.js?v=2.0"></script>
+    <script src="invoices/list_invoices.js?v=spa-fix-20261104"></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

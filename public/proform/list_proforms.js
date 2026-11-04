@@ -759,10 +759,10 @@ function downloadPDF(invoiceId) {
 // ==================================================
 // ELIMINAR PROFORMA
 // ==================================================
-let proformaToDelete = null;
-let proformaCompanyId = null;
+var proformaToDelete = null;
+var proformaCompanyId = null;
 
-const deleteProforma = (id, companyId) => {
+var deleteProforma = (id, companyId) => {
   proformaToDelete = id;
   proformaCompanyId = companyId;
 
@@ -863,7 +863,7 @@ function renderInvoiceHTML(data) {
 // Mapa: cada tipo de documento do menu "Exportar" -> endpoint
 // PHP responsável por gerar Excel/CSV; PDF é gerado no navegador.
 //
-const EXPORT_CONFIG = {
+var EXPORT_CONFIG = {
   invoices: {
     url: "proform/ajax/proformas_export.php",
     buildParams: (format) => ({ formato: format || "excel" }),

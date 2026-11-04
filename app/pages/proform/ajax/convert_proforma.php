@@ -149,7 +149,7 @@ try {
 
     $emitted = bx_invoice_emit($pdo, $companyId, $invoiceId, $statusName, $documentType);
 
-    $pdo->prepare('UPDATE proformas SET converted_invoice_id = ?, converted_at = NOW(), status = 2 WHERE id = ? AND company_id = ?')
+    $pdo->prepare('UPDATE proformas SET converted_invoice_id = ?, converted_at = NOW(), status = 3 WHERE id = ? AND company_id = ?')
         ->execute([$invoiceId, $proformaId, $companyId]);
 
     $pdo->commit();

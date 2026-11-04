@@ -406,7 +406,7 @@ require_once '../app/views/layout_creation.php';
             // });
         </script>
 
-        <script src="stock/stock.js"></script>
+        <script src="stock/stock.js?v=spa-fix-20261104"></script>
 
 
         <?php require_once '../app/views/footer.php'; ?>
