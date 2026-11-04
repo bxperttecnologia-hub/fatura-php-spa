@@ -327,7 +327,19 @@ $invTheme      = 'dark';
         border-top: 1px solid var(--inv-card-border);
     }
 
+    .inv-section-title {
+        margin: 0 0 1rem;
+        color: var(--inv-text);
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .inv-client-pick {
+        max-width: 560px;
+    }
+
     .inv-terms {
+        margin-top: 1rem;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -392,7 +404,7 @@ $invTheme      = 'dark';
     /* ---------- Ficha do cliente (só leitura) ---------- */
 
     .inv-client {
-        margin-top: 1.5rem;
+        margin-top: 1rem;
         padding: 1.25rem 1.5rem;
         background: rgba(127, 145, 180, 0.05);
         border: 1px dashed var(--inv-field-border);
@@ -963,9 +975,17 @@ $invTheme      = 'dark';
 
             <!-- ============ DADOS DO DOCUMENTO & CLIENTE ============ -->
             <div class="inv-card">
-                <h2 class="inv-card-title"><?= t('Dados do Documento & Cliente') ?></h2>
+                <h2 class="inv-card-title"><?= t('Documento') ?></h2>
 
                 <div class="inv-grid-4">
+
+                    <!-- TIPO -->
+                    <div class="inv-field">
+                        <label class="inv-label" for="document_type"><?= t('Tipo de Documento') ?> *</label>
+                        <select class="inv-select" id="document_type" name="document_type" required>
+                            <option value="PF" selected>PF — <?= t('Proforma') ?></option>
+                        </select>
+                    </div>
 
                     <!-- SÉRIE -->
                     <div class="inv-field">
@@ -981,14 +1001,62 @@ $invTheme      = 'dark';
                             readonly>
                     </div>
 
+                    <!-- DATA DE EMISSÃO -->
                     <div class="inv-field">
-                        <label class="inv-label" for="document_type"><?= t('Tipo de Documento') ?> *</label>
-                        <select class="inv-select" id="document_type" name="document_type" required>
-                            <option value="PF" selected>PF — <?= t('Proforma') ?></option>
-                        </select>
+
+                        <label class="inv-label" for="issue_date">
+                            <?= t('Data de Emissão') ?> *
+                        </label>
+
+                        <input
+                            type="date"
+                            class="inv-input"
+                            id="issue_date"
+                            name="issue_date"
+                            value="<?= date('Y-m-d') ?>"
+                            required>
+
                     </div>
 
 
+                    <!-- DATA DE VENCIMENTO -->
+                    <div class="inv-field">
+
+                        <label class="inv-label" for="due_date_picker">
+                            <?= t('Válida até') ?> *
+                        </label>
+
+                        <input
+                            type="date"
+                            class="inv-input"
+                            id="due_date_picker">
+
+                    </div>
+
+                </div>
+
+                <div class="inv-terms">
+                    <div class="inv-chips" id="due_chips" role="group" aria-label="<?= t('Prazo de validade') ?>">
+                        <span><?= t('Validade') ?>:</span>
+                        <button type="button" class="inv-chip" data-days="0"><?= t('No próprio dia') ?></button>
+                        <button type="button" class="inv-chip" data-days="15">15 <?= t('dias') ?></button>
+                        <button type="button" class="inv-chip" data-days="30">30 <?= t('dias') ?></button>
+                        <button type="button" class="inv-chip" data-days="45">45 <?= t('dias') ?></button>
+                        <button type="button" class="inv-chip" data-days="60">60 <?= t('dias') ?></button>
+                        <button type="button" class="inv-chip" data-days="90">90 <?= t('dias') ?></button>
+                    </div>
+                </div>
+
+                <div class="inv-fx" id="exchange_rate_container" style="display: none;">
+                    <label class="inv-label" for="manual_exchange_rate"><?= t('Câmbio') ?></label>
+                    <input type="number" step="0.0001" class="inv-input" id="manual_exchange_rate" name="manual_exchange_rate">
+                </div>
+
+                <hr class="inv-divider">
+
+                <h3 class="inv-section-title"><?= t('Cliente') ?></h3>
+
+                <div class="inv-client-pick">
                     <!-- CLIENTE -->
                     <div class="inv-field">
 
@@ -1038,59 +1106,6 @@ $invTheme      = 'dark';
                         </div>
 
                     </div>
-
-
-                    <!-- DATA DE EMISSÃO -->
-                    <div class="inv-field">
-
-                        <label class="inv-label" for="issue_date">
-                            <?= t('Data de Emissão') ?> *
-                        </label>
-
-                        <input
-                            type="date"
-                            class="inv-input"
-                            id="issue_date"
-                            name="issue_date"
-                            value="<?= date('Y-m-d') ?>"
-                            required>
-
-                    </div>
-
-
-                    <!-- DATA DE VENCIMENTO -->
-                    <div class="inv-field">
-
-                        <label class="inv-label" for="due_date_picker">
-                            <?= t('Válida até') ?> *
-                        </label>
-
-                        <input
-                            type="date"
-                            class="inv-input"
-                            id="due_date_picker">
-
-                    </div>
-
-                </div>
-
-                <hr class="inv-divider">
-
-                <div class="inv-terms">
-                    <div class="inv-chips" id="due_chips" role="group" aria-label="<?= t('Prazo de validade') ?>">
-                        <span><?= t('Validade') ?>:</span>
-                        <button type="button" class="inv-chip" data-days="0"><?= t('No próprio dia') ?></button>
-                        <button type="button" class="inv-chip" data-days="15">15 <?= t('dias') ?></button>
-                        <button type="button" class="inv-chip" data-days="30">30 <?= t('dias') ?></button>
-                        <button type="button" class="inv-chip" data-days="45">45 <?= t('dias') ?></button>
-                        <button type="button" class="inv-chip" data-days="60">60 <?= t('dias') ?></button>
-                        <button type="button" class="inv-chip" data-days="90">90 <?= t('dias') ?></button>
-                    </div>
-                </div>
-
-                <div class="inv-fx" id="exchange_rate_container" style="display: none;">
-                    <label class="inv-label" for="manual_exchange_rate"><?= t('Câmbio') ?></label>
-                    <input type="number" step="0.0001" class="inv-input" id="manual_exchange_rate" name="manual_exchange_rate">
                 </div>
 
                 <!-- Ficha do cliente: preenchida pelo JS quando se escolhe um cliente -->
