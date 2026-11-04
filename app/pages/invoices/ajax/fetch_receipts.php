@@ -46,9 +46,13 @@ try {
         r.amount_paid, 
         r.pending_amount, 
         r.created_at AS issue_date,
-        i.due_date
+        r.agt_status,
+        i.due_date,
+        i.reference AS invoice_reference,
+        c.name AS client_name
         FROM receipts AS r
         INNER JOIN invoices AS i ON i.id = r.invoice_id
+        LEFT JOIN contact AS c ON c.id = i.contact_id
         WHERE r.reference IS NOT NULL
           AND i.company_id = :company_id
         ORDER BY r.id DESC

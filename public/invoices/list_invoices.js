@@ -266,19 +266,20 @@ $(document).ready(function () {
     },
 
     receipts: {
-      colspan: 7,
+      colspan: 8,
       title: "Recibos",
       emptyLabel: "Nenhum recibo encontrado",
       defaultSort: { key: "issue_date", dir: "desc" },
       hasStatusFilter: false,
-      clientLabel: "Referência",
-      clientField: "reference",
+      clientLabel: "Cliente",
+      clientField: "client_name",
       statusField: null,
       dateField: "issue_date",
       headerHtml: `
         <tr>
-          <th data-key="number">Documento ${SORT}</th>
-          <th data-key="reference">Referência ${SORT}</th>
+          <th data-key="reference">Documento ${SORT}</th>
+          <th data-key="client_name">Cliente ${SORT}</th>
+          <th data-key="invoice_reference">Fatura ${SORT}</th>
           <th data-key="issue_date">Emissão ${SORT}</th>
           <th>Método</th>
           <th data-key="amount_paid" class="bx-num">Valor pago ${SORT}</th>
@@ -288,8 +289,9 @@ $(document).ready(function () {
       `,
       renderRow: renderReceiptRow,
       exportColumns: [
-        ["Documento", (r) => (r.serie ? `${r.serie} ${r.number || ""}` : r.number || "-")],
-        ["Referência", (r) => r.reference],
+        ["Documento", (r) => r.reference || r.number || "-"],
+        ["Cliente", (r) => r.client_name],
+        ["Fatura", (r) => r.invoice_reference],
         ["Emissão", (r) => fmtDate(r.issue_date)],
         ["Método", (r) => r.payment_method],
         ["Valor pago", (r) => bxMoney(r.amount_paid), (r) => Number(r.amount_paid || 0).toFixed(2).replace(".", ",")],
@@ -903,22 +905,43 @@ $(document).ready(function () {
     `;
   }
 
+  const RECEIPT_AGT = {
+    valid: ["Validado AGT", "#0f7b3f", "#e6f6ec"],
+    sent: ["AGT pendente", "#8a5a00", "#fff4d6"],
+    invalid: ["Rejeitado AGT", "#b42318", "#fde8e7"],
+    error: ["Não enviado AGT", "#b42318", "#fde8e7"],
+  };
+
   function renderReceiptRow(row) {
-    const number = row.serie ? `${row.serie} ${row.number || ""}` : row.number || "-";
+    const number = row.reference || (row.serie ? `${row.serie} ${row.number || ""}` : row.number || "-");
+    const pdfUrl = `/api/documents/receipts/${encodeURIComponent(row.id)}/pdf`;
+    const agt = RECEIPT_AGT[row.agt_status];
+    const agtBadge = agt
+      ? `<span class="badge rounded-pill mt-1" style="color:${agt[1]};background:${agt[2]};font-weight:600">${agt[0]}</span>`
+      : "";
+    const invoiceLink = row.invoice_id
+      ? `<a href="/invoices/view?id=${encodeURIComponent(row.invoice_id)}" data-spa
+           data-bs-toggle="tooltip" data-bs-title="Abrir a fatura">${esc(row.invoice_reference || "#" + row.invoice_id)}</a>`
+      : "-";
     return `
       <tr class="invoice-row" data-id="${esc(row.id)}">
-        <td class="bx-td-doc">${docCell("receipts", "Recibo", number)}</td>
-        <td class="bx-td-client" data-label="Referência">${esc(row.reference || "-")}</td>
+        <td class="bx-td-doc">${docCell("receipts", "Recibo", number)}${agtBadge}</td>
+        <td class="bx-td-client" data-label="Cliente">${esc(row.client_name || "-")}</td>
+        <td data-label="Fatura">${invoiceLink}</td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
         <td data-label="Método">${esc(row.payment_method || "-")}</td>
         <td class="bx-num bx-money" data-label="Valor pago">${bxMoney(row.amount_paid)}</td>
         <td class="bx-num" data-label="Pendente">${bxMoney(row.pending_amount)}</td>
         <td class="bx-td-actions">
           <div class="bx-actions">
-            ${viewLink(
-              `/invoices/view?id=${encodeURIComponent(row.invoice_id)}`,
-              "Ver fatura",
-              "Ver fatura do recibo",
+            <button type="button" class="bx-icon-btn js-pdf-open" data-url="${pdfUrl}"
+              data-bs-toggle="tooltip" data-bs-title="Visualizar recibo" aria-label="Visualizar recibo ${esc(number)}">
+              <i class="bi bi-eye" aria-hidden="true"></i><span class="bx-btn__label">Visualizar</span>
+            </button>
+            ${pdfBtn(
+              `data-url="${pdfUrl}" data-filename="Recibo_${esc(String(number).replace(/[^A-Za-z0-9_-]+/g, "-"))}.pdf"`,
+              `Baixar PDF do recibo ${number}`,
+              "js-pdf-url",
             )}
           </div>
         </td>
@@ -1266,6 +1289,21 @@ $(document).ready(function () {
   $("#invoicesTable tbody").on("click", ".js-pdf", function (e) {
     e.stopPropagation();
     if (!this.disabled) runInvoicePdf(this.dataset.id, this);
+  });
+
+  // Recibos: abre o PDF numa nova aba (pré-visualização).
+  $("#invoicesTable tbody").on("click", ".js-pdf-open", async function (e) {
+    e.stopPropagation();
+    const btn = this;
+    if (btn.disabled) return;
+    setBusy(btn, true);
+    try {
+      await window.BXDocumentApi.openPdf(btn.dataset.url);
+    } catch (error) {
+      bxToast(error.message || "Não foi possível abrir o documento.", "error");
+    } finally {
+      setBusy(btn, false);
+    }
   });
 
   // Notas de débito / entrega: a API gera o PDF e aplica o escopo da empresa do token.
