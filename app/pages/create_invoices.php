@@ -1298,6 +1298,24 @@ $invTheme      = 'dark';
     const DOCUMENT_DRAFT_KEY = "invoiceDraft";
 
     /* ===== RASCUNHO (localStorage) ===== */
+    // Valor de um campo sem a formatação visual: os campos de dinheiro (money-inputs.js)
+    // mostram "2 500,00", mas guardam o número em data-money-raw.
+    function draftFieldValue(el) {
+        if (!el) return "";
+        return el.dataset.moneyRaw ?? el.value;
+    }
+
+    // Lê números gravados como "2500.00" ou, em rascunhos antigos, "2 500,00".
+    function draftNumber(value, fallback) {
+        let text = String(value ?? "").replace(/[\s\u00a0\u202f]/g, "");
+        const comma = text.lastIndexOf(",");
+        const dot = text.lastIndexOf(".");
+        if (comma !== -1 && comma > dot) text = text.replace(/\./g, "").replace(",", ".");
+        else if (comma !== -1) text = text.replace(/,/g, "");
+        const number = Number(text);
+        return text !== "" && Number.isFinite(number) ? number : fallback;
+    }
+
     function saveDraft() {
         if (!form) return;
 
@@ -1320,11 +1338,11 @@ $invTheme      = 'dark';
                 id: row.dataset.id,
                 code: row.querySelector(".field_code")?.value || "",
                 description: row.querySelector(".field_description")?.value || "",
-                quantity: row.querySelector(".field_qtd")?.value || 1,
-                unit_price: row.querySelector(".field_price")?.value || 0,
-                tax: row.querySelector(".field_tax")?.value || 0,
-                discount: row.querySelector(".field_desc")?.value || 0,
-                retention: row.querySelector(".field_retention")?.value || 0
+                quantity: draftFieldValue(row.querySelector(".field_qtd")) || 1,
+                unit_price: draftFieldValue(row.querySelector(".field_price")) || 0,
+                tax: draftFieldValue(row.querySelector(".field_tax")) || 0,
+                discount: draftFieldValue(row.querySelector(".field_desc")) || 0,
+                retention: draftFieldValue(row.querySelector(".field_retention")) || 0
             });
         });
 
@@ -1347,7 +1365,10 @@ $invTheme      = 'dark';
         Object.keys(draft.form || {}).forEach(key => {
             if (key === "series") return; // a série é sempre o ano corrente
             const field = form.querySelector(`[name="${key}"]`);
-            if (field) field.value = draft.form[key];
+            if (!field) return;
+            // O FormData só traz as caixas marcadas.
+            if (field.type === "checkbox" || field.type === "radio") field.checked = true;
+            else field.value = draft.form[key];
         });
     }
 
@@ -1364,11 +1385,11 @@ $invTheme      = 'dark';
                 id: id,
                 code: item.code || "",
                 description: item.description || item.name || "",
-                line_quantity: item.quantity || 1,
-                unit_price: item.unit_price || 0,
-                tax: item.tax || 0,
-                discount: item.discount || 0,
-                retention: item.retention || 0
+                line_quantity: draftNumber(item.quantity, 1),
+                unit_price: draftNumber(item.unit_price, 0),
+                tax: draftNumber(item.tax, 0),
+                discount: draftNumber(item.discount, 0),
+                retention: draftNumber(item.retention, 0)
             });
         });
     }
@@ -1387,7 +1408,13 @@ $invTheme      = 'dark';
     form?.addEventListener("input", saveDraft);
     form?.addEventListener("change", saveDraft);
 
-    document.addEventListener("DOMContentLoaded", loadDraft);
+    // Na SPA a página entra depois do DOMContentLoaded: repõe já, antes de o
+    // script da página gravar o rascunho (ao repor as linhas) e apagar estes campos.
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", loadDraft);
+    } else {
+        loadDraft();
+    }
 
     /* ===== MOEDA ===== */
     window.userCurrency = <?= json_encode($_SESSION['user']['iso_code'] ?? 'AOA', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;

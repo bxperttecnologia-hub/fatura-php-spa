@@ -11,7 +11,8 @@ if (!isset($_SESSION['user']['currency'])) {
     exit;
 }
 
-$currency_code = $_SESSION['user']['currency'];
+// A sessão guarda o nome da moeda (ex.: "Kwanza Angolano") em 'currency' e o código ISO em 'iso_code'.
+$currency_code = $_SESSION['user']['iso_code'] ?? $_SESSION['user']['currency'];
 
 try {
     $stmt = $pdo->prepare("SELECT symbol, position FROM currencies WHERE iso_code = :currency_code");
