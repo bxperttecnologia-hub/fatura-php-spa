@@ -15,7 +15,7 @@ $isLocal = $isLocal ?? false;
     }
 
     #contactFormModal .modal-dialog {
-        max-width: 620px;
+        max-width: 720px;
     }
 
     #contactFormModal .modal-header,
@@ -24,18 +24,23 @@ $isLocal = $isLocal ?? false;
     }
 
     #contactFormModal .modal-body {
-        max-height: min(55vh, 460px);
+        max-height: calc(100vh - 11rem);
         overflow-y: auto;
         padding: 1rem;
     }
 
     #contactFormModal .form-section {
-        padding-bottom: .75rem;
-        border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 1.1rem;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
     }
 
     #contactFormModal .form-section-title {
-        margin-bottom: .75rem;
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        margin-bottom: .85rem;
         color: #176b9c;
         font-size: .82rem;
         font-weight: 700;
@@ -43,8 +48,18 @@ $isLocal = $isLocal ?? false;
         text-transform: uppercase;
     }
 
+    #contactFormModal .form-label {
+        margin-bottom: .3rem;
+    }
+
     #contactFormModal .optional-field {
         position: relative;
+    }
+
+    #contactFormModal .optional-block {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed #e5e7eb;
     }
 
     #contactFormModal .optional-remove {
@@ -80,7 +95,7 @@ $isLocal = $isLocal ?? false;
         }
 
         #contactFormModal .modal-body {
-            max-height: 52dvh;
+            max-height: calc(100dvh - 9rem);
             padding: .875rem;
         }
     }
@@ -89,14 +104,14 @@ $isLocal = $isLocal ?? false;
 <div class="modal fade" id="contactFormModal" tabindex="-1"
     aria-labelledby="contactFormModalTitle" aria-hidden="true"
     data-bs-backdrop="static" data-bs-keyboard="false" data-bs-focus="false"
-    data-title-new="<?= t('Adicionar Nova Empresa') ?>"
-    data-title-edit="<?= t('Editar Empresa') ?>">
+    data-title-new="<?= t('Novo cliente') ?>"
+    data-title-edit="<?= t('Editar cliente') ?>">
     <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-white">
                 <div>
-                    <h5 class="modal-title fw-bold" id="contactFormModalTitle"><?= t('Adicionar Nova Empresa') ?></h5>
-                    <small class="text-muted" id="contactFormModalSubtitle"><?= t('Cadastre os dados da empresa') ?></small>
+                    <h5 class="modal-title fw-bold" id="contactFormModalTitle"><?= t('Novo cliente') ?></h5>
+                    <small class="text-muted" id="contactFormModalSubtitle"><?= t('Comece pelo NIF: os dados são preenchidos a partir da AGT') ?></small>
                 </div>
                 <button type="button" class="btn-close" data-contact-dismiss aria-label="Fechar"></button>
             </div>
@@ -117,11 +132,11 @@ $isLocal = $isLocal ?? false;
 
                     <section class="form-section mb-3" aria-labelledby="companySectionTitle">
                         <h6 class="form-section-title" id="companySectionTitle">
-                            <i class="material-icons-round align-middle me-1">business</i><?= t('Dados da Empresa') ?>
+                            <i class="bi bi-building" aria-hidden="true"></i><?= t('Identificação') ?>
                         </h6>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="contributor" class="form-label text-muted small fw-bold required"><?= t('NIF / Registro') ?></label>
+                                <label for="contributor" class="form-label text-muted small fw-bold required"><?= t('NIF') ?></label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="contributor" name="contributor"
                                         placeholder="Ex: 5000000000" autocomplete="off" required>
@@ -133,12 +148,12 @@ $isLocal = $isLocal ?? false;
                                 <div id="nifStatus" class="form-text" aria-live="polite"></div>
                             </div>
                             <div class="col-md-6">
-                                <label for="companyName" class="form-label text-muted small fw-bold required"><?= t('Nome da Empresa') ?></label>
+                                <label for="companyName" class="form-label text-muted small fw-bold required"><?= t('Nome / Empresa') ?></label>
                                 <input type="text" class="form-control" id="companyName" name="name"
-                                    placeholder="Nome comercial completo" required>
+                                    placeholder="Nome completo ou designação social" required>
                             </div>
                             <div class="col-12">
-                                <label for="address" class="form-label text-muted small fw-bold required"><?= t('Endereço Completo') ?></label>
+                                <label for="address" class="form-label text-muted small fw-bold required"><?= t('Endereço') ?></label>
                                 <textarea class="form-control" id="address" name="address" rows="2"
                                     placeholder="Rua, Número, Bairro..." required></textarea>
                             </div>
@@ -147,7 +162,7 @@ $isLocal = $isLocal ?? false;
 
                     <section class="form-section mb-3" aria-labelledby="contactSectionTitle">
                         <h6 class="form-section-title" id="contactSectionTitle">
-                            <i class="material-icons-round align-middle me-1">call</i><?= t('Contactos') ?>
+                            <i class="bi bi-telephone" aria-hidden="true"></i><?= t('Contactos') ?>
                         </h6>
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -158,26 +173,32 @@ $isLocal = $isLocal ?? false;
                                 <div class="form-text"><?= t('9 dígitos, começa por 2 ou 9') ?></div>
                             </div>
 
-                            <div class="col-md-6 optional-field" data-optional-field="email" hidden>
-                                <button type="button" class="btn btn-sm optional-remove" data-remove-optional="email" aria-label="Remover email">×</button>
-                                <label for="email" class="form-label text-muted small fw-bold"><?= t('Email Corporativo') ?></label>
-                                <input type="email" class="form-control" id="email" name="email" placeholder="contato@empresa.com">
-                            </div>
-                            <div class="col-md-6 optional-field" data-optional-field="website" hidden>
-                                <button type="button" class="btn btn-sm optional-remove" data-remove-optional="website" aria-label="Remover website">×</button>
-                                <label for="website" class="form-label text-muted small fw-bold"><?= t('Website') ?></label>
-                                <input type="text" class="form-control" id="website" name="website" placeholder="www.empresa.com">
+                            <div class="col-md-6">
+                                <label for="email" class="form-label text-muted small fw-bold"><?= t('Email') ?></label>
+                                <input type="email" class="form-control" id="email" name="email" placeholder="geral@empresa.co.ao">
+                                <div class="form-text"><?= t('Opcional. Usado para enviar as faturas.') ?></div>
                             </div>
                         </div>
+                    </section>
 
-                        <div class="d-flex flex-wrap gap-2 mt-3" id="optionalActions">
-                            <button type="button" class="btn btn-sm btn-outline-secondary optional-add" data-add-optional="email">+ <?= t('Email corporativo') ?></button>
+                    <section class="form-section mb-3" aria-labelledby="moreSectionTitle">
+                        <h6 class="form-section-title" id="moreSectionTitle">
+                            <i class="bi bi-plus-circle" aria-hidden="true"></i><?= t('Mais informações') ?>
+                            <span class="text-muted fw-normal text-lowercase ms-1">(<?= t('opcional') ?>)</span>
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2" id="optionalActions">
                             <button type="button" class="btn btn-sm btn-outline-secondary optional-add" data-add-optional="website">+ <?= t('Website') ?></button>
                             <button type="button" class="btn btn-sm btn-outline-secondary optional-add" data-add-optional="person">+ <?= t('Pessoa de contacto') ?></button>
                             <button type="button" class="btn btn-sm btn-outline-secondary optional-add" data-add-optional="observations">+ <?= t('Observações') ?></button>
                         </div>
 
-                        <div class="row g-3 mt-1" data-optional-field="person" hidden>
+                        <div class="optional-field optional-block" data-optional-field="website" hidden>
+                            <button type="button" class="btn btn-sm optional-remove" data-remove-optional="website" aria-label="Remover website">×</button>
+                            <label for="website" class="form-label text-muted small fw-bold"><?= t('Website') ?></label>
+                            <input type="text" class="form-control" id="website" name="website" placeholder="www.empresa.co.ao">
+                        </div>
+
+                        <div class="row g-3 optional-block" data-optional-field="person" hidden>
                             <div class="col-12">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <h6 class="mb-2 fw-semibold"><?= t('Pessoa de contacto') ?></h6>
@@ -204,13 +225,13 @@ $isLocal = $isLocal ?? false;
                             </div>
                         </div>
 
-                        <div class="mt-3" data-optional-field="observations" hidden>
+                        <div class="optional-block" data-optional-field="observations" hidden>
                             <div class="d-flex align-items-center justify-content-between">
                                 <label for="observationsEditor" class="form-label text-muted small fw-bold"><?= t('Observações') ?></label>
                                 <button type="button" class="btn btn-sm optional-remove" data-remove-optional="observations" aria-label="Remover observações">×</button>
                             </div>
                             <textarea class="form-control" id="observationsEditor" rows="3"
-                                placeholder="Notas ou observações importantes sobre esta empresa..."></textarea>
+                                placeholder="Notas ou observações sobre este cliente..."></textarea>
                         </div>
 
                         <div class="row g-3 d-none" aria-hidden="true">
@@ -225,10 +246,11 @@ $isLocal = $isLocal ?? false;
                         </div>
                     </section>
 
-                    <section class="pt-1">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="advancedSettingsToggle"
+                    <section class="form-section">
+                        <button type="button" class="btn btn-link p-0 text-decoration-none form-section-title mb-0" id="advancedSettingsToggle"
                             aria-expanded="false" aria-controls="advancedSettings">
-                            <i class="bi bi-gear me-1"></i><?= t('Configurações avançadas') ?>
+                            <i class="bi bi-gear" aria-hidden="true"></i><?= t('Definições de faturação') ?>
+                            <i class="bi bi-chevron-down small" aria-hidden="true"></i>
                         </button>
                         <div id="advancedSettings" class="mt-3" hidden>
                             <div class="form-check form-switch mb-2">
@@ -269,7 +291,7 @@ $isLocal = $isLocal ?? false;
 
             <div class="modal-footer bg-white">
                 <button type="button" class="btn btn-outline-secondary me-auto" data-contact-dismiss><?= t('Cancelar') ?></button>
-                <button type="button" class="btn btn-primary" id="saveChangesContact"><?= t('Salvar empresa') ?></button>
+                <button type="button" class="btn btn-primary" id="saveChangesContact"><?= t('Guardar cliente') ?></button>
             </div>
         </div>
     </div>

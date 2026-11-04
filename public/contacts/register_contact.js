@@ -390,9 +390,9 @@ $(document).ready(function () {
       modalEl.dataset[isEdit ? "titleEdit" : "titleNew"],
     );
     $("#contactFormModalSubtitle").text(
-      isEdit ? "Atualize os dados da empresa" : defaultSubtitle,
+      isEdit ? "Actualize os dados do cliente" : defaultSubtitle,
     );
-    saveBtn.textContent = isEdit ? "Salvar alterações" : "Salvar empresa";
+    saveBtn.textContent = isEdit ? "Guardar alterações" : "Guardar cliente";
 
     // A consulta de NIF na AGT só faz sentido ao criar
     $("#btnConsultNif").toggleClass("d-none", isEdit);

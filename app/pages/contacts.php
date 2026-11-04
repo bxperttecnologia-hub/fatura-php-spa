@@ -599,7 +599,7 @@
 
 
     <script src="contacts/contacts.js?v=1.0"></script>
-    <script src="contacts/register_contact.js?v=1.0"></script>
+    <script src="contacts/register_contact.js?v=1.1"></script>
     <?php require_once '../app/views/footer.php'; ?>
 </body>
 
