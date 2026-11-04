@@ -133,7 +133,8 @@
         } else if (normalizedStatus.startsWith("cancel")) {
           $("#generatePdf, #btnEnviar").removeClass("d-none");
         } else {
-          $("#btnRecibo").removeClass("d-none");
+          // A Fatura/Recibo já é paga no acto: não tem pagamentos nem recibos à parte.
+          $("#btnRecibo").toggleClass("d-none", document_type === "FR");
           $("#btnCloneToInvoice").removeClass("d-none");
           $("#btnNotaCredito").removeClass("d-none");
           $("#btnNotaDebito").removeClass("d-none");
