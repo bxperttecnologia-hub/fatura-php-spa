@@ -6,7 +6,8 @@
   const selector = 'input:not([type]), input[type="text"], input[type="number"]';
 
   function isMoneyInput(input) {
-    if (!(input instanceof HTMLInputElement) || input.type === 'hidden' || input.disabled) return false;
+    if (!(input instanceof HTMLInputElement) || input.tagName !== 'INPUT' || input.type === 'hidden' || input.disabled) return false;
+    if (['radio', 'checkbox', 'file', 'range', 'color', 'email', 'search', 'tel', 'password', 'submit', 'button', 'reset', 'image'].includes(input.type)) return false;
     if (input.hasAttribute('data-money-input') || input.hasAttribute('data-price-display')) return true;
 
     const attributes = [
@@ -173,9 +174,17 @@
     input.dataset.moneyEditing = 'true';
   });
 
+  function supportsTextSelection(input) {
+    if (!(input instanceof HTMLInputElement) || typeof input.setSelectionRange !== 'function') return false;
+    const selectionType = (input.dataset.moneyType || input.type || '').toLowerCase();
+    return ['text', 'number'].includes(selectionType)
+      && typeof input.selectionStart === 'number'
+      && typeof input.selectionEnd === 'number';
+  }
+
   document.addEventListener('keydown', (event) => {
     const input = event.target;
-    if (!isMoneyInput(input) || input.dataset.moneyInitialized !== 'true') return;
+    if (!isMoneyInput(input) || !supportsTextSelection(input) || input.dataset.moneyInitialized !== 'true') return;
 
     if (event.key === ',' || event.key === '.') {
       event.preventDefault();
@@ -202,7 +211,7 @@
 
   document.addEventListener('input', (event) => {
     const input = event.target;
-    if (!isMoneyInput(input)) return;
+    if (!isMoneyInput(input) || !supportsTextSelection(input)) return;
     initialize(input);
     const caret = input.selectionStart ?? input.value.length;
     const digitCount = (input.value.slice(0, caret).match(/\d/g) || []).length;

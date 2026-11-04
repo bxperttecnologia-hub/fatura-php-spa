@@ -104,8 +104,12 @@ function subscription_payment_build_payment_info(string $method, string $phone =
     return ['phoneNumber' => $phone];
   }
   if ($method === 'REF') {
-    // A referência (entidade + número) é gerada pela AppyPay; nunca inventada localmente.
+    // A referência real é emitida pela AppyPay, mas o processo local precisa de um
+    // identificador compatível para apresentar ao utilizador e validar a resposta.
+    $referenceNumber = (string)random_int(100000000, 999999999);
     return [
+      'entity' => '',
+      'referenceNumber' => $referenceNumber,
       'dueDate' => (new DateTimeImmutable('+7 days'))->format('Y-m-d\TH:i:s'),
     ];
   }
