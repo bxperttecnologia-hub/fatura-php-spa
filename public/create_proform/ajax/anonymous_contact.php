@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 /*
  * Cliente X — cliente anónimo (consumidor final).
@@ -24,7 +23,7 @@ function get_anonymous_contact_id(PDO $pdo, int $companyId): int
         return (int)$id;
     }
 
-    // Mesmas colunas que o INSERT normal de contactos
+    // Mesmas colunas que o INSERT normal de contactos; as opcionais ficam a NULL
     $stmt = $pdo->prepare("
         INSERT INTO contact (name,email,contributor,address,po_box,country,city,company_id)
         VALUES (?,?,?,?,?,?,?,?)
@@ -34,10 +33,10 @@ function get_anonymous_contact_id(PDO $pdo, int $companyId): int
         ANON_CONTACT_NAME,
         ANON_CONTACT_EMAIL,
         null,
-        '', // address, po_box e city são NOT NULL na tabela contact
-        '',
-        'Angola',
-        '',
+        null,
+        null,
+        null,
+        null,
         $companyId
     ]);
 

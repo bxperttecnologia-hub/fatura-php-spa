@@ -1,7 +1,6 @@
 <?php
-require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 require_once '../../../app/config/db.php';
-require_once __DIR__ . '/../../../app/helpers/document_tax.php';
+require_once __DIR__ . '/../../../helpers/document_tax.php';
 header('Content-Type: application/json');
 
 // Captura o ID da fatura

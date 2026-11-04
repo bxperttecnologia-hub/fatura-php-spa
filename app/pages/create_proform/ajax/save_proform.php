@@ -125,7 +125,6 @@ try {
         'observation' => $proforma['observation'] ?? null,
         'series' => $proforma['series'] ?? null,
         'retention' => (float)($proforma['retention'] ?? 0),
-        'retention_value' => (float)($proforma['retention_value'] ?? 0),
         'currency' => $proforma['currency'],
         'manual_exchange_rate' => (float)($proforma['manual_exchange_rate'] ?? 1),
         'total_sum' => (float)$proforma['total_sum'],

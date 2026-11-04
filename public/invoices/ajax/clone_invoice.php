@@ -73,13 +73,8 @@ try {
         );
     }
 
-    // =====================================================
-    // GERAR NOVA REFERÊNCIA
-    // =====================================================
-
-    // O clone é um rascunho: o número só é atribuído ao finalizar (update_status.php),
-    // para não consumir numeração (nem da série AGT) com rascunhos que podem nunca ser emitidos.
-    $reference = null;
+    // Rascunhos usam uma série interna; a referência fiscal é gerada ao finalizar.
+    $draftSeries = 'RASCUNHO-FT-' . date('Y');
 
     // =====================================================
     // CLONAR FATURA
@@ -128,11 +123,11 @@ try {
 
         $invoice['due_date'],
 
-        $reference,
+        null,
 
         $invoice['observation'],
 
-        $invoice['series'],
+        $draftSeries,
 
         $invoice['retention'],
 
@@ -198,7 +193,8 @@ try {
     echo json_encode([
         'success' => true,
         'new_invoice_id' => $newInvoiceId,
-        'reference' => $reference,
+        'reference' => null,
+        'series' => $draftSeries,
         'message' => 'Factura clonada com sucesso.'
     ]);
 } catch (Throwable $e) {

@@ -227,14 +227,6 @@ $(document).ready(function () {
           });
         }
       },
-<<<<<<< Updated upstream
-      error: function () {
-        console.log("ERRO BRUTO:", xhr.responseText); // <-- útil se o JSON vier quebrado (ex: erro PHP misturado no output)
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "Erro inesperado. Tente novamente.",
-=======
       error: function (xhr) {
         const response = xhr.responseJSON || {};
         Swal.fire({
@@ -244,7 +236,6 @@ $(document).ready(function () {
             response.message ||
             response.error ||
             "Erro inesperado. Tente novamente.",
->>>>>>> Stashed changes
         });
       },
     });

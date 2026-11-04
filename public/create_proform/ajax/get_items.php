@@ -84,17 +84,8 @@ try {
 
             i.unit_measure AS unit_measure_raw,
 
-            /*
-            RETENÇÃO
-            */
-            CASE
-                WHEN i.retention = 'apply' THEN 'Aplicar'
-                WHEN i.retention = 'do_not_apply' THEN 'Não Aplicar'
-                ELSE i.retention
-            END AS retention,
-
-            i.retention AS retention_raw,
             i.tax,
+            GREATEST(0, ROUND(COALESCE(i.retention, 0), 4)) AS retention,
 
             /*
             PREÇOS

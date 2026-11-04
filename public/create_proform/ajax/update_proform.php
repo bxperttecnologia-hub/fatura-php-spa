@@ -1,10 +1,16 @@
 <?php
-require_once '../../../app/config/db.php';
+require_once '../../../app/helpers/require_login.php';
 require_once '../../../app/helpers/subscription.php';
 require_once '../../../app/helpers/anonymous_contact.php';
+require_once '../../../app/helpers/document_tax.php';
 
-header('Content-Type: application/json');
-session_start();
+header('Content-Type: application/json; charset=utf-8');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Método inválido.']);
+    exit;
+}
 
 if (
     empty($_SESSION['csrf'])
@@ -44,6 +50,12 @@ try {
     $companyIdSession = (int)$_SESSION['user']['company_id'];
     $userIdSession = (int)$_SESSION['user']['id'];
 
+    $companyLock = $pdo->prepare('SELECT id FROM companies WHERE id = ? FOR UPDATE');
+    $companyLock->execute([$companyIdSession]);
+    if (!$companyLock->fetchColumn()) {
+        throw new RuntimeException('Empresa não encontrada.', 404);
+    }
+
     $documentType = strtoupper(trim((string)($proforma['document_type'] ?? 'PF')));
     if (!in_array($documentType, ['PF'], true)) {
         throw new Exception("Tipo de documento inválido.");
@@ -54,7 +66,7 @@ try {
     }
 
     // 🔐 Confirma que a proforma pertence mesmo a esta empresa antes de tocar nela
-    $ownerCheck = $pdo->prepare("SELECT id, reference FROM proformas WHERE id = ? AND company_id = ?");
+    $ownerCheck = $pdo->prepare("SELECT id, reference FROM proformas WHERE id = ? AND company_id = ? FOR UPDATE");
     $ownerCheck->execute([$editProformId, $companyIdSession]);
     $existingProforma = $ownerCheck->fetch(PDO::FETCH_ASSOC);
     if (!$existingProforma) {
@@ -64,8 +76,35 @@ try {
     if ($reference === '') {
         $reference = (string)$existingProforma['reference'];
     }
+    if ($reference !== (string)$existingProforma['reference']) {
+        $referenceCheck = $pdo->prepare(
+            'SELECT 1 FROM proformas WHERE company_id = ? AND reference = ? AND id <> ? LIMIT 1'
+        );
+        $referenceCheck->execute([$companyIdSession, $reference, $editProformId]);
+        if ($referenceCheck->fetchColumn()) {
+            throw new RuntimeException('Já existe uma proforma com esta referência nesta empresa.', 409);
+        }
+    }
 
     subscription_assert_active($pdo, $companyIdSession);
+    $itemData = bx_document_assign_retention_rates($pdo, $itemData, $companyIdSession);
+    $taxSummary = bx_document_company_tax_summary($pdo, $itemData, $companyIdSession);
+    $taxWithholdingType = (string)($proforma['tax_withholding_type'] ?? 'none');
+    $eligibilityConfirmed = (string)($proforma['tax_withholding_confirmed'] ?? '') === '1';
+    $taxConfiguration = $taxWithholdingType === 'none'
+        ? null
+        : bx_document_active_tax_configuration($pdo, $companyIdSession, $taxWithholdingType, (string)$proforma['issue_date']);
+    $regimeStmt = $pdo->prepare('SELECT vat_regime FROM companies WHERE id = ?');
+    $regimeStmt->execute([$companyIdSession]);
+    $taxRegime = $regimeStmt->fetchColumn();
+    $withholdingSummary = bx_document_tax_withholding_summary(
+        $itemData,
+        $taxSummary,
+        $taxWithholdingType,
+        $taxConfiguration,
+        $eligibilityConfirmed,
+        $taxRegime === false ? null : (string)$taxRegime
+    );
 
     // =========================
     // 📌 CONTACTO
@@ -82,6 +121,7 @@ try {
         $contactId = get_anonymous_contact_id($pdo, $companyIdSession);
     } elseif (!empty($proforma['contact_id'])) {
         $contactId = (int)$proforma['contact_id'];
+        require_owned('contact', $contactId);
     } else {
 
         $stmt = $pdo->prepare("SELECT id FROM contact WHERE email = ? AND company_id = ?");
@@ -129,14 +169,23 @@ try {
         'reference' => $reference,
         'observation' => $proforma['observation'] ?? null,
         'series' => $proforma['series'] ?? null,
-        'retention' => (float)($proforma['retention'] ?? 0),
+        'retention' => 0.0,
         'currency' => $proforma['currency'],
         'manual_exchange_rate' => (float)($proforma['manual_exchange_rate'] ?? 1),
-        'total_sum' => (float)$proforma['total_sum'],
-        'total_discount' => (float)($proforma['total_discount'] ?? 0),
-        'subtotal_without_tax' => (float)($proforma['subtotal_without_tax'] ?? 0),
-        'total_tax' => (float)($proforma['total_tax'] ?? 0),
-        'final_total' => (float)$proforma['final_total'],
+        'total_sum' => $taxSummary['total_sum'],
+        'total_discount' => $taxSummary['total_discount'],
+        'subtotal_without_tax' => $taxSummary['subtotal'],
+        'total_tax' => $taxSummary['total_tax'],
+        'retention_value' => $taxSummary['retention'],
+        'tax_withholding_type' => $withholdingSummary['type'],
+        'tax_withholding_rate' => $withholdingSummary['rate'],
+        'tax_withholding_base' => $withholdingSummary['base'],
+        'tax_withholding_amount' => $withholdingSummary['amount'],
+        'tax_withholding_description' => $withholdingSummary['description'],
+        'tax_withholding_confirmed' => $withholdingSummary['confirmed'] ? 1 : 0,
+        'gross_total' => $withholdingSummary['gross_total'],
+        'net_payable' => $withholdingSummary['net_payable'],
+        'final_total' => $withholdingSummary['net_payable'],
         'converted_total' => (float)($proforma['converted_total'] ?? 0),
         'status' => 1
     ];
@@ -175,8 +224,8 @@ try {
     }
 
     $stmt = $pdo->prepare("
-        INSERT INTO proforma_items (proforma_id,item_id,quantity,unit_price,tax,discount)
-        VALUES (?,?,?,?,?,?)
+        INSERT INTO proforma_items (proforma_id,item_id,quantity,unit_price,tax,discount,retention_rate)
+        VALUES (?,?,?,?,?,?,?)
     ");
 
     foreach ($itemData as $item) {
@@ -191,7 +240,8 @@ try {
             (float)$item['quantity'],
             (float)$item['unit_price'],
             (float)$item['tax'],
-            (float)$item['discount']
+            (float)$item['discount'],
+            (float)$item['retention_rate']
         ]);
     }
 
@@ -210,7 +260,10 @@ try {
 
     error_log($e->getMessage());
 
-    http_response_code(500);
+    $statusCode = $e instanceof InvalidArgumentException
+        ? 422
+        : (in_array($e->getCode(), [404, 409, 422], true) ? $e->getCode() : 500);
+    http_response_code($statusCode);
 
     echo json_encode([
         'success' => false,

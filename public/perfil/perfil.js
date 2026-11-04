@@ -199,11 +199,6 @@ $(document).ready(function () {
     });
 
     $.ajax({
-<<<<<<< Updated upstream
-      url: "/perfil/ajax/update_profile.php",
-      type: "POST",
-      data: formData, // objeto simples: deixa o jQuery serializar (não use processData:false/contentType:false aqui)
-=======
       url: "/api/profile",
       type: "PATCH",
       contentType: "application/json",
@@ -211,7 +206,6 @@ $(document).ready(function () {
         "X-CSRF-Token": window.APP?.csrf || "",
       },
       data: JSON.stringify(formData),
->>>>>>> Stashed changes
       dataType: "json",
       success: function (response) {
         if (response.status === "success") {
@@ -233,14 +227,6 @@ $(document).ready(function () {
           });
         }
       },
-<<<<<<< Updated upstream
-      error: function () {
-        console.log("ERRO BRUTO:", xhr.responseText); // <-- útil se o JSON vier quebrado (ex: erro PHP misturado no output)
-        Swal.fire({
-          icon: "error",
-          title: "Erro!",
-          text: "Erro inesperado. Tente novamente.",
-=======
       error: function (xhr) {
         const response = xhr.responseJSON || {};
         Swal.fire({
@@ -250,7 +236,6 @@ $(document).ready(function () {
             response.message ||
             response.error ||
             "Erro inesperado. Tente novamente.",
->>>>>>> Stashed changes
         });
       },
     });

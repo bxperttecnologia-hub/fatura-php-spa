@@ -48,6 +48,20 @@ if (preg_match('~^(invoices|proformas|receipts|debit-notes|delivery-notes|credit
     [, $type, $id] = $m;
     $id = (int)$id;
 
+    $module = match ($type) {
+        'proformas' => 'proformas',
+        'payroll' => 'rh',
+        default => 'invoices',
+    };
+    if (!Permission::hasAccess(
+        $pdo,
+        (int)($_SESSION['user']['id'] ?? 0),
+        session_company_id(),
+        $module
+    )) {
+        document_pdf_fail(403, 'Não tem permissão para consultar este documento.');
+    }
+
     switch ($type) {
         case 'invoices':   // ?copies=1..3 (lido pelo próprio modelo)
             document_pdf_owned('SELECT 1 FROM invoices WHERE id = ? AND company_id = ?', $id);

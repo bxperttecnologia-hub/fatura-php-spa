@@ -1793,6 +1793,22 @@ $(function () {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         });
+      const parseLocalizedNumber = (value) => {
+        let normalized = String(value ?? "").trim().replace(/[\s\u00a0\u202f]/g, "");
+        if (!normalized) return Number.NaN;
+
+        if (normalized.includes(",")) {
+          if (!/^\d*(?:\.\d{3})*(?:,\d+)$/.test(normalized)) return Number.NaN;
+          normalized = normalized.replace(/\./g, "").replace(",", ".");
+        } else if (/^\d{1,3}(?:\.\d{3})+$/.test(normalized)) {
+          normalized = normalized.replace(/\./g, "");
+        } else if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
+          return Number.NaN;
+        }
+
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : Number.NaN;
+      };
 
       // Formulário com linhas editáveis
       const form = await Swal.fire({
@@ -1833,9 +1849,9 @@ $(function () {
             let sub = 0;
             let tax = 0;
             body.querySelectorAll("tr").forEach((tr) => {
-              const q = parseFloat(tr.querySelector(".nd-qty").value) || 0;
-              const p = parseFloat(tr.querySelector(".nd-price").value) || 0;
-              const t = parseFloat(tr.querySelector(".nd-tax").value) || 0;
+              const q = parseLocalizedNumber(tr.querySelector(".nd-qty").value) || 0;
+              const p = parseLocalizedNumber(tr.querySelector(".nd-price").value) || 0;
+              const t = parseLocalizedNumber(tr.querySelector(".nd-tax").value) || 0;
               const base = Math.round(q * p * 100) / 100;
               const taxVal = Math.round(base * t) / 100;
               tr.querySelector(".nd-line-total").textContent = fmt(base);
@@ -1851,9 +1867,9 @@ $(function () {
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td><input type="text" class="form-control form-control-sm nd-desc" maxlength="500" placeholder="Descrição"></td>
-              <td><input type="number" class="form-control form-control-sm nd-qty" min="0" step="any" value="1"></td>
-              <td><input type="number" class="form-control form-control-sm nd-price" min="0" step="any" value=""></td>
-              <td><input type="number" class="form-control form-control-sm nd-tax" min="0" max="100" step="any" value="14"></td>
+              <td><input type="text" inputmode="decimal" class="form-control form-control-sm nd-qty" value="1"></td>
+              <td><input type="text" inputmode="decimal" class="form-control form-control-sm nd-price" value=""></td>
+              <td><input type="text" inputmode="decimal" class="form-control form-control-sm nd-tax" value="14"></td>
               <td class="nd-line-total" style="text-align:right">0,00</td>
               <td><button type="button" class="btn btn-sm btn-link text-danger nd-del" title="Remover">&times;</button></td>
             `;
@@ -1882,9 +1898,9 @@ $(function () {
           for (let i = 0; i < rows.length; i++) {
             const tr = rows[i];
             const description = tr.querySelector(".nd-desc").value.trim();
-            const quantity = parseFloat(tr.querySelector(".nd-qty").value);
-            const unit_price = parseFloat(tr.querySelector(".nd-price").value);
-            const tax = parseFloat(tr.querySelector(".nd-tax").value);
+            const quantity = parseLocalizedNumber(tr.querySelector(".nd-qty").value);
+            const unit_price = parseLocalizedNumber(tr.querySelector(".nd-price").value);
+            const tax = parseLocalizedNumber(tr.querySelector(".nd-tax").value);
 
             if (!description) {
               Swal.showValidationMessage(`Linha ${i + 1}: indique a descrição.`);

@@ -7,7 +7,13 @@ if (!function_exists('company_logo_api_base_url')) {
         $apiBaseUrl = trim((string) bx_env('DOCUMENT_API_BASE_URL'));
         if ($apiBaseUrl === '') {
             $isProduction = defined('APP_ENV') && APP_ENV === 'production';
+            $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+            $isProductionHost = in_array($host, [
+                'api-crm.bxpert.co.ao',
+                'www.api-crm.bxpert.co.ao',
+            ], true);
             $apiBaseUrl = $isProduction
+                || $isProductionHost
                 ? 'https://api-sandibox.bxpert.co.ao'
                 : 'http://localhost:3004';
         }
@@ -31,11 +37,21 @@ if (!function_exists('company_logo_src')) {
             return '';
         }
 
+        $logoPath = (string) parse_url($logoUrl, PHP_URL_PATH);
+        if (preg_match(
+            '~^/api/company-logos/(company-logo-\d+-[a-f0-9]{32}\.(?:png|jpg|webp|gif))$~i',
+            $logoPath,
+            $matches
+        )) {
+            return company_logo_api_base_url()
+                . '/api/company-logos/' . rawurlencode($matches[1]);
+        }
+
         if (preg_match('~^https?://~i', $logoUrl)) {
             return $logoUrl;
         }
 
-        $filename = basename((string) parse_url($logoUrl, PHP_URL_PATH));
+        $filename = basename($logoPath);
         if ($filename === '' || $filename === '.' || $filename === '..') {
             return '';
         }

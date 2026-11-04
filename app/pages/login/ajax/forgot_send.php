@@ -1,10 +1,12 @@
 <?php
-require_once '../../../config/db.php';
-require_once '../../../helpers/notify.php';
+require_once dirname(__DIR__, 4) . '/app/config/db.php';
+require_once dirname(__DIR__, 4) . '/app/helpers/notify.php';
 $pdo->exec("SET time_zone = '+00:00'");
 date_default_timezone_set('UTC');
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: application/json');
 
 function out(bool $ok, string $msg, array $extra = []): void

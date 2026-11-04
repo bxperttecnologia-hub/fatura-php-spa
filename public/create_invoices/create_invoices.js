@@ -1278,8 +1278,6 @@ $(document).ready(function () {
 
   let finalTotal = 0;
 
-<<<<<<< Updated upstream
-=======
   function showDocumentTaxWarning(message) {
     $("#tax_withholding_warning").text(message).toggleClass("d-none", !message);
   }
@@ -1329,7 +1327,6 @@ $(document).ready(function () {
   });
   loadDocumentTaxConfiguration();
 
->>>>>>> Stashed changes
   // ao mudar a moeda, recalcula com o símbolo correto
   $(document).on("change", "#currency", function () {
     const iso = $(this).val() || "AOA";

@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/debit_note_calculation.php';
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
@@ -43,42 +45,24 @@ if (count($rawItems) > 50) {
 }
 
 // Validar linhas e calcular totais no servidor (nunca confiar nos totais do browser)
-$lines = [];
-$subtotal = 0.0;
-$totalTax = 0.0;
-
-foreach ($rawItems as $i => $r) {
-    $n    = $i + 1;
-    $desc = trim((string)($r['description'] ?? ''));
-    $qty  = (float)($r['quantity'] ?? 0);
-    $unit = (float)($r['unit_price'] ?? 0);
-    $tax  = (float)($r['tax'] ?? 0);
-
-    $descLen = function_exists('mb_strlen') ? mb_strlen($desc) : strlen($desc);
-    if ($desc === '' || $descLen > 500) {
-        fail(422, "Linha $n: descrição obrigatória (máx. 500 caracteres).");
-    }
-    if ($qty <= 0 || $qty > 1000000) {
-        fail(422, "Linha $n: quantidade inválida.");
-    }
-    if ($unit <= 0 || $unit > 1000000000000) {
-        fail(422, "Linha $n: preço unitário inválido.");
-    }
-    if ($tax < 0 || $tax > 100) {
-        fail(422, "Linha $n: IVA deve estar entre 0 e 100.");
-    }
-
-    $base    = round($qty * $unit, 2);
-    $taxVal  = round($base * $tax / 100, 2);
-    $subtotal += $base;
-    $totalTax += $taxVal;
-
-    $lines[] = ['description' => $desc, 'quantity' => $qty, 'unit_price' => $unit, 'tax' => $tax];
+try {
+    $limits = bx_debit_note_schema_limits($pdo);
+    $totals = bx_calculate_debit_note_totals(
+        $rawItems,
+        $limits['quantity_scale'],
+        $limits['max_amount']
+    );
+} catch (InvalidArgumentException $e) {
+    fail(422, $e->getMessage());
+} catch (RuntimeException $e) {
+    fail(500, $e->getMessage());
 }
 
-$subtotal = round($subtotal, 2);
-$totalTax = round($totalTax, 2);
-$final    = round($subtotal + $totalTax, 2);
+$lines = $totals['lines'];
+$subtotal = $totals['subtotal_without_tax'];
+$totalDiscount = $totals['total_discount'];
+$totalTax = $totals['total_tax'];
+$final = $totals['final_total'];
 
 try {
     $pdo->beginTransaction();
@@ -113,10 +97,10 @@ try {
     $ins = $pdo->prepare("
         INSERT INTO debit_notes
             (invoice_id, contact_id, company_id, serie, number, issue_date, reason,
-             currency, subtotal_without_tax, total_tax, final_total, user_id)
+             currency, subtotal_without_tax, total_discount, total_tax, final_total, user_id)
         VALUES
             (:invoice_id, :contact_id, :company_id, :serie, :number, :issue_date, :reason,
-             :currency, :subtotal, :tax, :final, :user_id)
+             :currency, :subtotal, :discount, :tax, :final, :user_id)
     ");
     $ins->execute([
         ':invoice_id' => $inv['id'],
@@ -128,6 +112,7 @@ try {
         ':reason'     => $reason,
         ':currency'   => $inv['currency'],
         ':subtotal'   => $subtotal,
+        ':discount'   => $totalDiscount,
         ':tax'        => $totalTax,
         ':final'      => $final,
         ':user_id'    => (int)($_SESSION['user']['id'] ?? $inv['user_id'] ?? 0) ?: null,
@@ -135,8 +120,8 @@ try {
     $ndId = (int)$pdo->lastInsertId();
 
     $insItem = $pdo->prepare("
-        INSERT INTO debit_note_items (debit_note_id, description, quantity, unit_price, tax)
-        VALUES (:nd, :descr, :qty, :unit, :tax)
+        INSERT INTO debit_note_items (debit_note_id, description, quantity, unit_price, discount, tax)
+        VALUES (:nd, :descr, :qty, :unit, :discount, :tax)
     ");
     foreach ($lines as $l) {
         $insItem->execute([
@@ -144,6 +129,7 @@ try {
             ':descr' => $l['description'],
             ':qty'   => $l['quantity'],
             ':unit'  => $l['unit_price'],
+            ':discount' => $l['discount'],
             ':tax'   => $l['tax'],
         ]);
     }

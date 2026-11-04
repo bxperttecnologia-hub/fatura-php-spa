@@ -56,7 +56,6 @@ try {
     $statusAlias   = $isProforma ? 'ps' : 'ivs';
     $documentType  = $isProforma ? "'PF'" : 'd.document_type';
     $retentionValue = $isProforma ? '0' : 'd.retention_value';
-    $paidTotalColumn = $isProforma ? '0' : 'd.paid_total';
 
     /*
     |--------------------------------------------------------------------------
@@ -96,11 +95,18 @@ try {
             d.series,
             d.total_sum,
             d.final_total,
-            {$paidTotalColumn} AS recorded_paid_total,
             d.total_discount,
             d.retention,
             {$retentionValue} AS retention_value,
             d.total_tax,
+            d.tax_withholding_type,
+            d.tax_withholding_rate,
+            d.tax_withholding_base,
+            d.tax_withholding_amount,
+            d.tax_withholding_description,
+            d.tax_withholding_confirmed,
+            d.gross_total,
+            d.net_payable,
             d.manual_exchange_rate,
             d.reference,
             d.converted_total,
@@ -175,7 +181,8 @@ try {
             di.quantity,
             di.unit_price,
             di.tax,
-            di.discount
+            di.discount,
+            di.retention_rate
         FROM {$itemsTable} di
         INNER JOIN items it
             ON it.id = di.item_id
@@ -246,13 +253,12 @@ try {
 
         $stmtPaid->execute([$documentId]);
 
-        $receiptPaid = (float)$stmtPaid->fetchColumn();
-        $paid = max($receiptPaid, (float)($document['recorded_paid_total'] ?? 0));
+        $paid = (float)$stmtPaid->fetchColumn();
 
         $document['paid_total'] = $paid;
 
         $document['saldo'] =
-            max(0, (float)$document['final_total'] - $paid);
+            (float)$document['final_total'] - $paid;
 
         $document['pay_status'] =
             $paid <= 0

@@ -324,7 +324,6 @@
     set("cost_price", row.cost_price ?? 0);
     set("sale_price", row.sale_price ?? 0);
     set("pvp", row.pvp ?? 0);
-    set("retention", row.retention ?? 0);
     applyVatRegime($editForm);
     setTax($editForm, row.tax);
     $editForm.find("[data-pvp]").data("touched", true); // não sobrescrever o PVP existente

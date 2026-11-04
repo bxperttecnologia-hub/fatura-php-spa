@@ -1,7 +1,9 @@
 <?php
 
-require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once '../../../app/helpers/company_logo.php';
+require_once '../../../app/helpers/document_tax.php';
+$sessionCompanyId = session_company_id();
 
 /*
 |--------------------------------------------------------------------------
@@ -83,18 +85,18 @@ SELECT
 FROM credit_notes cn
 
 INNER JOIN invoices i 
-    ON i.id = cn.invoice_id
+    ON i.id = cn.invoice_id AND i.company_id = cn.company_id
 
 INNER JOIN companies comp 
     ON comp.id = cn.company_id
 
 INNER JOIN contact c 
-    ON c.id = cn.contact_id
+    ON c.id = cn.contact_id AND c.company_id = cn.company_id
 
 LEFT JOIN currencies cr 
     ON cr.iso_code = cn.currency
 
-WHERE cn.id = :id
+WHERE cn.id = :id AND cn.company_id = :company_id
 
 LIMIT 1
 ";
@@ -102,7 +104,8 @@ LIMIT 1
 $stmt = $pdo->prepare($sql);
 
 $stmt->execute([
-  ':id' => $id
+  ':id' => $id,
+  ':company_id' => $sessionCompanyId,
 ]);
 
 $cn = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -110,22 +113,6 @@ $cn = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$cn) {
   http_response_code(404);
   exit('<h3>Nota de crédito não encontrada.</h3>');
-}
-
-/*
-|--------------------------------------------------------------------------
-| Segurança
-|--------------------------------------------------------------------------
-*/
-
-$sessionCompanyId = (int)($_SESSION['user']['company_id'] ?? 0);
-
-if (
-  $sessionCompanyId > 0 &&
-  (int)$cn['company_id'] !== $sessionCompanyId
-) {
-  http_response_code(403);
-  exit('<h3>Acesso negado.</h3>');
 }
 
 /*
@@ -141,16 +128,25 @@ $stmt = $pdo->prepare("
         it.name,
         it.description
     FROM credit_note_items cni
+    INNER JOIN credit_notes cn
+        ON cn.id = cni.credit_note_id AND cn.company_id = :company_id
     LEFT JOIN items it 
-        ON it.id = cni.item_id
+        ON it.id = cni.item_id AND it.company_id = cn.company_id
     WHERE cni.credit_note_id = :id
 ");
 
 $stmt->execute([
-  ':id' => $id
+  ':id' => $id,
+  ':company_id' => $sessionCompanyId,
 ]);
 
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$creditTaxSummary = bx_document_tax_summary(
+  $items,
+  $cn['vat_regime'] ?? null,
+  (float)($cn['retention_value'] ?? 0),
+  true
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -199,6 +195,14 @@ $BASE_URL = "{$protocol}://{$host}{$basePath}";
 
 $currencySymbol = $cn['moneySymbol'] ?? 'Kz';
 $currencyPos    = $cn['moneyPos'] ?? 'left';
+$grossTotalForDisplay = (float)($cn['gross_total'] ?? 0);
+if ($grossTotalForDisplay === 0.0 && (float)($cn['final_total'] ?? 0) !== 0.0) {
+  $grossTotalForDisplay = round(
+    (float)($cn['subtotal_without_tax'] ?? 0) + (float)($cn['total_tax'] ?? 0),
+    2,
+    PHP_ROUND_HALF_UP
+  );
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -222,7 +226,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
     <?= htmlspecialchars(date('Y', strtotime($cn['issue_date'])) . '/' . $cn['id']) ?>
   </title>
 
-  <<style>
+  <style>
     @page {
     margin: 15mm 12mm 18mm 12mm;
     }
@@ -542,7 +546,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
     ========================= -->
 
     <div class="title-line" style="margin-top: 50px;">
-      Nota de Crédito n.º
+      Nota de Crédito (ANULAÇÃO INTEGRAL) n.º
       <?= date('Y', strtotime($cn['issue_date'])) ?>/<?= (int)$cn['id'] ?>
     </div>
 
@@ -573,6 +577,16 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
               <td>
                 <?= htmlspecialchars($cn['client_contributor'] ?? '-') ?>
               </td>
+            </tr>
+
+            <tr>
+              <td class="meta-label">Fatura associada:</td>
+              <td><?= htmlspecialchars($cn['reference'] ?: '-') ?></td>
+            </tr>
+
+            <tr>
+              <td class="meta-label">Data da fatura:</td>
+              <td><?= htmlspecialchars(dateBr($cn['invoice_issue_date'] ?? null)) ?></td>
             </tr>
 
             <tr>
@@ -652,7 +666,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
           $tax = (float)($it['tax'] ?? 0);
           $disc = (float)($it['discount'] ?? 0);
 
-          $line = $qty * $price;
+          $line = $qty * $price * (1 - min(100, max(0, $disc)) / 100);
 
         ?>
 
@@ -718,25 +732,19 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
             </thead>
 
             <tbody>
-
-              <tr>
-
-                <td>Isento - 0</td>
-
-                <td>
-                  <?= formatCurrency(
-                    (float)($cn['final_total'] ?? 0),
-                    $currencySymbol,
-                    $currencyPos
-                  ) ?>
-                </td>
-
-                <td>
-                  <?= formatCurrency(0, $currencySymbol, $currencyPos) ?>
-                </td>
-
-              </tr>
-
+              <?php if ($creditTaxSummary['rows'] === []): ?>
+                <tr>
+                  <td colspan="3">Sem IVA discriminado</td>
+                </tr>
+              <?php else: ?>
+                <?php foreach ($creditTaxSummary['rows'] as $taxRow): ?>
+                  <tr>
+                    <td><?= number_format((float)$taxRow['rate'], 2, ',', '.') ?>%</td>
+                    <td><?= formatCurrency((float)$taxRow['base'], $currencySymbol, $currencyPos, true) ?></td>
+                    <td><?= formatCurrency((float)$taxRow['iva'], $currencySymbol, $currencyPos, true) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php endif; ?>
             </tbody>
 
           </table>
@@ -745,7 +753,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
             <strong>Regime de IVA:</strong>
 
-            <?= htmlspecialchars($cn['vat_regime'] ?? 'Regime simplificado') ?>
+            <?= htmlspecialchars($cn['vat_regime'] ?? '-') ?>
 
           </div>
 
@@ -762,16 +770,29 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
             <tr>
 
-              <td>Total líquido:</td>
+              <td>Subtotal:</td>
 
               <td class="text-right">
                 <?= formatCurrency(
-                  (float)($cn['final_total'] ?? 0),
+                  (float)($cn['total_sum'] ?? 0),
                   $currencySymbol,
-                  $currencyPos
+                  $currencyPos,
+                  true
                 ) ?>
               </td>
 
+            </tr>
+
+            <tr>
+              <td>Subtotal após desconto:</td>
+              <td class="text-right">
+                <?= formatCurrency(
+                  (float)($cn['subtotal_without_tax'] ?? 0),
+                  $currencySymbol,
+                  $currencyPos,
+                  true
+                ) ?>
+              </td>
             </tr>
 
             <tr>
@@ -779,7 +800,12 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
               <td>Desconto:</td>
 
               <td class="text-right">
-                <?= formatCurrency(0, $currencySymbol, $currencyPos) ?>
+                <?= formatCurrency(
+                  (float)($cn['total_discount'] ?? 0),
+                  $currencySymbol,
+                  $currencyPos,
+                  true
+                ) ?>
               </td>
 
             </tr>
@@ -789,14 +815,60 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
               <td>Total impostos:</td>
 
               <td class="text-right">
-                <?= formatCurrency(0, $currencySymbol, $currencyPos) ?>
+                <?= formatCurrency(
+                  (float)($cn['total_tax'] ?? 0),
+                  $currencySymbol,
+                  $currencyPos,
+                  true
+                ) ?>
+
               </td>
 
             </tr>
 
+            <?php if ((float)($cn['retention_value'] ?? 0) > 0): ?>
+              <tr>
+                <td>Retenção:</td>
+                <td class="text-right">
+                  <?= formatCurrency(
+                    (float)$cn['retention_value'],
+                    $currencySymbol,
+                    $currencyPos,
+                    true
+                  ) ?>
+                </td>
+              </tr>
+            <?php endif; ?>
+
+            <?php if ((float)($cn['tax_withholding_amount'] ?? 0) > 0): ?>
+              <tr>
+                <td><?= htmlspecialchars($cn['tax_withholding_description'] ?: 'Imposto / retenção') ?></td>
+                <td class="text-right">
+                  <?= formatCurrency(
+                    (float)$cn['tax_withholding_amount'],
+                    $currencySymbol,
+                    $currencyPos,
+                    true
+                  ) ?>
+                </td>
+              </tr>
+            <?php endif; ?>
+
+            <tr>
+              <td>Total bruto:</td>
+              <td class="text-right">
+                <?= formatCurrency(
+                  $grossTotalForDisplay,
+                  $currencySymbol,
+                  $currencyPos,
+                  true
+                ) ?>
+              </td>
+            </tr>
+
             <tr class="total-line">
 
-              <td>Total:</td>
+              <td>Total do crédito:</td>
 
               <td class="text-right">
 

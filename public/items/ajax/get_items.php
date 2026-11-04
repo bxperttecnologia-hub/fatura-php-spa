@@ -39,10 +39,12 @@ try {
             i.sku,
 
             i.item_type,
+            i.tax_classification,
             i.unit_measure,
             
             i.unit_price,
             i.tax,
+            COALESCE(i.retention, 0) AS retention,
             
             COALESCE(i.cost_price, 0) AS cost_price,
             COALESCE(i.sale_price, 0) AS sale_price,

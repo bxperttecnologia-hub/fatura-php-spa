@@ -93,6 +93,11 @@ $(document).ready(function () {
 
   let countryMap = {};
   let proformId = null;
+  const documentTaxConfigurations = {};
+  let documentTaxConfigLoaded = false;
+  let documentTaxConfigError = false;
+  let documentTaxConfigRequest = 0;
+  let documentTaxSelectionValid = true;
 
   initializeTooltips();
 
@@ -543,29 +548,7 @@ $(document).ready(function () {
 
   syncDueUI();
 
-  // =====================================================================
-  // RETENÇÃO NA FONTE (caixa de selecção -> campo escondido #retention)
-  // =====================================================================
-  const RETENTION_RATE = parseFloat($("#apply_retention").data("rate"));
-
-  function syncRetentionUI() {
-    const retention = parseFloat($("#retention").val()) || 0;
-    const supportedRate = Number.isFinite(RETENTION_RATE) ? RETENTION_RATE : 0;
-    $("#apply_retention").val(
-      retention === supportedRate && supportedRate > 0
-        ? String(supportedRate)
-        : "0",
-    );
-  }
-
-  $("#apply_retention").on("change", function () {
-    const selectedRate = parseFloat(this.value) || 0;
-    $("#retention").val(selectedRate.toFixed(2));
-    updateInvoiceSummary();
-    if (typeof saveDraft === "function") saveDraft();
-  });
-
-  syncRetentionUI();
+  $("#retention").val("0.00");
 
   // =====================================================================
   // LINHAS: estado vazio, "Adicionar Linha", cancelar, modo edição
@@ -973,25 +956,13 @@ $(document).ready(function () {
     // =====================================
     let subtotal = price * qtd;
 
-    // =====================================
-    // IVA (só no regime geral; taxa 7 = isento = 0%)
-    // =====================================
+    const totalDiscount = Math.min(subtotal, (discount / 100) * subtotal);
+    const taxableBase = subtotal - totalDiscount;
     const taxValue = isRegimeGeral()
-      ? (subtotal * effectiveRate(tax)) / 100
+      ? (taxableBase * effectiveRate(tax)) / 100
       : 0;
-
-    // total com IVA
-    let totalWithTax = subtotal + taxValue;
-
-    // =====================================
-    // DESCONTO (%)
-    // =====================================
-    let totalDiscount = (discount / 100) * totalWithTax;
-
-    // =====================================
-    // TOTAL FINAL
-    // =====================================
-    let totalFinal = totalWithTax - totalDiscount;
+    const retention = (taxableBase * toNum(row.find(".field_retention").val())) / 100;
+    const totalFinal = taxableBase + taxValue - retention;
 
     row
       .find(".row-total")
@@ -1045,6 +1016,9 @@ $(document).ready(function () {
     // Dados do item
     const description = item?.name || item?.description || "";
     const code = item?.code || item?.codigo || "";
+    const retention = item?.retention || 0;
+    const taxClassification = item?.tax_classification || "standard";
+
     // IVA: taxa do produto, só aplicada no regime geral
     const itemTax = getItemTaxRate(item);
     const taxValue = isRegimeGeral() ? itemTax : 0;
@@ -1074,7 +1048,7 @@ $(document).ready(function () {
     const discount = Number(item?.discount ?? 0);
 
     const itemHtml = `
-    <div class="inv-line row-item item-list" id="item-${itemId}" data-id="${itemId}">
+    <div class="inv-line row-item item-list" id="item-${itemId}" data-id="${itemId}" data-tax-classification="${escapeAttr(taxClassification)}" data-item-type="${escapeAttr(item?.item_type || "product")}">
 
         <div class="inv-cell inv-cell-desc">
             <input type="text" class="inv-line-desc field_description"
@@ -1084,6 +1058,7 @@ $(document).ready(function () {
                     value="${escapeAttr(code)}" readonly tabindex="-1">
                 ${isService ? '<span class="inv-tag">Serviço</span>' : ""}
             </div>
+            <input type="hidden" class="field_retention" value="${retention}">
         </div>
 
         <div class="inv-cell" data-label="Qtd">
@@ -1234,7 +1209,16 @@ $(document).ready(function () {
     $("#subtotal_without_tax").text(zeroFormatted);
     $("#total_tax").text(zeroFormatted);
     $("#retention_value").text(zeroFormatted);
+    $("#gross_total").text(zeroFormatted);
+    $("#tax_withholding_amount").text(zeroFormatted);
     $("#final_total").text(zeroFormatted);
+    $("#retention_sumary").addClass("d-none");
+    $("#document_tax_withholding_summary").addClass("d-none");
+    $("#tax_withholding_warning").addClass("d-none").text("");
+    documentTaxSelectionValid = $("#tax_withholding_type").val() === "none";
+    if (!documentTaxSelectionValid) {
+      showDocumentTaxWarning("Adicione linhas classificadas para o imposto seleccionado e confirme o enquadramento.");
+    }
 
     // =========================
     // TABELA IMPOSTOS
@@ -1266,17 +1250,57 @@ $(document).ready(function () {
     $("input[name='total_tax']").val(zeroValue.toFixed(2));
     $("input[name='retention_value']").val(zeroValue.toFixed(2));
     $("input[name='final_total']").val(zeroValue.toFixed(2));
+    $("input[name='gross_total'], input[name='net_payable'], input[name='tax_withholding_base'], input[name='tax_withholding_amount'], input[name='tax_withholding_rate']").val(zeroValue.toFixed(2));
 
-    // =========================
-    // RETENÇÃO (IMPORTANTE)
-    // =========================
-    // NÃO forçar recalculo interno
-    if (typeof updateRetention === "function") {
-      updateRetention(zeroValue, zeroValue, zeroValue);
-    }
+    $("#retention").val("0.00");
   }
 
+  const roundMoney = (value) =>
+    Math.sign(value) *
+    (Math.round((Math.abs(value) + Number.EPSILON) * 100) / 100);
+
   let finalTotal = 0;
+
+  function showDocumentTaxWarning(message) {
+    $("#tax_withholding_warning").text(message).toggleClass("d-none", !message);
+  }
+
+  function loadDocumentTaxConfiguration(date = $("#issue_date").val()) {
+    const requestId = ++documentTaxConfigRequest;
+    documentTaxConfigLoaded = false;
+    documentTaxConfigError = false;
+    return $.getJSON("/document_tax/ajax/options.php", { date: date || new Date().toISOString().slice(0, 10) })
+      .then((response) => {
+        if (requestId !== documentTaxConfigRequest) return;
+        if (!response?.success || !response.options) throw new Error(response?.error || "Configuração fiscal indisponível.");
+        Object.assign(documentTaxConfigurations, response.options);
+        documentTaxConfigLoaded = true;
+        const labels = {
+          withholding_6_5: "Retenção na Fonte",
+          ipu_rent: "IPU — Rendas",
+        };
+        Object.entries(labels).forEach(([type, label]) => {
+          const option = $(`#tax_withholding_type option[value='${type}']`);
+          const config = documentTaxConfigurations[type];
+          const rate = Number(config?.rate);
+          option.text(`${label} (${rate.toLocaleString("pt-PT")}% )${config?.enabled ? " — estimativa" : " — configuração inactiva"}`);
+        });
+        updateInvoiceSummary();
+      })
+      .catch((error) => {
+        if (requestId !== documentTaxConfigRequest) return;
+        documentTaxConfigLoaded = true;
+        documentTaxConfigError = true;
+        console.error("Erro ao carregar configuração de impostos:", error);
+        updateInvoiceSummary();
+      });
+  }
+
+  $(document).on("change", "#tax_withholding_type, #tax_withholding_confirmed", updateInvoiceSummary);
+  $(document).on("change", "#issue_date", function () {
+    loadDocumentTaxConfiguration($(this).val());
+  });
+  loadDocumentTaxConfiguration();
 
   // ao mudar a moeda, recalcula com o símbolo correto
   $(document).on("change", "#currency", function () {
@@ -1292,6 +1316,9 @@ $(document).ready(function () {
     let tax14Incidence = 0;
     let totalTax = 0;
     let totalRetention = 0;
+    let eligibleTaxBase = 0;
+    let eligibleTaxVat = 0;
+    let eligibleLineCount = 0;
 
     const itemList = document.querySelectorAll(".item-list");
 
@@ -1310,6 +1337,9 @@ $(document).ready(function () {
       const discountPercent = toNum($row.find(".field_desc").val());
       // Regime não geral => IVA 0, independentemente da taxa do produto
       const taxNum = isRegimeGeral() ? toNum($row.find(".field_tax").val()) : 0;
+      const retentionRate = toNum($row.find(".field_retention").val());
+      const classification = String(row.dataset.taxClassification || "standard");
+      const itemType = String(row.dataset.itemType || "product");
 
       const lineTotal = price * qtd;
 
@@ -1327,15 +1357,29 @@ $(document).ready(function () {
       // ==================================================
       const effectiveTaxRate = effectiveRate(taxNum);
       const ivaValue = (lineSubtotal * effectiveTaxRate) / 100;
+      const selectedType = String($("#tax_withholding_type").val() || "none");
+      const expectedClassification = selectedType === "ipu_rent"
+        ? "rental_income"
+        : selectedType === "withholding_6_5"
+          ? "withholding_service"
+          : "";
+      if (expectedClassification && classification === expectedClassification && itemType === "service") {
+        eligibleTaxBase += lineSubtotal;
+        eligibleTaxVat += ivaValue;
+        eligibleLineCount++;
+      }
 
       // ==================================================
       // RETENÇÃO
       // ==================================================
+      const retentionValue = (lineSubtotal * retentionRate) / 100;
+
+      totalRetention += retentionValue;
 
       // ==================================================
       // TOTAL DA LINHA
       // ==================================================
-      const net = lineSubtotal + ivaValue;
+      const net = lineSubtotal + ivaValue - retentionValue;
 
       // ==================================================
       // INCIDÊNCIA IVA
@@ -1365,35 +1409,54 @@ $(document).ready(function () {
 
       grouped[groupTax].base += lineSubtotal;
       grouped[groupTax].iva += ivaValue;
+      grouped[groupTax].retention += retentionValue;
       grouped[groupTax].net += net;
     });
 
-    totalSum = +totalSum.toFixed(2);
-    totalDiscount = +totalDiscount.toFixed(2);
-    totalTax = +totalTax.toFixed(2);
-    const subtotalWithoutTax = +(totalSum - totalDiscount).toFixed(2);
-    const retentionRate = parseFloat($("#retention").val()) || 0;
-    totalRetention = +(
-      ((subtotalWithoutTax + totalTax) * retentionRate) /
-      100
-    ).toFixed(2);
+    totalSum = roundMoney(totalSum);
+    totalDiscount = roundMoney(totalDiscount);
+    totalTax = roundMoney(totalTax);
+    totalRetention = roundMoney(totalRetention);
 
-    const taxableTotal = subtotalWithoutTax + totalTax;
-    let allocatedRetention = 0;
-    const taxGroups = Object.values(grouped);
-    taxGroups.forEach((group, index) => {
-      const groupTotal = group.base + group.iva;
-      const share = taxableTotal > 0
-        ? index === taxGroups.length - 1
-          ? totalRetention - allocatedRetention
-          : (totalRetention * groupTotal) / taxableTotal
-        : 0;
-      allocatedRetention += share;
-      group.retention = share;
-      group.net = groupTotal - share;
-    });
+    const subtotalWithoutTax = roundMoney(totalSum - totalDiscount);
+    const grossTotal = roundMoney(subtotalWithoutTax + totalTax);
+    const selectedType = String($("#tax_withholding_type").val() || "none");
+    const config = documentTaxConfigurations[selectedType];
+    let documentTaxBase = 0;
+    let documentTaxAmount = 0;
+    let documentTaxDescription = "";
+    let validationMessage = "";
+    documentTaxSelectionValid = selectedType === "none";
+    if (selectedType !== "none") {
+      if (!documentTaxConfigLoaded) {
+        validationMessage = "A carregar a configuração deste imposto.";
+      } else if (documentTaxConfigError) {
+        validationMessage = "Não foi possível carregar a configuração fiscal. Actualize a página ou contacte o administrador.";
+      } else if (!config?.enabled) {
+        validationMessage = config?.configured
+          ? "A configuração foi guardada, mas está inactiva. Em Definições da Empresa, active a regra e registe a referência da validação legal; confirme também a vigência para a data do documento."
+          : "Não existe configuração fiscal para esta empresa e data. Registe a vigência e a referência da validação legal em Definições da Empresa.";
+      } else if (!eligibleLineCount) {
+        validationMessage = selectedType === "ipu_rent"
+          ? "O IPU só pode ser aplicado a artigos de serviço classificados como rendimento de arrendamento."
+          : "A retenção só pode ser aplicada a artigos de serviço classificados como abrangidos.";
+      } else if (!$("#tax_withholding_confirmed").is(":checked")) {
+        validationMessage = "Confirme o enquadramento legal da operação e dos intervenientes.";
+      } else if (selectedType === "withholding_6_5" && totalRetention > 0) {
+        validationMessage = "Existe retenção configurada por artigo. Remova a retenção duplicada antes de seleccionar esta retenção documental.";
+      } else {
+        documentTaxSelectionValid = true;
+        documentTaxBase = roundMoney(config.base_type === "gross_including_vat"
+          ? eligibleTaxBase + eligibleTaxVat
+          : eligibleTaxBase);
+        documentTaxAmount = roundMoney(documentTaxBase * (Number(config.rate) / 100));
+        documentTaxDescription = selectedType === "ipu_rent"
+          ? `IPU — Rendas (${Number(config.rate).toLocaleString("pt-PT")}%) estimado`
+          : `Retenção na Fonte — ${Number(config.rate).toLocaleString("pt-PT")}% estimada`;
+      }
+    }
 
-    let finalTotal = +(taxableTotal - totalRetention).toFixed(2);
+    let finalTotal = roundMoney(grossTotal - totalRetention - documentTaxAmount);
 
     if (finalTotal < 0) {
       finalTotal = 0;
@@ -1418,6 +1481,13 @@ $(document).ready(function () {
     $("#retention_value").text(
       formatCurrency(totalRetention, currencySymbol, currencyPosition),
     );
+    $("#retention_sumary").toggleClass("d-none", totalRetention <= 0);
+    $("#gross_total").text(formatCurrency(grossTotal, currencySymbol, currencyPosition));
+    $("#tax_withholding_amount").text(formatCurrency(documentTaxAmount, currencySymbol, currencyPosition));
+    $("#document_tax_withholding_label").text(documentTaxDescription);
+    $("#document_tax_withholding_summary").toggleClass("d-none", documentTaxAmount <= 0);
+    $("#tax_withholding_confirm_row").toggleClass("d-none", selectedType === "none");
+    $("#tax_withholding_warning").toggleClass("d-none", !validationMessage).text(validationMessage);
 
     $("#final_total").text(
       formatCurrency(finalTotal, currencySymbol, currencyPosition),
@@ -1459,6 +1529,11 @@ $(document).ready(function () {
     setVal("total_tax", totalTax);
     setVal("retention_value", totalRetention);
     setVal("final_total", finalTotal);
+    setVal("tax_withholding_rate", selectedType === "none" ? 0 : Number(config?.rate) || 0);
+    setVal("tax_withholding_base", documentTaxBase);
+    setVal("tax_withholding_amount", documentTaxAmount);
+    setVal("gross_total", grossTotal);
+    setVal("net_payable", finalTotal);
 
     $("#total_sumInput").val(totalSum.toFixed(2));
     $("#total_discountInput").val(totalDiscount.toFixed(2));
@@ -1467,33 +1542,8 @@ $(document).ready(function () {
     $("#retention_valueInput").val(totalRetention.toFixed(2));
     $("#final_totalInput").val(finalTotal.toFixed(2));
 
-    updateRetention(subtotalWithoutTax, totalTax, totalRetention);
-  }
-
-  function updateRetention(subtotal, totalTax, retentionTotal) {
-    const final = Math.max(subtotal + totalTax - retentionTotal, 0);
-    $("input[name='retention_value']").val(retentionTotal.toFixed(2));
-    $("input[name='final_total']").val(final.toFixed(2));
-
-    if (retentionTotal > 0) {
-      $("#retention_sumary").removeClass("d-none");
-
-      $("#retention_value").text(
-        formatCurrency(
-          retentionTotal,
-          currencySymbol,
-          currencyPosition,
-        ),
-      );
-    } else {
-      $("#retention_sumary").addClass("d-none");
-    }
-
-    $("#final_total").text(
-      formatCurrency(final, currencySymbol, currencyPosition),
-    );
-
-    updateConvertedTotal?.();
+    $("#retention").val("0.00");
+    updateConvertedTotal(finalTotal);
   }
 
   let exchangeRate = 1; // Padrão: 1 para mesma moeda
@@ -1766,6 +1816,14 @@ $(document).ready(function () {
       });
       return;
     }
+    if (!documentTaxSelectionValid) {
+      Swal.fire({
+        icon: "warning",
+        title: "Enquadramento fiscal necessário",
+        text: $("#tax_withholding_warning").text() || "Revise o imposto seleccionado e confirme a sua aplicabilidade.",
+      });
+      return;
+    }
 
     // =========================
     // DADOS DA PROFORMA
@@ -1907,13 +1965,15 @@ $(document).ready(function () {
         $("#reference").val(data.reference || "");
         $("#observation").val(data.observation || "");
         $("#document_type").val(data.document_type || "PF");
+        $("#tax_withholding_type").val(data.tax_withholding_type || "none");
+        $("#tax_withholding_confirmed").prop("checked", Number(data.tax_withholding_confirmed) === 1);
 
         if ($("#series option[value='" + data.series + "']").length === 0) {
           $("#series").append(new Option(data.series, data.series));
         }
         $("#series").val(data.series);
 
-        $("#retention").val(data.retention || 0);
+        $("#retention").val("0.00");
 
         $("#currency")
           .val(
@@ -1939,10 +1999,12 @@ $(document).ready(function () {
               line_quantity: item.quantity,
               tax: item.tax,
               discount: item.discount,
+              tax_classification: item.tax_classification,
+              item_type: item.item_type,
             });
           });
         }
-        syncRetentionUI();
+        loadDocumentTaxConfiguration(data.issue_date);
         updateInvoiceSummary();
 
         setEditMode();

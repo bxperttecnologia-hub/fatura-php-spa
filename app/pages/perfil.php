@@ -235,11 +235,7 @@ require_once '../app/views/layout_creation.php';
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
 
-<<<<<<< Updated upstream
-<script src="perfil/perfil.js?v=1.9"></script>
-=======
 <script src="perfil/perfil.js?v=1.11"></script>
->>>>>>> Stashed changes
 <script>
     var selectedCountry = "<?php echo isset($_SESSION['user']['country']) ? $_SESSION['user']['country'] : ''; ?>";
     var selectedCity = "<?php echo isset($_SESSION['user']['address_district']) ? $_SESSION['user']['address_district'] : ''; ?>";

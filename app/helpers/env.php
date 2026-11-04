@@ -22,6 +22,31 @@ if (!function_exists('bx_putenv')) {
     }
 }
 
+if (!function_exists('bx_load_env')) {
+    /**
+     * Carrega um ficheiro .env (CHAVE=valor por linha; # comenta). Se a chave
+     * se repetir, fica a última. Linhas sem "=" são ignoradas.
+     */
+    function bx_load_env(string $path): void
+    {
+        if (!is_readable($path)) {
+            return;
+        }
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
+                continue;
+            }
+            [$key, $value] = explode('=', $line, 2);
+            $key = trim($key);
+            if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $key)) {
+                continue;
+            }
+            bx_putenv($key . '=' . trim($value, " \t\n\r\0\x0B\"'"));
+        }
+    }
+}
+
 if (!function_exists('bx_env')) {
     /** @return string|false Igual a getenv(): false quando a variável não existe. */
     function bx_env(string $key)

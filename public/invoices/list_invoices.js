@@ -234,23 +234,29 @@ $(document).ready(function () {
       dateField: "issue_date",
       headerHtml: `
         <tr>
-          <th class="bx-th-check"><input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os documentos desta página"></th>
+          <th class="bx-th-check">
+            <div class="bx-status-check">
+              <input type="checkbox" id="selectAll" class="form-check-input" aria-label="Selecionar todos os documentos desta página">
+              <span>Status</span>
+            </div>
+          </th>
           <th data-key="id">Documento ${SORT}</th>
           <th data-key="cliente">Cliente ${SORT}</th>
-          <th>Status</th>
           <th data-key="issue_date">Emissão ${SORT}</th>
           <th data-key="due_date">Vencimento ${SORT}</th>
+          <th>Moeda</th>
           <th data-key="final_total" class="bx-num">Total ${SORT}</th>
           <th class="text-end">Ações</th>
         </tr>
       `,
       renderRow: renderInvoiceRow,
       exportColumns: [
-        ["Documento", (r) => r.codigo],
+        ["Documento", (r) => `${r.document_type || "Fatura"} ${r.codigo || "-"}`],
         ["Cliente", (r) => r.cliente],
         ["Status", (r) => invoiceStatus(r).label],
         ["Emissão", (r) => fmtDate(r.issue_date)],
         ["Vencimento", (r) => fmtDate(r.due_date)],
+        ["Moeda", (r) => r.currency],
         [
           "Total",
           (r) => bxMoney(r.final_total, r.symbol, r.position),
@@ -400,7 +406,7 @@ $(document).ready(function () {
 
   function loadInvoices() {
     $.ajax({
-      url: "/invoices/ajax/fetch_invoices.php",
+      url: "invoices/ajax/fetch_invoices.php",
       type: "GET",
       dataType: "json",
 
@@ -436,7 +442,7 @@ $(document).ready(function () {
   // Listar recibos
   function loadReceipts() {
     $.ajax({
-      url: "/invoices/ajax/fetch_receipts.php",
+      url: "invoices/ajax/fetch_receipts.php",
       type: "GET",
       dataType: "json",
 
@@ -472,7 +478,7 @@ $(document).ready(function () {
   // Listar notas de crédito
   function loadCreditNotes() {
     $.ajax({
-      url: "/invoices/ajax/fetch_credit_notes.php",
+      url: "invoices/ajax/fetch_credit_notes.php",
       type: "GET",
       dataType: "json",
 
@@ -506,7 +512,7 @@ $(document).ready(function () {
   // Listar notas de entrega
   function loadDeliveryNotes() {
     $.ajax({
-      url: "/invoices/ajax/fetch_delivery_notes.php",
+      url: "invoices/ajax/fetch_delivery_notes.php",
       type: "GET",
       dataType: "json",
 
@@ -532,7 +538,7 @@ $(document).ready(function () {
   // Listar notas de débito
   function loadDebitNotes() {
     $.ajax({
-      url: "/invoices/ajax/fetch_debit_notes.php",
+      url: "invoices/ajax/fetch_debit_notes.php",
       type: "GET",
       dataType: "json",
 
@@ -757,6 +763,7 @@ $(document).ready(function () {
 
     // cabeçalho da tabela
     $("#invoicesTableHead").html(config.headerHtml);
+    $("#bxDocumentTitle").text(config.title);
 
     // label do campo "cliente/referência"
     $("#filterClientLabel").text(config.clientLabel);
@@ -845,7 +852,7 @@ $(document).ready(function () {
 
   // ==================================================
   // RENDER DE LINHA POR TIPO DE DOCUMENTO
-  // (cada <td> leva data-label: no mobile a tabela vira cartões só com CSS)
+  // (a tabela mantém as colunas e usa deslocamento horizontal em ecrãs pequenos)
   // ==================================================
   function renderInvoiceRow(row) {
     const st = invoiceStatus(row);
@@ -876,14 +883,20 @@ $(document).ready(function () {
     return `
       <tr class="invoice-row${checked ? " is-selected" : ""}" data-id="${esc(row.id)}">
         <td class="bx-td-check">
-          <input type="checkbox" class="invoice-check form-check-input" data-id="${esc(row.id)}"
-            value="${esc(row.id)}" aria-label="Selecionar factura ${esc(code)}" ${checked ? "checked" : ""}>
+          <div class="bx-status-check">
+            <input type="checkbox" class="invoice-check form-check-input" data-id="${esc(row.id)}"
+              value="${esc(row.id)}" aria-label="Selecionar factura ${esc(code)}" ${checked ? "checked" : ""}>
+            <span class="icon-statusFatura p-2 py-1"
+              style="background:${esc(row.color || "#000")}; color:${esc(row.text_color || "#fff")};"
+              data-bs-toggle="tooltip" data-bs-title="${esc(st.label)}"
+              aria-label="Estado: ${esc(st.label)}">${esc(st.label.charAt(0).toUpperCase())}</span>
+          </div>
         </td>
-        <td class="bx-td-doc">${docCell("invoices", "Fatura", code)}</td>
+        <td class="bx-td-doc">${docCell("invoices", row.document_type || "Fatura", code)}</td>
         <td class="bx-td-client">${esc(row.cliente || "-")}</td>
-        <td data-label="Status"><span class="bx-badge bx-badge--${st.key}">${esc(st.label)}</span></td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
         <td data-label="Vencimento">${dueHtml}</td>
+        <td data-label="Moeda">${esc(row.currency || "-")}</td>
         <td class="bx-num bx-money bx-td-total" data-label="Total">${bxMoney(row.final_total, row.symbol || "", row.position || "right")}</td>
         <td class="bx-td-actions">${actions}</td>
       </tr>
@@ -1130,9 +1143,11 @@ $(document).ready(function () {
     renderTable();
   }
   $("#btnApplyFilters").on("click", applyFilters);
+  $("#filterClient").on("input", applyFilters);
   $("#filterClient").on("keydown", function (e) {
     if (e.key === "Enter") applyFilters();
   });
+  $("#filterStatus, #filterStartDate, #filterEndDate").on("change", applyFilters);
 
   $("#btnClearFilters").on("click", function () {
     $("#filterClient").val("");
@@ -1474,32 +1489,32 @@ $(document).ready(function () {
   // fetch/blob com feedback real. O endpoint ?status=1 continua a existir, mas já não é usado.
   const EXPORT_CONFIG = {
     invoices: {
-      url: "/invoices/ajax/faturas_export.php",
+      url: "invoices/ajax/faturas_export.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     invoices_paid: {
-      url: "/invoices/ajax/faturas_export.php",
+      url: "invoices/ajax/faturas_export.php",
       // "situacao" (não "status") para não colidir com o "status=1" de progresso
       buildParams: (format) => ({ formato: format || "excel", situacao: "pago" }),
     },
     invoices_pending: {
-      url: "/invoices/ajax/faturas_export.php",
+      url: "invoices/ajax/faturas_export.php",
       buildParams: (format) => ({ formato: format || "excel", situacao: "pendente" }),
     },
     credit_notes: {
-      url: "/index/ajax/export_credit_notes.php",
+      url: "index/ajax/export_credit_notes.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     receipts: {
-      url: "/index/ajax/export_receipts.php",
+      url: "index/ajax/export_receipts.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     debit_notes: {
-      url: "/index/ajax/export_debit_notes.php",
+      url: "index/ajax/export_debit_notes.php",
       buildParams: (format) => ({ formato: format || "excel" }),
     },
     sales_report: {
-      url: "/index/ajax/export_sales_report.php",
+      url: "index/ajax/export_sales_report.php",
       buildParams: () => ({}),
     },
   };
@@ -1719,7 +1734,7 @@ function downloadPDF(invoiceId, opts = {}) {
     reject(new Error(msg || "Erro ao gerar o PDF."));
   };
   $.ajax({
-    url: "/invoices/ajax/get_invoice.php",
+    url: "invoices/ajax/get_invoice.php",
     type: "GET",
     data: { id: invoiceId },
     dataType: "json",
@@ -2068,7 +2083,7 @@ $("#confirmDelete")
     if (!invoiceToDelete) return;
 
     $.ajax({
-      url: "/invoices/ajax/delete_invoice.php",
+      url: "invoices/ajax/delete_invoice.php",
       type: "POST",
       data: { invoice_id: invoiceToDelete, company_id: invoice_companyId },
 

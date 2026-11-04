@@ -108,6 +108,7 @@ class Permission
             'guide_public.php',
             'invoice_public.php',
             'proform_public.php',
+            'consult_nif.php',
         ], true)) {
             return null;
         }

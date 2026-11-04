@@ -34,6 +34,11 @@ export const ProformaItem = sequelize.define('ProformaItem', {
     allowNull: true,
     defaultValue: 0,
   },
+  retention_rate: {
+    type: DataTypes.DECIMAL(8, 4),
+    allowNull: true,
+    defaultValue: null,
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

@@ -849,6 +849,11 @@ $(document).ready(function () {
     $("[name='unit_measure']", form).val(row.unit_measure ?? "unit");
     $("[name='currency']", form).val(row.currency ?? "AOA");
 
+    $("[name='stock_id']", form).val(row.stock_id ?? "");
+
+    form.quantidade.value = row.quantity ?? 0;
+    form.min_stock.value = row.min_quantity ?? 1;
+
     form.querySelector("[data-price-value]").value = row.unit_price ?? 0;
     form.querySelector("[data-price-display]").value = displayPrice(row.unit_price ?? 0);
     form.cost_price.value = row.cost_price ?? 0;
@@ -856,6 +861,8 @@ $(document).ready(function () {
     form.pvp.value = row.pvp ?? 0;
 
     form.taxVat.value = row.tax ?? "";
+    $("[name='retention']", form).val(row.retention ?? 0);
+
     form.id_company.value = row.company_id ?? "";
 
     const modal = new bootstrap.Modal(modalEl, {
@@ -865,6 +872,12 @@ $(document).ready(function () {
     modalTitle.innerHTML = "Editar Produto/Serviço";
     modal.show();
 
+    const isProduct = row.item_type === "product";
+    setTimeout(() => {
+      !isProduct
+        ? $("#depot").removeClass("active")
+        : $("#depot").addClass("active");
+    }, 200);
   });
 
   function resetItemForm() {
@@ -880,10 +893,14 @@ $(document).ready(function () {
 
     $("[name='item_type']", form).val("product").trigger("change");
     $("[name='subcategory']", form).val("").trigger("change");
+    $("[name='stock_id']", form).val("").trigger("change");
     $("[name='currency']", form).val("AOA").trigger("change");
 
     const tax = form.querySelector("#tax");
     if (tax) tax.value = "";
+
+    const retention = form.querySelector("#retention_tax");
+    if (retention) retention.value = "0";
 
     modalTitle.innerHTML = defaultTitle;
 

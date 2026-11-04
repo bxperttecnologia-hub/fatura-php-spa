@@ -9,6 +9,28 @@
  */
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/agt_qr.php';
+
+$agtEnvFile = dirname(__DIR__, 2) . '/.env';
+if (is_readable($agtEnvFile)) {
+    foreach (file($agtEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $value] = array_map('trim', explode('=', $line, 2));
+        if (in_array($key, ['AGT_API_URL', 'AGT_API_KEY', 'AGT_KEY_SECRET'], true) && bx_env($key) === false) {
+            bx_putenv($key . '=' . trim($value, " \t\n\r\0\x0B\"'"));
+        }
+    }
+}
+
+function agt_config_value(string $key): string
+{
+    $value = bx_env($key);
+    return $value === false ? '' : trim((string) $value);
+}
 
 /** Tipos de documento aceites pela AGT (solicitarSerie / listarSeries). */
 function agt_document_types(): array
@@ -38,7 +60,8 @@ function agt_document_types(): array
 /** Séries criadas automaticamente quando o cliente carrega a chave: os documentos que o BXpert emite. */
 function agt_default_document_types(): array
 {
-    return ['FT', 'FR', 'NC', 'ND', 'RG'];
+    // NC/ND/RG ficam de fora enquanto a certificação em uso (C_134) não os autorizar na AGT (E39).
+    return ['FT', 'FR'];
 }
 
 function agt_environment(): string
@@ -65,9 +88,9 @@ function agt_unavailable_message(): string
 
 function agt_secret(): string
 {
-    $secret = defined('AGT_KEY_SECRET') ? base64_decode((string) AGT_KEY_SECRET, true) : false;
+    $secret = base64_decode(agt_config_value('AGT_KEY_SECRET'), true);
     if ($secret === false || strlen($secret) !== 32) {
-        throw new RuntimeException('AGT_KEY_SECRET não está configurado (32 bytes em base64) em app/config/config.php.');
+        throw new RuntimeException('Configure AGT_KEY_SECRET como Base64 de 32 bytes no ambiente PHP ou no ficheiro .env.');
     }
     return $secret;
 }
@@ -157,14 +180,19 @@ function agt_credentials(PDO $pdo, int $companyId): array
  */
 function agt_api_post(string $path, array $body, int $timeout = 60): array
 {
-    if (!defined('AGT_API_URL') || !defined('AGT_API_KEY') || AGT_API_KEY === '') {
-        throw new RuntimeException('AGT_API_URL / AGT_API_KEY não estão configurados em app/config/config.php.');
+    $apiUrl = agt_config_value('AGT_API_URL');
+    $apiKey = agt_config_value('AGT_API_KEY');
+    $urlParts = $apiUrl !== '' ? parse_url($apiUrl) : false;
+    if ($apiKey === '' || $urlParts === false
+        || !in_array($urlParts['scheme'] ?? '', ['http', 'https'], true)
+        || empty($urlParts['host'])) {
+        throw new RuntimeException('Configure AGT_API_URL (URL base da API adaptadora) e AGT_API_KEY no ambiente PHP ou no ficheiro .env.');
     }
-    $curl = curl_init(rtrim(AGT_API_URL, '/') . $path);
+    $curl = curl_init($apiUrl . $path);
     curl_setopt_array($curl, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'x-api-key: ' . AGT_API_KEY],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'x-api-key: ' . $apiKey],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => $timeout,
@@ -304,17 +332,54 @@ function agt_default_series(PDO $pdo, int $companyId, string $docType, int $year
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+/** Série aberta da empresa com este código, desde que seja do tipo de documento pedido. */
+function agt_find_series(PDO $pdo, int $companyId, string $docType, string $seriesCode): ?array
+{
+    $stmt = $pdo->prepare("
+        SELECT * FROM agt_series
+        WHERE company_id = ? AND environment = ? AND document_type = ? AND series_code = ?
+          AND (status IS NULL OR status <> 'F')
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId, agt_environment(), strtoupper($docType), $seriesCode]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+/**
+ * Séries abertas do ano corrente que se podem escolher ao emitir faturas (só FT/FR),
+ * a por omissão primeiro. Vazio se a empresa não usar a AGT.
+ */
+function agt_invoice_series_options(PDO $pdo, int $companyId): array
+{
+    if (!agt_enabled($pdo, $companyId)) {
+        return [];
+    }
+    $types = agt_invoice_document_types();
+    $stmt = $pdo->prepare("
+        SELECT document_type, series_code, series_year, is_default
+        FROM agt_series
+        WHERE company_id = ? AND environment = ? AND series_year = ?
+          AND contingency = 'N' AND (status IS NULL OR status <> 'F')
+          AND document_type IN (" . implode(',', array_fill(0, count($types), '?')) . ")
+        ORDER BY document_type, is_default DESC, id
+    ");
+    $stmt->execute(array_merge([$companyId, agt_environment(), (int) date('Y')], $types));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 /**
  * Número do documento no formato SAF-T(AO) exigido pela AGT: "<tipo> <série>/<sequência>"
- * (ex.: "FT FT7826S1N/1"). Devolve null se a empresa não usar a AGT ou não tiver série.
+ * (ex.: "FT FT7826S1N/1"). Usa a série escolhida na fatura ($seriesCode) se for válida
+ * para o tipo; senão a série por omissão. Devolve null se a empresa não usar a AGT ou não tiver série.
  */
-function agt_issue_number(PDO $pdo, int $companyId, string $docType): ?string
+function agt_issue_number(PDO $pdo, int $companyId, string $docType, ?string $seriesCode = null): ?string
 {
     $docType = strtoupper($docType);
     if (!in_array($docType, agt_invoice_document_types(), true) || !agt_enabled($pdo, $companyId)) {
         return null;
     }
-    $series = agt_default_series($pdo, $companyId, $docType, (int) date('Y'));
+    $series = $seriesCode ? agt_find_series($pdo, $companyId, $docType, $seriesCode) : null;
+    $series = $series ?: agt_default_series($pdo, $companyId, $docType, (int) date('Y'));
     if (!$series) {
         return null;
     }
@@ -440,13 +505,16 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     $taxTotal = round($taxTotal, 2);
 
     $customerTaxId = preg_replace('/\s+/', '', (string) ($contact['contributor'] ?? ''));
+    if ($customerTaxId === '') {
+        throw new RuntimeException('Não é possível submeter a fatura à AGT sem um NIF de cliente confirmado.');
+    }
     $body = $creds + [
         'document_type' => strtoupper($invoice['document_type'] ?: 'FT'),
         'document_no' => $invoice['reference'],
         'document_date' => substr((string) $invoice['issue_date'], 0, 10),
         'document_status' => 'N',
         'system_entry_date' => str_replace(' ', 'T', (string) $invoice['agt_system_entry_date']),
-        'customer_tax_id' => $customerTaxId !== '' ? $customerTaxId : '999999999',
+        'customer_tax_id' => $customerTaxId,
         'customer_name' => mb_substr((string) (($contact['name'] ?? '') ?: 'Consumidor final'), 0, 200),
         'customer_country' => agt_country_code($contact['country'] ?? ''),
         'net_total' => $net,
@@ -456,11 +524,9 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
     ];
     $retention = round((float) ($invoice['retention_value'] ?? 0), 2);
     if ($retention > 0) {
-        $body['withholding_tax_list'] = [[
-            'type' => 'II',
-            'amount' => $retention,
-            'description' => 'Retenção na fonte (Imposto Industrial)',
-        ]];
+        throw new RuntimeException(
+            'A retenção configurada não tem tipo fiscal AGT associado; a submissão foi interrompida para evitar um enquadramento presumido.'
+        );
     }
     return $body;
 }
@@ -481,7 +547,12 @@ function agt_submit_invoice(PDO $pdo, int $invoiceId): ?array
     $stmt->execute([$invoiceId]);
     $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
     $parsed = $invoice ? agt_parse_document_no($invoice['reference']) : null;
-    if (!$invoice || !$parsed || !agt_enabled($pdo, (int) $invoice['company_id'])) {
+    if (
+        !$invoice
+        || !$parsed
+        || !in_array($parsed[0], agt_invoice_document_types(), true)
+        || !agt_enabled($pdo, (int) $invoice['company_id'])
+    ) {
         return null;
     }
     if (in_array($invoice['agt_status'], ['sent', 'valid'], true)) {

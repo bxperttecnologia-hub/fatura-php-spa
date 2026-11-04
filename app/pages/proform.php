@@ -613,11 +613,7 @@ require_once '../app/views/layout_creation.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<<<<<<< Updated upstream
-<script src="proform/invoice.js?v=1.2"></script>
-=======
 <script src="/assets/js/document-history.js?v=1.0" data-spa-repeat></script>
 <script src="proform/invoice.js?v=0.8"></script>
->>>>>>> Stashed changes
 
 <?php require_once '../app/views/footer.php'; ?>

@@ -1,279 +1,260 @@
 <?php
 
-declare(strict_types=1);
-
-/*
- * document_history.php
- * ---------------------------------------------------------------------------
- * Histórico documental de UMA fatura (ou proforma).
- *
- *   GET ?kind=invoice|proforma&id=123
- *
- * Resposta:
- *   {
- *     success: true,
- *     root:  { ...documento principal (tem layout na página)... },
- *     items: [ ...documentos derivados: RC, NC, ND, GT (SEM layout; só PDF via API)... ]
- *   }
- *
- * Regras:
- *  - O tipo é sempre explícito (invoices.id e proformas.id colidem).
- *  - Tudo é filtrado pela empresa da sessão.
- *  - Documentos derivados têm has_layout=false: o front nunca os desenha, só
- *    abre/descarrega o PDF a partir de pdf_url (API de documentos).
- *  - Falha numa tabela secundária não derruba o histórico inteiro.
- */
-
-require_once '../../../app/config/db.php';
-
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-function bx_fail(int $status, string $message): void
+function bx_document_history_pdf_url(string $type, int $id): string
 {
-    http_response_code($status);
-    echo json_encode(['success' => false, 'message' => $message], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-if (!isset($_SESSION['user']['company_id'])) {
-    bx_fail(401, 'Sessão expirada. Inicie sessão novamente.');
-}
-$companyId = (int)$_SESSION['user']['company_id'];
-
-$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-if (!$id || $id <= 0) {
-    bx_fail(400, 'Documento inválido.');
-}
-
-$kind = strtolower((string)($_GET['kind'] ?? 'invoice'));
-if (!in_array($kind, ['invoice', 'proforma'], true)) {
-    bx_fail(400, 'Tipo de documento inválido.');
-}
-
-/** "FT 2026/12" > "FT 2026/12"; senão "SERIE NUMERO"; senão "CODIGO #id". */
-function bx_doc_number(array $row, string $code): string
-{
-    $ref = trim((string)($row['reference'] ?? ''));
-    if ($ref !== '') {
-        return $ref;
-    }
-    $serie  = trim((string)($row['serie'] ?? ''));
-    $number = trim((string)($row['number'] ?? ''));
-    if ($serie !== '' && $number !== '') {
-        return "{$serie} {$number}";
-    }
-    return "{$code} #" . (int)($row['id'] ?? 0);
-}
-
-function bx_node(
-    string $type,
-    string $code,
-    string $label,
-    array $row,
-    ?string $date,
-    ?float $total,
-    string $pdfSegment,
-    string $filePrefix
-): array {
-    $id = (int)$row['id'];
-    return [
-        'type'          => $type,
-        'document_code' => $code,
-        'label'         => $label,
-        'id'            => $id,
-        'number'        => bx_doc_number($row, $code),
-        'date'          => $date,
-        'total'         => $total,
-        'has_layout'    => false,
-        'pdf_url'       => "/api/documents/{$pdfSegment}/" . rawurlencode((string)$id) . '/pdf',
-        'filename'      => "{$filePrefix}_{$id}.pdf",
-    ];
-}
-
-try {
-    // ───────── documento raiz (valida posse) ─────────
-    if ($kind === 'proforma') {
-        $stmt = $pdo->prepare("
-            SELECT d.id, d.reference, d.series, d.issue_date, d.final_total, d.currency,
-                   ps.name AS status_name, c.name AS client_name
-            FROM proformas d
-            JOIN proforma_status ps ON ps.id = d.status
-            JOIN contact c          ON c.id  = d.contact_id
-            WHERE d.id = :id AND d.company_id = :company
-            LIMIT 1
-        ");
-        $code  = 'PF';
-        $label = 'Proforma';
-    } else {
-        $stmt = $pdo->prepare("
-            SELECT d.id, d.reference, d.series, d.issue_date, d.final_total, d.currency,
-                   d.document_type, ivs.name AS status_name, c.name AS client_name
-            FROM invoices d
-            JOIN invoice_status ivs ON ivs.id = d.status
-            JOIN contact c          ON c.id   = d.contact_id
-            WHERE d.id = :id AND d.company_id = :company
-            LIMIT 1
-        ");
-        $code  = 'FT';
-        $label = 'Factura';
-    }
-    $stmt->execute([':id' => $id, ':company' => $companyId]);
-    $doc = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$doc) {
-        bx_fail(404, $kind === 'proforma' ? 'Proforma não encontrada.' : 'Factura não encontrada.');
-    }
-
-    if ($kind === 'invoice') {
-        $code  = strtoupper((string)($doc['document_type'] ?: 'FT'));
-        $label = $code === 'FR' ? 'Factura-Recibo' : 'Factura';
-    }
-
-    $isDraft = strcasecmp(trim((string)$doc['status_name']), 'Rascunho') === 0;
-    $rootNumber = $isDraft
-        ? trim((string)$doc['series']) . '/' . (int)$doc['id']
-        : (trim((string)$doc['reference']) !== '' ? (string)$doc['reference'] : trim((string)$doc['series']) . '/' . (int)$doc['id']);
-
-    $root = [
-        'type'          => $kind,
-        'document_code' => $code,
-        'label'         => $label,
-        'id'            => (int)$doc['id'],
-        'number'        => $rootNumber,
-        'date'          => $doc['issue_date'],
-        'total'         => (float)$doc['final_total'],
-        'status'        => $doc['status_name'],
-        'client'        => $doc['client_name'],
-        'currency'      => $doc['currency'],
-        'has_layout'    => true,
-        'is_root'       => true,
+    $paths = [
+        'invoice' => 'invoices',
+        'proforma' => 'proformas',
+        'receipt' => 'receipts',
+        'credit-note' => 'credit-notes',
+        'debit-note' => 'debit-notes',
+        'delivery-note' => 'delivery-notes',
     ];
 
-    $items = [];
+    return '/api/documents/' . $paths[$type] . '/' . $id . '/pdf';
+}
 
-    // Proforma não tem documentos derivados.
-    if ($kind === 'invoice') {
-        // helper: executa uma consulta secundária sem derrubar o histórico
-        $safe = static function (string $name, callable $fn) use (&$items): void {
-            try {
-                foreach ($fn() as $node) {
-                    $items[] = $node;
-                }
-            } catch (Throwable $e) {
-                error_log("[document_history] {$name}: " . $e->getMessage());
-            }
-        };
+function bx_document_history_add_invoice(array &$documents, int $id, int $companyId): bool
+{
+    global $pdo;
 
-        // ───────── recibos ─────────
-        $safe('receipts', function () use ($pdo, $id): array {
-            $q = $pdo->prepare("
-                SELECT r.id, r.serie, r.reference, r.number, r.pay_date, r.created_at, r.amount_paid
+    $stmt = $pdo->prepare("
+        SELECT
+            i.id,
+            i.document_type,
+            i.issue_date,
+            i.series,
+            i.reference,
+            i.numero_validacao,
+            s.name AS status
+        FROM invoices i
+        INNER JOIN invoice_status s ON s.id = i.status
+        WHERE i.id = ? AND i.company_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$id, $companyId]);
+    $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$invoice) {
+        return false;
+    }
+
+    $typeLabels = [
+        'FT' => 'Factura',
+        'FR' => 'Factura-Recibo',
+        'NC' => 'Nota de Crédito',
+        'ND' => 'Nota de Débito',
+    ];
+    $type = (string)($invoice['document_type'] ?? 'FT');
+    $fallbackNumber = trim((string)($invoice['series'] ?? '')) . '/' . $invoice['id'];
+    $number = $invoice['status'] === 'Rascunho'
+        ? $fallbackNumber
+        : (trim((string)($invoice['numero_validacao'] ?? ''))
+            ?: (trim((string)($invoice['reference'] ?? '')) ?: $fallbackNumber));
+
+    $documents[] = [
+        'type' => 'invoice',
+        'label' => $typeLabels[$type] ?? 'Factura',
+        'id' => (int)$invoice['id'],
+        'number' => $number,
+        'date' => (string)$invoice['issue_date'],
+        'status' => (string)$invoice['status'],
+        'pdf_url' => bx_document_history_pdf_url('invoice', (int)$invoice['id']),
+        'order' => 1,
+    ];
+
+    return true;
+}
+
+function bx_document_history_add_proforma(array &$documents, int $id, int $companyId): bool
+{
+    global $pdo;
+
+    $stmt = $pdo->prepare("
+        SELECT p.id, p.reference, p.series, p.issue_date, s.name AS status
+        FROM proformas p
+        INNER JOIN proforma_status s ON s.id = p.status
+        WHERE p.id = ? AND p.company_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$id, $companyId]);
+    $proforma = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$proforma) {
+        return false;
+    }
+
+    $documents[] = [
+        'type' => 'proforma',
+        'label' => 'Proforma',
+        'id' => (int)$proforma['id'],
+        'number' => trim((string)($proforma['reference'] ?? ''))
+            ?: ((string)$proforma['series'] . '/' . $proforma['id']),
+        'date' => (string)$proforma['issue_date'],
+        'status' => (string)$proforma['status'],
+        'pdf_url' => bx_document_history_pdf_url('proforma', (int)$proforma['id']),
+        'order' => 0,
+    ];
+
+    return true;
+}
+
+function bx_document_history_add_invoice_children(array &$documents, int $invoiceId, int $companyId): void
+{
+    global $pdo;
+
+    $queries = [
+        [
+            'type' => 'credit-note',
+            'label' => 'Nota de Crédito',
+            'sql' => "SELECT id, issue_date, CONCAT(YEAR(issue_date), '/', id) AS number
+                FROM credit_notes WHERE invoice_id = ? AND company_id = ?",
+            'date' => 'issue_date',
+            'status' => 'Emitida',
+        ],
+        [
+            'type' => 'debit-note',
+            'label' => 'Nota de Débito',
+            'sql' => "SELECT id, issue_date, CONCAT(serie, ' ', number) AS number
+                FROM debit_notes WHERE invoice_id = ? AND company_id = ?",
+            'date' => 'issue_date',
+            'status' => 'Emitida',
+        ],
+        [
+            'type' => 'delivery-note',
+            'label' => 'Nota de Entrega',
+            'sql' => "SELECT id, issue_date, CONCAT(serie, ' ', number) AS number
+                FROM delivery_notes WHERE invoice_id = ? AND company_id = ?",
+            'date' => 'issue_date',
+            'status' => 'Emitida',
+        ],
+        [
+            'type' => 'receipt',
+            'label' => 'Recibo',
+            'sql' => "SELECT r.id, r.pay_date AS issue_date, CONCAT(r.serie, ' ', r.number) AS number
                 FROM receipts r
-                WHERE r.invoice_id = :id AND r.reference IS NOT NULL
-            ");
-            $q->execute([':id' => $id]);
-            $out = [];
-            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
-                $out[] = bx_node(
-                    'receipt',
-                    'RC',
-                    'Recibo',
-                    $r,
-                    $r['pay_date'] ?: $r['created_at'],
-                    (float)$r['amount_paid'],
-                    'receipts',
-                    'Recibo'
-                );
-            }
-            return $out;
-        });
+                INNER JOIN invoices i ON i.id = r.invoice_id
+                WHERE r.invoice_id = ? AND i.company_id = ?",
+            'date' => 'issue_date',
+            'status' => 'Emitido',
+        ],
+    ];
 
-        // ───────── notas de crédito ─────────
-        $safe('credit_notes', function () use ($pdo, $id, $companyId): array {
-            // SELECT * de propósito: o esquema de credit_notes não está versionado no projecto.
-            $q = $pdo->prepare("SELECT * FROM credit_notes WHERE invoice_id = :id AND company_id = :company");
-            $q->execute([':id' => $id, ':company' => $companyId]);
-            $out = [];
-            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
-                $out[] = bx_node(
-                    'credit_note',
-                    'NC',
-                    'Nota de crédito',
-                    $r,
-                    $r['issue_date'] ?? $r['created_at'] ?? null,
-                    isset($r['final_total']) ? (float)$r['final_total'] : null,
-                    'credit-notes',
-                    'NotaCredito'
-                );
-            }
-            return $out;
-        });
+    foreach ($queries as $query) {
+        $stmt = $pdo->prepare($query['sql']);
+        $stmt->execute([$invoiceId, $companyId]);
 
-        // ───────── notas de débito ─────────
-        $safe('debit_notes', function () use ($pdo, $id, $companyId): array {
-            $q = $pdo->prepare("
-                SELECT id, serie, number, issue_date, final_total
-                FROM debit_notes
-                WHERE invoice_id = :id AND company_id = :company
-            ");
-            $q->execute([':id' => $id, ':company' => $companyId]);
-            $out = [];
-            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
-                $out[] = bx_node(
-                    'debit_note',
-                    'ND',
-                    'Nota de débito',
-                    $r,
-                    $r['issue_date'],
-                    (float)$r['final_total'],
-                    'debit-notes',
-                    'NotaDebito'
-                );
-            }
-            return $out;
-        });
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $document) {
+            $documents[] = [
+                'type' => $query['type'],
+                'label' => $query['label'],
+                'id' => (int)$document['id'],
+                'number' => (string)$document['number'],
+                'date' => (string)$document[$query['date']],
+                'status' => $query['status'],
+                'pdf_url' => bx_document_history_pdf_url($query['type'], (int)$document['id']),
+                'order' => 2,
+            ];
+        }
+    }
+}
 
-        // ───────── notas de entrega ─────────
-        $safe('delivery_notes', function () use ($pdo, $id, $companyId): array {
-            $q = $pdo->prepare("
-                SELECT id, serie, number, issue_date
-                FROM delivery_notes
-                WHERE invoice_id = :id AND company_id = :company
-            ");
-            $q->execute([':id' => $id, ':company' => $companyId]);
-            $out = [];
-            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
-                $out[] = bx_node(
-                    'delivery_note',
-                    'GT',
-                    'Nota de entrega',
-                    $r,
-                    $r['issue_date'],
-                    null,
-                    'delivery-notes',
-                    'NotaEntrega'
-                );
-            }
-            return $out;
-        });
+function bx_document_history_respond(string $sourceType): void
+{
+    global $pdo;
 
-        // cronológico (mais antigo primeiro); desempate estável por tipo e id
-        usort($items, static function (array $a, array $b): int {
-            return [(string)$a['date'], $a['document_code'], $a['id']]
-                <=> [(string)$b['date'], $b['document_code'], $b['id']];
-        });
+    header('Content-Type: application/json; charset=utf-8');
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'error' => 'Método não permitido.']);
+        return;
     }
 
-    echo json_encode(
-        ['success' => true, 'kind' => $kind, 'root' => $root, 'items' => $items],
-        JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR
-    );
-} catch (Throwable $e) {
-    error_log('[document_history] ' . $e->getMessage());
-    bx_fail(500, 'Não foi possível carregar o histórico.');
+    $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1],
+    ]);
+    if (!is_int($id)) {
+        http_response_code(422);
+        echo json_encode(['success' => false, 'error' => 'Documento inválido.']);
+        return;
+    }
+
+    $companyId = session_company_id();
+    $userId = (int)($_SESSION['user']['id'] ?? 0);
+    if ($companyId <= 0 || $userId <= 0) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Sessão inválida.']);
+        return;
+    }
+
+    try {
+        $documents = [];
+        $invoiceId = null;
+
+        if ($sourceType === 'invoice') {
+            $stmt = $pdo->prepare('SELECT id FROM invoices WHERE id = ? AND company_id = ? LIMIT 1');
+            $stmt->execute([$id, $companyId]);
+            if (!$stmt->fetchColumn()) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Factura não encontrada.']);
+                return;
+            }
+
+            bx_document_history_add_invoice($documents, $id, $companyId);
+            $invoiceId = $id;
+
+            if (Permission::hasAccess($pdo, $userId, $companyId, 'proformas')) {
+                $stmt = $pdo->prepare("
+                    SELECT id FROM proformas
+                    WHERE converted_invoice_id = ? AND company_id = ?
+                    ORDER BY issue_date, id
+                ");
+                $stmt->execute([$id, $companyId]);
+                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $proformaId) {
+                    bx_document_history_add_proforma($documents, (int)$proformaId, $companyId);
+                }
+            }
+        } elseif ($sourceType === 'proforma') {
+            $stmt = $pdo->prepare('SELECT converted_invoice_id FROM proformas WHERE id = ? AND company_id = ? LIMIT 1');
+            $stmt->execute([$id, $companyId]);
+            $convertedInvoiceId = $stmt->fetchColumn();
+            if ($convertedInvoiceId === false) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Proforma não encontrada.']);
+                return;
+            }
+
+            bx_document_history_add_proforma($documents, $id, $companyId);
+            if ((int)$convertedInvoiceId > 0
+                && Permission::hasAccess($pdo, $userId, $companyId, 'invoices')
+                && bx_document_history_add_invoice($documents, (int)$convertedInvoiceId, $companyId)
+            ) {
+                $invoiceId = (int)$convertedInvoiceId;
+            }
+        } else {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Tipo de documento inválido.']);
+            return;
+        }
+
+        if ($invoiceId !== null) {
+            bx_document_history_add_invoice_children($documents, $invoiceId, $companyId);
+        }
+
+        usort($documents, static function (array $a, array $b): int {
+            return [$a['order'], $a['date'], $a['id']]
+                <=> [$b['order'], $b['date'], $b['id']];
+        });
+        foreach ($documents as &$document) {
+            unset($document['order']);
+        }
+        unset($document);
+
+        echo json_encode(['success' => true, 'data' => $documents], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $error) {
+        error_log('Erro ao carregar histórico documental: ' . $error->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Não foi possível carregar o histórico documental.']);
+    }
 }

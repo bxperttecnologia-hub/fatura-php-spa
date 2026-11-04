@@ -309,11 +309,6 @@ require_once '../app/partials/head.php';
 
         showStep($info);
 
-        function showStep($step) {
-            $info.add($code).add($company).add($password).addClass('d-none');
-            $step.removeClass('d-none');
-        }
-
         function erro(msg) {
             if (typeof Swal !== 'undefined') {
                 Swal.fire({

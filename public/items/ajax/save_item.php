@@ -33,13 +33,13 @@ try {
   // =========================
   // INPUTS
   // =========================
-  $item_id = isset($_POST['product_id'])
-    ? (int)$_POST['product_id']
-    : 0;
+  $item_id = (int)($_POST['product_id'] ?? $_POST['item_id'] ?? $_POST['id'] ?? 0);
 
   $company_id = (int)($_POST['id_company'] ?? 0);
 
-  $stock_id = null;
+  $stock_id = !empty($_POST['stock_id'])
+    ? (int)$_POST['stock_id']
+    : null;
 
   $code = trim($_POST['codigo'] ?? '');
 
@@ -55,7 +55,7 @@ try {
     ? trim($_POST['subcategory'])
     : null;
 
-  $currency = trim($_POST['currency'] ?? 'AOA');
+  $currency = trim($_POST['currency'] ?? 'AOA') ?: 'AOA';
 
 
   // =========================
@@ -75,17 +75,25 @@ try {
 
   $pvp = (float)($_POST['pvp'] ?? 0);
 
-  // =========================
-  // RETENÇÃO
-  // =========================
-  $retention = 0.0;
+  $retention = 0;
+  if ($item_id > 0) {
+    $existingItem = $pdo->prepare(
+      'SELECT retention FROM items WHERE id = ? AND company_id = ?'
+    );
+    $existingItem->execute([$item_id, $company_id]);
+    $existingRetention = $existingItem->fetchColumn();
+    if ($existingRetention === false) {
+      throw new Exception("Item não encontrado.");
+    }
+    $retention = (float)$existingRetention;
+  }
 
   // =========================
   // STOCK
   // =========================
-  $quantity = 0;
+  $quantity = (int)($_POST['quantidade'] ?? 0);
 
-  $min_quantity = 1;
+  $min_quantity = (int)($_POST['min_stock'] ?? 1);
 
   // =========================
   // VALIDAÇÕES
@@ -98,26 +106,15 @@ try {
     throw new Exception("O nome do item é obrigatório.");
   }
 
-  $descriptionLength = function_exists('mb_strlen')
-    ? mb_strlen($description, 'UTF-8')
-    : strlen($description);
-  if ($descriptionLength > 500) {
-    throw new Exception("A descrição não pode exceder 500 caracteres.");
-  }
-
   if ($code === '') {
     throw new Exception("O código do item é obrigatório.");
   }
-
   // =========================
   // UPDATE
   // =========================
   if ($item_id > 0) {
 
-    $sql = "CALL sp_update_item_with_stock(
-      ?,?,?,?,?,?,?,?,?,?,
-      ?,?,?,?,?,?,?,?
-    )";
+    $sql = "CALL sp_update_item_with_stock(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     $stmt = $pdo->prepare($sql);
 
@@ -150,10 +147,7 @@ try {
     // =========================
     // CREATE
     // =========================
-    $sql = "CALL sp_create_item_with_stock(
-      ?,?,?,?,?,?,?,?,?,?,
-      ?,?,?,?,?,?,?
-    )";
+    $sql = "CALL sp_create_item_with_stock(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     $stmt = $pdo->prepare($sql);
 
@@ -190,13 +184,17 @@ try {
   while ($stmt->nextRowset()) {
   }
 
+  $savedItemId = (int)($result['item_id'] ?? $item_id);
+  if ($savedItemId <= 0) {
+    throw new RuntimeException("Não foi possível identificar o artigo guardado.");
+  }
   // =========================
   // RESPONSE
   // =========================
   echo json_encode([
     "status"  => "success",
     "message" => $message,
-    "item_id" => $result['item_id'] ?? $item_id,
+    "item_id" => $savedItemId,
     "tax"     => $tax
   ]);
 } catch (Throwable $e) {

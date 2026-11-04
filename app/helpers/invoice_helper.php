@@ -51,17 +51,27 @@ function should_generate_number(?string $reference): bool
 /**
  * VERIFICA EXISTÊNCIA DE REFERÊNCIA
  */
-function reference_exists(PDO $pdo, string $reference): bool
+function reference_exists(PDO $pdo, int $companyId, string $reference, ?int $excludeInvoiceId = null): bool
 {
+    $sql = "
+        SELECT 1
+        FROM invoices
+        WHERE company_id = ? AND reference = ?
+    ";
+    $params = [$companyId, $reference];
+    if ($excludeInvoiceId !== null) {
+        $sql .= " AND id <> ?";
+        $params[] = $excludeInvoiceId;
+    }
+
+    $sql .= " LIMIT 1";
     $stmt = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM invoices 
-        WHERE reference = ?
+        $sql
     ");
 
-    $stmt->execute([$reference]);
+    $stmt->execute($params);
 
-    return (int)$stmt->fetchColumn() > 0;
+    return $stmt->fetchColumn() !== false;
 }
 
 /**
@@ -70,11 +80,12 @@ function reference_exists(PDO $pdo, string $reference): bool
 function generate_document_number(
     PDO $pdo,
     int $companyId,
-    string $documentType
+    string $documentType,
+    ?string $seriesCode = null
 ): string {
 
     // Faturação eletrónica: numeração da série atribuída pela AGT ("FT <série>/<n>").
-    $agtNumber = agt_issue_number($pdo, $companyId, $documentType);
+    $agtNumber = agt_issue_number($pdo, $companyId, $documentType, $seriesCode);
     if ($agtNumber !== null) {
         return $agtNumber;
     }
@@ -101,7 +112,7 @@ function generate_document_number(
     do {
         $reference = sprintf("%s%s/%04d", $prefix, $year, $next);
 
-        if (!reference_exists($pdo, $reference)) {
+        if (!reference_exists($pdo, $companyId, $reference)) {
             break;
         }
 
@@ -119,7 +130,9 @@ function apply_invoice_number_rules(
     int $companyId,
     string $status,
     ?string $currentReference,
-    string $documentType
+    string $documentType,
+    ?string $seriesCode = null,
+    ?int $invoiceId = null
 ): array {
 
     $documentType = strtoupper(trim($documentType));
@@ -127,14 +140,16 @@ function apply_invoice_number_rules(
     $statusMap = invoice_status_map();
     $statusId = $statusMap[$status] ?? 1;
 
-    /**
-     * ❌ CANCELADO NUNCA ALTERA
-     */
-    if ($statusId === 2) {
+    if (str_starts_with(mb_strtolower(trim($status), 'UTF-8'), 'cancel')) {
         return [
             'reference' => $currentReference,
             'status' => $statusId
         ];
+    }
+
+    if ($currentReference !== null && $currentReference !== ''
+        && reference_exists($pdo, $companyId, $currentReference, $invoiceId)) {
+        throw new RuntimeException('Já existe um documento com esta referência nesta empresa.');
     }
 
     /**
@@ -145,7 +160,8 @@ function apply_invoice_number_rules(
         $reference = generate_document_number(
             $pdo,
             $companyId,
-            $documentType
+            $documentType,
+            $seriesCode
         );
 
         return [

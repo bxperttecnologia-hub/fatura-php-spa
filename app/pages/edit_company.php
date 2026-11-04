@@ -282,6 +282,62 @@ require_once '../app/views/layout_creation.php';
                             </div>
                         </div>
 
+                        <?php if (in_array((string)($_SESSION['user']['role'] ?? ''), ['owner', 'admin'], true)): ?>
+                        <div class="card shadow-sm border-0 mb-4" id="documentTaxConfig">
+                            <div class="card-header bg-white fw-bold fs-5">Impostos retidos nos documentos</div>
+                            <div class="card-body">
+                                <p class="text-warning">
+                                    As taxas iniciais são configurações solicitadas, não uma confirmação de taxa legal universal.
+                                    Só active uma regra depois de validar a legislação, a base de incidência e a vigência aplicáveis.
+                                </p>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label" for="doc_tax_type">Imposto</label>
+                                        <select class="form-select" id="doc_tax_type">
+                                            <option value="withholding_6_5">Retenção na Fonte</option>
+                                            <option value="ipu_rent">IPU / Rendas</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label" for="doc_tax_rate">Taxa (%)</label>
+                                        <input class="form-control" id="doc_tax_rate" type="number" min="0.01" max="100" step="0.0001" value="6.5" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label" for="doc_tax_base">Base configurada</label>
+                                        <select class="form-select" id="doc_tax_base" required>
+                                            <option value="net_subtotal">Incidência elegível após desconto, sem IVA</option>
+                                            <option value="gross_including_vat">Incidência elegível incluindo IVA</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label" for="doc_tax_effective_from">Vigência desde</label>
+                                        <input class="form-control" id="doc_tax_effective_from" type="date" required>
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <label class="form-check">
+                                            <input class="form-check-input" id="doc_tax_enabled" type="checkbox" value="1">
+                                            <span class="form-check-label">Activar após validação</span>
+                                        </label>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="doc_tax_validation_note">Referência da validação legal</label>
+                                        <input class="form-control" id="doc_tax_validation_note" type="text" maxlength="255" placeholder="Diploma, parecer ou referência de validação">
+                                    </div>
+                                    <div class="col-12">
+                                        <button class="btn btn-outline-primary" type="button" id="saveDocumentTaxConfig">Guardar nova vigência</button>
+                                        <small class="text-muted ms-2">Cada alteração cria uma versão; documentos existentes mantêm os valores gravados.</small>
+                                    </div>
+                                </div>
+                                <div class="table-responsive mt-4">
+                                    <table class="table table-sm">
+                                        <thead><tr><th>Tipo</th><th>Taxa</th><th>Base</th><th>Vigência</th><th>Estado</th><th>Validação</th></tr></thead>
+                                        <tbody id="documentTaxHistory"><tr><td colspan="6">A carregar histórico…</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- BANCÁRIO -->
                         <div class="card shadow-sm border-0 mb-4">
                             <div class="card-header bg-white fw-bold fs-5">Dados Bancários</div>
@@ -387,6 +443,72 @@ require_once '../app/views/layout_creation.php';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script src="edit_company/edit_company.js?v=1.1" data-spa-repeat></script>
+    <script>
+        (() => {
+            const root = document.getElementById("documentTaxConfig");
+            if (!root || root.dataset.initialized) return;
+            root.dataset.initialized = "true";
+            const $ = window.jQuery;
+            const type = document.getElementById("doc_tax_type");
+            const rate = document.getElementById("doc_tax_rate");
+            const base = document.getElementById("doc_tax_base");
+            const effectiveFrom = document.getElementById("doc_tax_effective_from");
+            const enabled = document.getElementById("doc_tax_enabled");
+            const note = document.getElementById("doc_tax_validation_note");
+            const history = document.getElementById("documentTaxHistory");
+            const today = new Date().toISOString().slice(0, 10);
+            effectiveFrom.value = today;
+            const defaults = { withholding_6_5: 6.5, ipu_rent: 15 };
+            const typeLabels = { withholding_6_5: "Retenção na Fonte", ipu_rent: "IPU / Rendas" };
+            const baseLabels = {
+                net_subtotal: "Incidência elegível após desconto, sem IVA",
+                gross_including_vat: "Incidência elegível incluindo IVA",
+            };
+            type.addEventListener("change", () => { rate.value = defaults[type.value]; });
+            const loadHistory = () => $.getJSON("/document_tax/ajax/history.php")
+                .done((response) => {
+                    if (!response.success) throw new Error("Não foi possível carregar o histórico fiscal.");
+                    history.innerHTML = response.data.length ? response.data.map((row) => `
+                        <tr>
+                            <td>${typeLabels[row.tax_type] || row.tax_type}</td>
+                            <td>${Number(row.rate).toLocaleString("pt-PT")}%</td>
+                            <td>${baseLabels[row.base_type] || row.base_type}</td>
+                            <td>${row.effective_from} – ${row.effective_to || "sem data final"}</td>
+                            <td>${Number(row.enabled) ? "Activo" : "Inactivo"}</td>
+                            <td>${$("<div>").text(row.legal_validation_note || "—").html()}</td>
+                        </tr>`).join("") : '<tr><td colspan="6">Sem configurações registadas.</td></tr>';
+                })
+                .fail(() => { history.innerHTML = '<tr><td colspan="6">Erro ao carregar histórico.</td></tr>'; });
+            loadHistory();
+            document.getElementById("saveDocumentTaxConfig").addEventListener("click", () => {
+                const token = document.querySelector('meta[name="csrf-token"]')?.content || window.APP?.csrf || "";
+                const payload = new URLSearchParams({
+                    tax_type: type.value,
+                    rate: rate.value,
+                    base_type: base.value,
+                    effective_from: effectiveFrom.value,
+                    enabled: enabled.checked ? "1" : "0",
+                    legal_validation_note: note.value,
+                });
+                $.ajax({
+                    url: "/document_tax/ajax/save_configuration.php",
+                    method: "POST",
+                    data: payload.toString(),
+                    contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                    headers: { "X-CSRF-Token": token },
+                    dataType: "json",
+                }).done((response) => {
+                    if (!response.success) return Swal.fire("Erro", response.error || "Não foi possível guardar a configuração.", "error");
+                    if (enabled.checked) {
+                        Swal.fire("Guardado", "Regra marcada como activa para a vigência indicada.", "success");
+                    } else {
+                        Swal.fire("Guardado como inactivo", "A regra foi registada, mas não será disponibilizada nos documentos. Para a activar, marque “Activar após validação” e informe a referência da validação legal.", "info");
+                    }
+                    loadHistory();
+                }).fail((xhr) => Swal.fire("Erro", xhr.responseJSON?.error || "Não foi possível guardar a configuração.", "error"));
+            });
+        })();
+    </script>
 
     <script>
         function formatAngolaIban(rawValue) {

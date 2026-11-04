@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/debit_note_calculation.php';
 header('Content-Type: application/json; charset=utf-8');
 session_start();
 
@@ -43,57 +45,24 @@ if (count($rawItems) > 50) {
 }
 
 // Validar linhas e calcular totais no servidor (nunca confiar nos totais do browser)
-$lines = [];
-$subtotal = 0.0;
-$totalDiscount = 0.0;
-$totalTax = 0.0;
-
-foreach ($rawItems as $i => $r) {
-    $n    = $i + 1;
-    $desc = trim((string)($r['description'] ?? ''));
-    $qty  = (float)($r['quantity'] ?? 0);
-    $unit = (float)($r['unit_price'] ?? 0);
-    $discount = (float)($r['discount'] ?? 0);
-    $tax  = (float)($r['tax'] ?? 0);
-
-    $descLen = function_exists('mb_strlen') ? mb_strlen($desc) : strlen($desc);
-    if ($desc === '' || $descLen > 500) {
-        fail(422, "Linha $n: descrição obrigatória (máx. 500 caracteres).");
-    }
-    if ($qty <= 0 || $qty > 1000000) {
-        fail(422, "Linha $n: quantidade inválida.");
-    }
-    if ($unit <= 0 || $unit > 1000000000000) {
-        fail(422, "Linha $n: preço unitário inválido.");
-    }
-    if ($discount < 0 || $discount > 100) {
-        fail(422, "Linha $n: desconto deve estar entre 0 e 100.");
-    }
-    if ($tax < 0 || $tax > 100) {
-        fail(422, "Linha $n: IVA deve estar entre 0 e 100.");
-    }
-
-    $base = round($qty * $unit, 2);
-    $discountValue = round($base * $discount / 100, 2);
-    $taxableBase = round($base - $discountValue, 2);
-    $taxVal = round($taxableBase * $tax / 100, 2);
-    $subtotal += $taxableBase;
-    $totalDiscount += $discountValue;
-    $totalTax += $taxVal;
-
-    $lines[] = [
-        'description' => $desc,
-        'quantity' => $qty,
-        'unit_price' => $unit,
-        'discount' => $discount,
-        'tax' => $tax,
-    ];
+try {
+    $limits = bx_debit_note_schema_limits($pdo);
+    $totals = bx_calculate_debit_note_totals(
+        $rawItems,
+        $limits['quantity_scale'],
+        $limits['max_amount']
+    );
+} catch (InvalidArgumentException $e) {
+    fail(422, $e->getMessage());
+} catch (RuntimeException $e) {
+    fail(500, $e->getMessage());
 }
 
-$subtotal = round($subtotal, 2);
-$totalDiscount = round($totalDiscount, 2);
-$totalTax = round($totalTax, 2);
-$final    = round($subtotal + $totalTax, 2);
+$lines = $totals['lines'];
+$subtotal = $totals['subtotal_without_tax'];
+$totalDiscount = $totals['total_discount'];
+$totalTax = $totals['total_tax'];
+$final = $totals['final_total'];
 
 try {
     $pdo->beginTransaction();

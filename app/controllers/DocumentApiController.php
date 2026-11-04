@@ -11,16 +11,18 @@ final class DocumentApiController
             throw new HttpException(403, 'Empresa inválida.');
         }
 
-        // Em produção os documentos vêm da API de documentos (bxintelligence-api-rest).
-        // Em desenvolvimento, sem o serviço Node da porta 3004, são gerados pela própria
-        // aplicação (public/document_pdf.php). DOCUMENT_API_BASE_URL sobrepõe-se aos dois.
+        // DOCUMENT_API_BASE_URL sobrepõe o destino padrão da API de documentos.
         $apiBaseUrl = trim((string)bx_env('DOCUMENT_API_BASE_URL'));
-        if ($apiBaseUrl === '' && defined('APP_ENV') && APP_ENV === 'production') {
-            $apiBaseUrl = 'https://api-sandibox.bxpert.co.ao';
-        }
         if ($apiBaseUrl === '') {
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $apiBaseUrl = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $isProduction = defined('APP_ENV') && APP_ENV === 'production';
+            $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+            $isProductionHost = in_array($host, [
+                'api-crm.bxpert.co.ao',
+                'www.api-crm.bxpert.co.ao',
+            ], true);
+            $apiBaseUrl = $isProduction || $isProductionHost
+                ? 'https://api-sandibox.bxpert.co.ao'
+                : 'http://localhost:3004';
         }
         if (!filter_var($apiBaseUrl, FILTER_VALIDATE_URL) || !in_array(parse_url($apiBaseUrl, PHP_URL_SCHEME), ['http', 'https'], true)) {
             throw new HttpException(503, 'A URL da API de documentos não está configurada corretamente.');

@@ -50,8 +50,18 @@ EQIDAQAB
         if (res.success) onOk(res);
         else showError(res.message);
       })
-      .fail(function () {
-        showError("Falha na comunicação com o servidor.");
+      .fail(function (xhr, textStatus, errorThrown) {
+        console.error("Falha no fluxo de recuperação de senha:", {
+          url: url,
+          status: xhr.status,
+          textStatus: textStatus,
+          errorThrown: errorThrown,
+          responseText: xhr.responseText,
+        });
+        showError(
+          (xhr.responseJSON && xhr.responseJSON.message) ||
+            `Falha na comunicação com o servidor (HTTP ${xhr.status}: ${textStatus}).`
+        );
       })
       .always(function () {
         busy = false;

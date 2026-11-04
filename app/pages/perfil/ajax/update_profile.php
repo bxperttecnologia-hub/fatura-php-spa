@@ -39,6 +39,7 @@ $allowedKeys = [
     'phone',
     'email',
     'address',
+    'address_district',
     'country',
     'lang'
 ];
@@ -57,7 +58,7 @@ foreach ($_POST as $key => $value) {
 
     $value = trim((string)$value);
 
-    if ($value === '') {
+    if ($value === '' && !in_array($key, ['address', 'address_district', 'country'], true)) {
         continue;
     }
 

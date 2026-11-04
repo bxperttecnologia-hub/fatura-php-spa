@@ -1,8 +1,26 @@
 <?php
-require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
 
 require_once '../../../app/config/db.php';
-require_once __DIR__ . '/../../../app/helpers/document_tax.php';
+// document_tax.php: procura nas localizações possíveis (local XAMPP / produção)
+foreach (
+    [
+        __DIR__ . '/../../../app/helpers/document_tax.php',
+        __DIR__ . '/../../../helpers/document_tax.php',
+        __DIR__ . '/../../app/helpers/document_tax.php',
+        __DIR__ . '/../../../../app/helpers/document_tax.php',
+    ] as $bxHelperFile
+) {
+    if (is_file($bxHelperFile)) {
+        require_once $bxHelperFile;
+        break;
+    }
+}
+if (!function_exists('bx_document_tax_summary')) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'error' => 'Não foi possível carregar o ficheiro document_tax.php.']);
+    exit;
+}
+
 
 header('Content-Type: application/json');
 
@@ -28,6 +46,7 @@ try {
         SELECT
             p.id,
             p.reference,
+            p.converted_invoice_id,
             CONCAT(YEAR(p.issue_date), '/', p.id) AS codigo,
 
             p.issue_date,

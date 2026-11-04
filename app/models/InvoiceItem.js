@@ -17,7 +17,7 @@ export const InvoiceItem = sequelize.define('InvoiceItem', {
     allowNull: false,
   },
   quantity: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.DOUBLE,
     allowNull: false,
   },
   unit_price: {
@@ -31,6 +31,11 @@ export const InvoiceItem = sequelize.define('InvoiceItem', {
   discount: {
     type: DataTypes.DOUBLE,
     allowNull: true,
+  },
+  retention_rate: {
+    type: DataTypes.DECIMAL(8, 4),
+    allowNull: true,
+    defaultValue: null,
   },
 }, {
   tableName: 'invoice_items',

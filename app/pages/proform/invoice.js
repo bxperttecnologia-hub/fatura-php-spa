@@ -133,36 +133,13 @@ $(function () {
   // 4. BOTÕES CONDICIONAIS
   // =========================
   function setupButtons(inv) {
-    const normalizedStatus = String(inv.status_invoice || "")
-      .trim()
-      .toLowerCase();
-    if (normalizedStatus === "rascunho") {
+    if (inv.status_invoice === "Rascunho") {
       $("#btnFinalizar, #btnEditar").removeClass("d-none");
     }
 
     $("#btnPdf, #generatePdf, #btnEnviar").removeClass("d-none");
-    if (normalizedStatus.startsWith("cancel")) {
-      $("#btnNotaCredito").removeClass("d-none");
-    }
+    $("#btnNotaCredito").removeClass("d-none");
   }
-
-  $("#btnNotaCredito").on("click", function () {
-    if (currentInvoice?.converted_invoice_id) {
-      const invoiceUrl = `/invoices/view?id=${encodeURIComponent(currentInvoice.converted_invoice_id)}`;
-      if (typeof window.navigateSPA === "function") {
-        window.navigateSPA(invoiceUrl);
-      } else {
-        window.location.assign(invoiceUrl);
-      }
-      return;
-    }
-
-    Swal.fire({
-      icon: "info",
-      title: "Nota de crédito indisponível",
-      text: "A nota de crédito é emitida sobre uma fatura. Esta proforma ainda não está associada a uma fatura convertida.",
-    });
-  });
 
   // =========================
   // 5. GERAR PDF PROFORMA
@@ -214,18 +191,29 @@ $(function () {
     return pages;
   }
 
-  async function gerarPdfProforma() {
-    if (!currentInvoice) return;
-
+  function gerarPdfProforma() {
     const button = document.getElementById("generatePdf");
     const element = document.querySelector("#fatura-container .invoice-page");
-    if (!element || button?.disabled) return;
+    if (button?.disabled) return;
+    if (!currentInvoice || !element) {
+      Swal.fire({
+        icon: "error",
+        title: "Não foi possível gerar o PDF",
+        text: "Os dados da proforma ainda não estão disponíveis. Atualize a página e tente novamente.",
+      });
+      return;
+    }
 
     const originalHtml = button?.innerHTML;
     if (button) {
       button.disabled = true;
       button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Preparando PDF...';
     }
+
+    const hostname = window.location.hostname;
+    const apiBaseUrl = hostname === "api-crm.bxpert.co.ao" || hostname === "www.api-crm.bxpert.co.ao"
+      ? "https://api-crm.bxpert.co.ao"
+      : "http://localhost:3004";
 
     const payload = {
       ...currentInvoice,
@@ -236,29 +224,71 @@ $(function () {
         window.location.href,
       ).toString(),
     };
-    try {
-      if (!window.BXDocumentApi?.openPdf) {
-        throw new Error("O serviço de documentos não está disponível. Atualize a página e tente novamente.");
-      }
+    console.log("Payload enviado à API de PDF:", payload);
 
-      await window.BXDocumentApi.openPdf("/api/invoices/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch (error) {
-      console.error("Erro ao gerar PDF da proforma:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Erro ao imprimir a proforma",
-        text: error.message || "Não foi possível gerar o PDF da proforma.",
-      });
-    } finally {
-      if (button) {
-        button.disabled = false;
-        button.innerHTML = originalHtml;
+    (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/invoices/pdf`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/pdf" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          let message = `O servidor respondeu com o erro ${response.status}.`;
+          const errorText = await response.text();
+          if (errorText.trim()) {
+            try {
+              const errorBody = JSON.parse(errorText);
+              message = errorBody.message || errorBody.error || message;
+            } catch {
+              message = errorText.trim();
+            }
+          }
+          throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        const signature = await blob.slice(0, 5).text();
+        if (blob.size === 0 || signature !== "%PDF-") {
+          let message = "O servidor não devolveu um ficheiro PDF válido.";
+          try {
+            const body = JSON.parse(await blob.text());
+            message = body.message || body.error || message;
+          } catch {
+            // A resposta não contém uma mensagem JSON legível.
+          }
+          throw new Error(message);
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${currentInvoice.reference || "proforma"}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        Swal.fire({
+          icon: "success",
+          title: "PDF preparado com sucesso",
+          text: "O download da proforma foi iniciado.",
+        });
+      } catch (error) {
+        console.error("Erro ao gerar PDF da proforma:", error);
+        Swal.fire({
+          icon: "error",
+          title: "Falha ao gerar o PDF",
+          text: error.message || "Não foi possível gerar o PDF da proforma. Tente novamente.",
+        });
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }
       }
-    }
+    })();
   }
 
   $("#btnPdf, #generatePdf").on("click", gerarPdfProforma);

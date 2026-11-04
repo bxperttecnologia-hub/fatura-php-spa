@@ -64,6 +64,45 @@ export const Proforma = sequelize.define('Proforma', {
     allowNull: true,
     defaultValue: 0,
   },
+  tax_withholding_type: {
+    type: DataTypes.STRING(32),
+    allowNull: false,
+    defaultValue: 'none',
+  },
+  tax_withholding_rate: {
+    type: DataTypes.DECIMAL(7, 4),
+    allowNull: false,
+    defaultValue: 0,
+  },
+  tax_withholding_base: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0,
+  },
+  tax_withholding_amount: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0,
+  },
+  tax_withholding_description: {
+    type: DataTypes.STRING(160),
+    allowNull: true,
+  },
+  tax_withholding_confirmed: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  gross_total: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0,
+  },
+  net_payable: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0,
+  },
   total_sum: {
     type: DataTypes.DOUBLE,
     allowNull: false,

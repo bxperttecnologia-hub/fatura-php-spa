@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
-require_once __DIR__ . '/../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../helpers/company_logo.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -26,7 +26,7 @@ if (!$ndId) {
 $st = $pdo->prepare("
 SELECT
     nd.id, nd.serie, nd.number, nd.issue_date, nd.reason, nd.currency,
-    nd.subtotal_without_tax, nd.total_discount, nd.total_tax, nd.final_total,
+    nd.subtotal_without_tax, nd.total_tax, nd.final_total,
 
     i.id AS invoice_id,
     i.reference AS invoice_reference,
@@ -95,7 +95,7 @@ $isLocalhost = in_array($host, ['localhost', '127.0.0.1']);
 $basePath = $isLocalhost ? '/projects/bxpert/fatura/public' : '';
 $BASE_URL = "{$protocol}://{$host}{$basePath}";
 
-$logo = company_logo_pdf_src($d['logo_url'] ?? '');
+$logo = company_logo_src($d['logo_url'] ?? '', $BASE_URL);
 
 /* ---------------- HTML ---------------- */
 
@@ -106,17 +106,16 @@ $currency = h($d['currency']);
 
 $rows = '';
 foreach ($items as $n => $it) {
-  $lineBase = round((float)$it['quantity'] * (float)$it['unit_price'], 2);
-  $taxableBase = round($lineBase - round($lineBase * (float)$it['discount'] / 100, 2), 2);
-  $lineTotal = round($taxableBase + $taxableBase * (float)$it['tax'] / 100, 2);
+  $gross = round((float)$it['quantity'] * (float)$it['unit_price'], 2);
+  $discount = round($gross * (float)($it['discount'] ?? 0) / 100, 2);
+  $lineBase = round($gross - $discount, 2);
   $rows .= '<tr>'
     . '<td class="c">' . ($n + 1) . '</td>'
     . '<td>' . h($it['description']) . '</td>'
     . '<td class="r">' . qty($it['quantity']) . '</td>'
     . '<td class="r">' . money($it['unit_price']) . '</td>'
-    . '<td class="r">' . rtrim(rtrim(number_format((float)$it['discount'], 2, ',', '.'), '0'), ',') . '%</td>'
     . '<td class="r">' . rtrim(rtrim(number_format((float)$it['tax'], 2, ',', '.'), '0'), ',') . '%</td>'
-    . '<td class="r">' . money($lineTotal) . '</td>'
+    . '<td class="r">' . money($lineBase) . '</td>'
     . '</tr>';
 }
 
@@ -191,7 +190,6 @@ $html = '
       <th>Descrição</th>
       <th class="r">Qtd.</th>
       <th class="r">Preço unit.</th>
-      <th class="r">Desconto</th>
       <th class="r">IVA</th>
       <th class="r">Total</th>
     </tr>
@@ -201,7 +199,6 @@ $html = '
 
 <table class="totals">
   <tr><td>Subtotal (sem IVA)</td><td style="text-align:right">' . money($d['subtotal_without_tax']) . ' ' . $currency . '</td></tr>
-  <tr><td>Desconto</td><td style="text-align:right">' . money($d['total_discount'] ?? 0) . ' ' . $currency . '</td></tr>
   <tr><td>IVA</td><td style="text-align:right">' . money($d['total_tax']) . ' ' . $currency . '</td></tr>
   <tr class="grand"><td>Total a débito</td><td style="text-align:right">' . money($d['final_total']) . ' ' . $currency . '</td></tr>
 </table>

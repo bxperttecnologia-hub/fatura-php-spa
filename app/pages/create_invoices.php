@@ -1219,8 +1219,6 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
 
                     <div class="inv-summary" role="complementary" aria-label="<?= t('Resumo do documento') ?>">
                         <div class="inv-sum-row">
-<<<<<<< Updated upstream
-=======
                             <label for="tax_withholding_type"><?= t('Imposto / Retenção na Fonte') ?></label>
                             <select class="inv-input" id="tax_withholding_type" name="tax_withholding_type">
                                 <option value="none">Sem imposto adicional — 0%</option>
@@ -1236,7 +1234,6 @@ $retentionRate = 6.5; // % aplicada pela caixa "Aplicar Retenção na Fonte"
                         </div>
                         <div id="tax_withholding_warning" class="alert alert-warning d-none" role="alert"></div>
                         <div class="inv-sum-row">
->>>>>>> Stashed changes
                             <span><?= t('Soma') ?></span>
                             <span id="total_sum">0,00</span>
                         </div>

@@ -73,15 +73,8 @@ try {
         );
     }
 
-    // =====================================================
-    // GERAR NOVA REFERÊNCIA
-    // =====================================================
-
-    $reference = generate_document_number(
-        $pdo,
-        $companyId,
-        'FT'
-    );
+    // Rascunhos usam uma série interna; a referência fiscal é gerada ao finalizar.
+    $draftSeries = 'RASCUNHO-FT-' . date('Y');
 
     // =====================================================
     // CLONAR FATURA
@@ -130,11 +123,11 @@ try {
 
         $invoice['due_date'],
 
-        $reference,
+        null,
 
         $invoice['observation'],
 
-        $invoice['series'],
+        $draftSeries,
 
         $invoice['retention'],
 
@@ -200,7 +193,8 @@ try {
     echo json_encode([
         'success' => true,
         'new_invoice_id' => $newInvoiceId,
-        'reference' => $reference,
+        'reference' => null,
+        'series' => $draftSeries,
         'message' => 'Factura clonada com sucesso.'
     ]);
 } catch (Throwable $e) {

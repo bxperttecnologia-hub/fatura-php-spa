@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!companyId) return;
 
       const res = await fetch(
-        `/assets/ajax/get_company.php?id=${encodeURIComponent(companyId)}`,
+        `assets/ajax/get_company.php?id=${encodeURIComponent(companyId)}`,
       );
 
       const data = await res.json();
@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const itemType = categorySelect.value;
 
       const res = await fetch(
-        `/items/ajax/generate_code.php?stock_id=0&item_type=${encodeURIComponent(itemType)}`,
+        `items/ajax/generate_code.php?stock_id=0&item_type=${encodeURIComponent(itemType)}`,
       );
 
       const data = await res.json();
@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const formData = new FormData();
       formData.append("codigo", codigo);
 
-      const res = await fetch("/items/ajax/check_code.php", {
+      const res = await fetch("items/ajax/check_code.php", {
         method: "POST",
         body: formData,
       });
@@ -256,7 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // INIT
   // =========================
   syncUI();
-  fetchStocks();
   loadCompany();
 });
 
@@ -282,16 +281,10 @@ $(document).ready(function () {
     // =========================
     formData.append("tax_vat", $("#taxVat").val());
 
-    for (let pair of formData.entries()) {
-      console.log(pair[0], pair[1]);
-    }
-
-    console.log("tax:", formData.get("tax_vat"));
-
     // =========================
     // URL
     // =========================
-    const url = "/items/ajax/save_item.php";
+    const url = "items/ajax/save_item.php";
 
     $.ajax({
       url: url,
@@ -301,21 +294,19 @@ $(document).ready(function () {
       contentType: false,
       dataType: "json",
       success: function (response) {
-        // Em erro o modal fica aberto com os dados, para o utilizador corrigir.
         if (response.status !== "success") {
-          Swal.fire("Erro", response.message || "Não foi possível guardar o produto/serviço.", "error");
+          Swal.fire({
+            icon: "error",
+            title: "Não foi possível guardar",
+            text: response.message || "O servidor não conseguiu guardar o produto/serviço.",
+          });
           return;
         }
 
-        // Mesmo feedback da edição: toast verde com visto, sem bloquear o ecrã.
         Swal.fire({
-          toast: true,
-          position: "top-end",
           icon: "success",
-          title: response.message || "Item criado com sucesso",
-          showConfirmButton: false,
-          timer: 3000,
-          timerProgressBar: true,
+          title: "Guardado",
+          text: response.message || "Produto/serviço guardado com sucesso.",
         });
 
         const modalEl = document.getElementById("itemModal");
@@ -330,13 +321,13 @@ $(document).ready(function () {
         $(document).trigger("items:reload");
       },
       error: function (xhr) {
-        let message = "Ocorreu um erro ao salvar o produto/serviço.";
-        try {
-          message = JSON.parse(xhr.responseText).message || message;
-        } catch (_) {
-          // resposta não JSON
-        }
-        Swal.fire("Erro!", message, "error");
+        const message = xhr.responseJSON?.message
+          || "Ocorreu um erro ao salvar o produto/serviço.";
+        Swal.fire(
+          "Erro!",
+          message,
+          "error",
+        );
       },
     });
   });

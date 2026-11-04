@@ -135,8 +135,6 @@ try {
             reference,
             observation,
             series,
-            retention,
-            retention_value,
             currency,
             manual_exchange_rate,
             total_sum,
@@ -151,7 +149,7 @@ try {
         )
         VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     ");
 
@@ -164,8 +162,6 @@ try {
         $reference,
         $proforma['observation'],
         $proforma['series'],
-        $proforma['retention'] ?? 0,
-        $proforma['retention_value'] ?? 0,
         $proforma['currency'],
         $proforma['manual_exchange_rate'],
         $proforma['total_sum'],

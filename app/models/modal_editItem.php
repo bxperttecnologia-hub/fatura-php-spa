@@ -212,12 +212,6 @@
                             </select>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label"><?= t('Moeda') ?></label>
-                            <select class="form-select" name="currency">
-                                <?= currencySelects(); ?>
-                            </select>
-                        </div>
                     </div>
 
 
