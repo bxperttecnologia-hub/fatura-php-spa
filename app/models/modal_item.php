@@ -319,15 +319,14 @@
                         <input type="hidden" value="0" name="item_id" id="item_id">
 
                         <!-- ========================= -->
-                        <!-- 1. CLASSIFICAÇÃO -->
+                        <!-- 1. IDENTIFICAÇÃO -->
                         <!-- ========================= -->
                         <div class="soft-card mb-3">
-                            <h6 class="mb-3 fw-bold"><?= t('Classificação') ?></h6>
+                            <h6 class="mb-3 fw-bold"><?= t('Identificação') ?></h6>
 
                             <div class="row g-3">
-
-                                <div class="col-md-6">
-                                    <label class="form-label"><?= t('Tipo') ?></label>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="category"><?= t('Tipo') ?></label>
                                     <select class="form-select" name="item_type" id="category" required>
                                         <option value="selecione o Tipo de item" selected></option>
                                         <option value="service"><?= t('Serviço') ?></option>
@@ -338,112 +337,77 @@
                                     </select>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <label class="form-label">Subcategoria</label>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="subcategory"><?= t('Subcategoria') ?></label>
                                     <select class="form-select" name="subcategory" id="subcategory">
                                         <option value="">Selecione</option>
-                                        <option value="essential">Bens essenciais</option>
-                                        <option value="agriculture">Insumos agrícolas</option>
+                                        <option value="essential">Bens essenciais (IVA 5%)</option>
+                                        <option value="agriculture">Insumos agrícolas (IVA 5%)</option>
                                         <option value="other">Outros produtos</option>
                                     </select>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="soft-card mb-3 d-flex flex-wrap gap-2">
-                            <div class="col-md-5">
-                                <label class="form-label"><?= t('Unidade') ?></label>
-                                <select class="form-select" name="unit_measure">
-                                    <option value="unit">Unidade</option>
-                                    <option value="kg">Kg</option>
-                                    <option value="liter">Litro</option>
-                                    <option value="meter">Metro</option>
-                                    <option value="service">Serviço</option>
-                                </select>
-                            </div>
-
-                        </div>
-
-                        <!-- ========================= -->
-                        <!-- 2. IDENTIFICAÇÃO -->
-                        <!-- ========================= -->
-                        <div class="soft-card mb-3">
-                            <h6 class="mb-3 fw-bold"><?= t('Identificação do Item') ?></h6>
-
-                            <div class="row g-3 align-items-end">
-
-                                <!-- CÓDIGO -->
                                 <div class="col-md-4">
-                                    <label class="form-label"><?= t('Código') ?></label>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <input type="text" class="form-control" id="codigo" name="codigo" required>
-                                        <i class="bi bi-info-circle text-muted"
-                                            data-bs-toggle="tooltip"
-                                            title="Gerado automaticamente ao selecionar o stock"></i>
-                                    </div>
+                                    <label class="form-label" for="unit_measure"><?= t('Unidade') ?></label>
+                                    <select class="form-select" name="unit_measure" id="unit_measure">
+                                        <option value="unit">Unidade</option>
+                                        <option value="kg">Kg</option>
+                                        <option value="liter">Litro</option>
+                                        <option value="meter">Metro</option>
+                                        <option value="service">Serviço</option>
+                                    </select>
                                 </div>
 
-                                <!-- NOME -->
+                                <div class="col-md-4">
+                                    <label class="form-label" for="codigo">
+                                        <?= t('Código') ?>
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                            title="Gerado automaticamente ao escolher o tipo"></i>
+                                    </label>
+                                    <input type="text" class="form-control" id="codigo" name="codigo" required>
+                                </div>
+
                                 <div class="col-md-8" id="nameBlock">
-                                    <label class="form-label"><?= t('Nome') ?></label>
+                                    <label class="form-label" for="name"><?= t('Nome') ?></label>
                                     <input type="text" class="form-control" name="name" id="name" required>
                                 </div>
 
-                                <!-- DESCRIÇÃO -->
                                 <div class="col-12">
-                                    <label class="form-label"><?= t('Descrição detalhada') ?> <small>(opcional)</small></label>
+                                    <label class="form-label" for="descricao"><?= t('Descrição') ?> <small class="text-muted">(opcional)</small></label>
                                     <textarea class="form-control" rows="2" name="descricao" id="descricao" maxlength="500"></textarea>
                                 </div>
-
                             </div>
                         </div>
 
                         <!-- ========================= -->
-                        <!-- 4. FISCAL -->
+                        <!-- 2. PREÇO E IVA -->
                         <!-- ========================= -->
                         <div class="soft-card mb-2">
-                            <h6 class="mb-3 fw-bold"><?= t('Fiscalidade') ?></h6>
+                            <h6 class="mb-3 fw-bold"><?= t('Preço e IVA') ?></h6>
 
                             <div class="row g-3">
-
-                                <div class="col-md-4 mb-2">
-                                    <label class="form-label"><?= t('Preço Unitário') ?></label>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="unit_price_display"><?= t('Preço sem IVA') ?></label>
                                     <input type="text" class="form-control" id="unit_price_display" data-price-display inputmode="decimal" autocomplete="off" required>
                                     <input type="hidden" name="unit_price" id="unit_price" data-price-value>
+                                    <!-- O preço de venda é o mesmo preço sem IVA (mantido para a BD) -->
+                                    <input type="hidden" name="sale_price" id="sale_price">
                                 </div>
 
-                                <!-- IVA -->
-                                <div class="col-md-4">
-                                    <label class="form-label"><?= t('IVA') ?></label>
-                                    <input class="form-control" type="text" name="tax_vat" id="taxVat">
+                                <div class="col-md-2">
+                                    <label class="form-label" for="taxVat"><?= t('IVA (%)') ?></label>
+                                    <input class="form-control" type="text" name="tax_vat" id="taxVat" readonly>
                                 </div>
 
-                            </div>
-                        </div>
-
-                        <!-- ========================= -->
-                        <!-- 5. FINANCEIRO -->
-                        <!-- ========================= -->
-                        <div class="soft-card mb-3" id="financeBlock">
-                            <h6 class="mb-3 fw-bold"><?= t('Preços') ?></h6>
-
-                            <div class="row g-3">
-
-                                <div class="col-md-4">
-                                    <label class="form-label"><?= t('Preço de Custo') ?></label>
-                                    <input type="number" class="form-control" name="cost_price" step="0.01">
+                                <div class="col-md-3">
+                                    <label class="form-label" for="pvp"><?= t('PVP (com IVA)') ?></label>
+                                    <input type="text" class="form-control bg-light" name="pvp" id="pvp" readonly tabindex="-1">
                                 </div>
 
-                                <div class="col-md-4">
-                                    <label class="form-label"><?= t('Preço de Venda') ?></label>
-                                    <input type="number" class="form-control" name="sale_price" step="0.01">
+                                <div class="col-md-3">
+                                    <label class="form-label" for="cost_price"><?= t('Preço de custo') ?> <small class="text-muted">(opcional)</small></label>
+                                    <input type="number" class="form-control" name="cost_price" id="cost_price" step="0.01" min="0">
                                 </div>
-
-                                <div class="col-md-4">
-                                    <label class="form-label"><?= t('PVP') ?></label>
-                                    <input type="number" class="form-control" name="pvp" step="0.01">
-                                </div>
-
                             </div>
                         </div>
 
@@ -920,5 +884,5 @@
 </script>
 
 <script src="/assets/js/preset_items.js?v=1.2"></script>
-<script src="/assets/js/quick_add.js?v=1.7"></script>
-<script src="/assets/js/modal_item.js?v=2.1"></script>
+<script src="/assets/js/quick_add.js?v=1.8"></script>
+<script src="/assets/js/modal_item.js?v=2.2"></script>

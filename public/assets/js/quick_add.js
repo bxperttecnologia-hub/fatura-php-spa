@@ -39,7 +39,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const nameInput = document.getElementById("name");
   const descricaoInput = document.getElementById("descricao");
   const unitMeasureSelect = document.querySelector("[name='unit_measure']");
-  const unitPriceInput = document.querySelector("[name='unit_price']");
+  // Campo visível do preço (o name="unit_price" é o campo escondido com o número)
+  const unitPriceInput = document.getElementById("unit_price_display") || document.querySelector("[name='unit_price']");
   const searchBox = quickSearch?.closest(".selector-search");
   const heading = document.getElementById("quickResultsHeading");
 

@@ -124,27 +124,19 @@ document.addEventListener("DOMContentLoaded", () => {
   function calculatePrice() {
     if (!pvpInput) return;
 
-    const unitPrice = parseFloat(unitPriceInput?.value) || 0;
-    const costPrice = parseFloat(costPriceInput?.value) || 0;
-    const salePrice = parseFloat(salePriceInput?.value) || 0;
-
+    // Preço sem IVA: o campo visível é formatado (money-inputs.js) e guarda o número em data-money-raw
+    const display = document.getElementById("unit_price_display");
+    const raw = display?.dataset.moneyRaw ?? display?.value ?? unitPriceInput?.value;
+    const unitPrice = parseFloat(String(raw ?? "").replace(/\s/g, "").replace(",", ".")) || 0;
     const tax = parseFloat(taxField?.value) || 0;
-    // BASE
-    let base = 0;
 
-    if (salePrice > 0) {
-      base = costPrice + salePrice;
-    } else {
-      base = costPrice + unitPrice;
-    }
-
-    // IVA
-    const ivaAmount = (base * tax) / 100;
-
-    // SUBTOTAL
-    const subtotal = base + ivaAmount;
-
-    pvpInput.value = subtotal.toFixed(2);
+    // O preço de venda é o próprio preço sem IVA; o PVP é esse preço com IVA.
+    // (antes somava o preço de custo ao de venda, o que inflacionava o PVP)
+    if (salePriceInput) salePriceInput.value = unitPrice ? unitPrice.toFixed(2) : "";
+    const pvp = unitPrice ? (unitPrice * (1 + tax / 100)).toFixed(2) : "";
+    // Pelo jQuery: o money-inputs.js formata o campo e guarda o número que é enviado
+    if (window.jQuery) window.jQuery(pvpInput).val(pvp);
+    else pvpInput.value = pvp;
   }
 
   // =========================
@@ -242,15 +234,10 @@ document.addEventListener("DOMContentLoaded", () => {
     codigoInput.addEventListener("blur", validateCode);
   }
 
-  // Inputs de preço
-  [unitPriceInput, costPriceInput, salePriceInput].forEach((input) => {
-    if (!input) return;
-
-    input.addEventListener("input", () => {
-      updateFiscal();
-      calculatePrice();
-    });
-  });
+  // Preço: recalcula o PVP ao escrever. Corre depois do money-inputs.js actualizar o valor.
+  const unitPriceDisplay = document.getElementById("unit_price_display");
+  unitPriceDisplay?.addEventListener("input", () => setTimeout(calculatePrice, 0));
+  unitPriceDisplay?.addEventListener("change", () => setTimeout(calculatePrice, 0));
 
   // =========================
   // INIT
@@ -266,6 +253,13 @@ $(document).ready(function () {
     const form = $("#itemForm")[0];
     const formData = new FormData(form);
 
+    // Campos de dinheiro (money-inputs.js) mostram "1 500,00": envia o número, senão o PHP lê 1.
+    form.querySelectorAll("input[name]").forEach((input) => {
+      if (input.dataset.moneyInitialized === "true") {
+        formData.set(input.name, input.dataset.moneyRaw ?? "");
+      }
+    });
+
     // =========================
     // ID
     // =========================
@@ -279,7 +273,7 @@ $(document).ready(function () {
     // =========================
     // TAX
     // =========================
-    formData.append("tax_vat", $("#taxVat").val());
+    formData.set("tax_vat", $("#taxVat").val());
 
     // =========================
     // URL
