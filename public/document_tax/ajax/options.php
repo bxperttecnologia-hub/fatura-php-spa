@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once __DIR__ . '/../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $date = trim((string)($_GET['date'] ?? date('Y-m-d')));
@@ -21,15 +22,27 @@ $stmt = $pdo->prepare(
 );
 $stmt->execute([session_company_id(), $date, $date]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$seen = [];
 $options = [
-    'withholding_6_5' => ['rate' => 6.5, 'base_type' => null, 'enabled' => false, 'configured' => false],
-    'ipu_rent' => ['rate' => 15.0, 'base_type' => null, 'enabled' => false, 'configured' => false],
+    'withholding_6_5' => null,
+    'ipu_rent' => null,
 ];
+// Sem regra própria da empresa, ficam as taxas legais por omissão (activas).
+foreach (array_keys($options) as $type) {
+    $default = bx_document_tax_default_configuration($type);
+    $options[$type] = [
+        'rate' => (float)$default['rate'],
+        'base_type' => $default['base_type'],
+        'enabled' => true,
+        'configured' => false,
+    ];
+}
 foreach ($rows as $row) {
     $type = (string)$row['tax_type'];
-    if (!isset($options[$type])) {
+    if (!array_key_exists($type, $options) || isset($seen[$type])) {
         continue;
     }
+    $seen[$type] = true;
     $options[$type] = [
         'rate' => (float)$row['rate'],
         'base_type' => (string)$row['base_type'],

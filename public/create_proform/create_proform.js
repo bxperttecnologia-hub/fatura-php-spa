@@ -1358,12 +1358,13 @@ $(document).ready(function () {
       const effectiveTaxRate = effectiveRate(taxNum);
       const ivaValue = (lineSubtotal * effectiveTaxRate) / 100;
       const selectedType = String($("#tax_withholding_type").val() || "none");
-      const expectedClassification = selectedType === "ipu_rent"
-        ? "rental_income"
+      // Entram na base os serviços, excepto os classificados para o outro imposto.
+      const otherClassification = selectedType === "ipu_rent"
+        ? "withholding_service"
         : selectedType === "withholding_6_5"
-          ? "withholding_service"
+          ? "rental_income"
           : "";
-      if (expectedClassification && classification === expectedClassification && itemType === "service") {
+      if (otherClassification && classification !== otherClassification && itemType === "service") {
         eligibleTaxBase += lineSubtotal;
         eligibleTaxVat += ivaValue;
         eligibleLineCount++;
@@ -1438,8 +1439,8 @@ $(document).ready(function () {
           : "Não existe configuração fiscal para esta empresa e data. Registe a vigência e a referência da validação legal em Definições da Empresa.";
       } else if (!eligibleLineCount) {
         validationMessage = selectedType === "ipu_rent"
-          ? "O IPU só pode ser aplicado a artigos de serviço classificados como rendimento de arrendamento."
-          : "A retenção só pode ser aplicada a artigos de serviço classificados como abrangidos.";
+          ? "O IPU só pode ser aplicado a artigos de serviço (rendas)."
+          : "A retenção só pode ser aplicada a artigos de serviço.";
       } else if (!$("#tax_withholding_confirmed").is(":checked")) {
         validationMessage = "Confirme o enquadramento legal da operação e dos intervenientes.";
       } else if (selectedType === "withholding_6_5" && totalRetention > 0) {

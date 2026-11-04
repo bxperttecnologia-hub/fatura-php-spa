@@ -308,6 +308,36 @@ function bx_document_tax_withholding_types(): array
     ];
 }
 
+/**
+ * Taxas legais usadas quando a empresa não registou uma regra própria em Definições da Empresa:
+ * Retenção na Fonte 6,5% e IPU sobre rendas 15%, ambas sobre o valor sem IVA.
+ * Uma regra registada (mesmo inactiva) tem sempre prioridade.
+ */
+function bx_document_tax_default_configuration(string $type): array
+{
+    $defaults = [
+        'withholding_6_5' => 6.5,
+        'ipu_rent' => 15.0,
+    ];
+    if (!isset($defaults[$type])) {
+        throw new InvalidArgumentException('Tipo de imposto inválido.');
+    }
+
+    return ['rate' => $defaults[$type], 'base_type' => 'net_subtotal', 'enabled' => 1];
+}
+
+/** A linha entra na base do imposto: serviços, excepto os classificados para o outro imposto. */
+function bx_document_tax_line_is_eligible(array $item, string $type): bool
+{
+    if (($item['item_type'] ?? '') !== 'service') {
+        return false;
+    }
+    $classification = (string)($item['tax_classification'] ?? 'standard');
+    $otherClassification = $type === 'ipu_rent' ? 'withholding_service' : 'rental_income';
+
+    return $classification !== $otherClassification;
+}
+
 function bx_document_active_tax_configuration(PDO $pdo, int $companyId, string $type, string $date): array
 {
     if (!in_array($type, ['withholding_6_5', 'ipu_rent'], true)) {
@@ -326,7 +356,11 @@ function bx_document_active_tax_configuration(PDO $pdo, int $companyId, string $
     );
     $stmt->execute([$companyId, $type, $date, $date]);
     $configuration = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$configuration || (int)$configuration['enabled'] !== 1) {
+    // Sem regra própria da empresa, aplica a taxa legal por omissão.
+    if (!$configuration) {
+        $configuration = bx_document_tax_default_configuration($type);
+    }
+    if ((int)$configuration['enabled'] !== 1) {
         throw new RuntimeException('Este imposto não está configurado e validado para a data do documento.', 422);
     }
 
@@ -378,15 +412,11 @@ function bx_document_tax_withholding_summary(
         throw new InvalidArgumentException('A base de incidência do imposto não está configurada.');
     }
 
-    $eligibleClassification = $type === 'ipu_rent' ? 'rental_income' : 'withholding_service';
     $base = 0.0;
     $eligibleCount = 0;
     foreach ($items as $item) {
-        if (($item['tax_classification'] ?? 'standard') !== $eligibleClassification) {
+        if (!bx_document_tax_line_is_eligible($item, $type)) {
             continue;
-        }
-        if (($item['item_type'] ?? '') !== 'service') {
-            throw new InvalidArgumentException('A retenção e o IPU só podem incidir sobre linhas de serviço classificadas para esse efeito.');
         }
 
         $eligibleCount++;
@@ -397,8 +427,8 @@ function bx_document_tax_withholding_summary(
     }
     if ($eligibleCount === 0) {
         $message = $type === 'ipu_rent'
-            ? 'O IPU só pode ser aplicado a linhas de serviço classificadas como rendimento de renda.'
-            : 'A retenção na fonte só pode ser aplicada a serviços classificados como abrangidos.';
+            ? 'O IPU só pode ser aplicado a linhas de serviço (rendas).'
+            : 'A retenção na fonte só pode ser aplicada a linhas de serviço.';
         throw new InvalidArgumentException($message);
     }
     if (bx_document_retention_total($items) > 0) {
