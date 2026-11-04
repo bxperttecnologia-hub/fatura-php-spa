@@ -35,8 +35,8 @@ $invTheme      = 'dark';
         --inv-field-border: #3030301e;
         --inv-text: #000;
         --inv-muted: #8593ad;
-        --inv-primary: #0d8bdc;
-        --inv-primary-hover: #26a0ee;
+        --inv-primary: #007abd;
+        --inv-primary-hover: #025d8e;
         --inv-danger: #ef5b6b;
         --inv-radius-card: 24px;
         --inv-radius: 12px;
@@ -90,10 +90,6 @@ $invTheme      = 'dark';
         text-decoration: none;
     }
 
-    #cancelInvoiceBtn {
-        background: #ef5b6b;
-        color: #fff;
-    }
 
     .inv-back:hover {
         color: var(--inv-text);
@@ -109,7 +105,28 @@ $invTheme      = 'dark';
     .inv-top-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.9rem;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    /* Botões do topo ao estilo do resto da app (Clientes/Produtos): pílula azul + secundário branco */
+    .inv-top-actions .inv-btn {
+        height: 42px;
+        padding: 0 1.25rem;
+        border-radius: 999px;
+        font-size: 0.93rem;
+    }
+
+    .inv-top-actions .inv-btn-secondary {
+        background: #fff;
+        border-color: #e8edf4;
+        color: #344054;
+    }
+
+    .inv-top-actions .inv-btn-secondary:hover {
+        background: #f1f5f9;
+        border-color: #d5dde8;
+        color: #172033;
     }
 
     /* ---------- Botões ---------- */
@@ -969,7 +986,7 @@ $invTheme      = 'dark';
                 </div>
 
                 <div class="inv-top-actions">
-                    <button type="button" id="cancelInvoiceBtn" class="inv-btn inv-btn-dark" data-href="<?= $listUrl ?>">
+                    <button type="button" id="cancelInvoiceBtn" class="inv-btn inv-btn-secondary" data-href="<?= $listUrl ?>">
                         <?= t('Cancelar') ?>
                     </button>
                     <button type="button" id="saveInvoiceBtn" class="inv-btn inv-btn-primary">
