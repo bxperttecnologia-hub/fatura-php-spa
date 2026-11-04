@@ -201,6 +201,7 @@ require_once '../app/views/layout_creation.php';
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
                     <button type="button" class="btn btn-outline-secondary" id="agtSync" disabled>Sincronizar com a AGT</button>
+                    <button type="button" class="btn btn-outline-primary" id="agtCreateDefaults" disabled>Criar séries em falta</button>
                     <button type="button" class="btn btn-primary" id="agtNewSeries" disabled>Nova série</button>
                 </div>
             </div>
@@ -372,6 +373,7 @@ require_once '../app/views/layout_creation.php';
             document.getElementById('agtKeyUpdated').textContent = new Date(settings.updated_at.replace(' ', 'T')).toLocaleString('pt-PT');
         }
         document.getElementById('agtSync').disabled = !settings;
+        document.getElementById('agtCreateDefaults').disabled = !settings;
         document.getElementById('agtNewSeries').disabled = !settings;
         document.getElementById('agtOptionsCard').classList.toggle('d-none', !settings);
         document.getElementById('agtDocsCard').classList.toggle('d-none', !settings);
@@ -509,6 +511,24 @@ require_once '../app/views/layout_creation.php';
             Swal.fire({ icon: 'success', title: data.message, timer: 2200, showConfirmButton: false });
         } catch (e) {
             Swal.fire('Sincronização falhou', e.message, 'error');
+        } finally {
+            busy(button, false);
+        }
+    });
+
+    document.getElementById('agtCreateDefaults').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        const fd = new FormData();
+        fd.append('defaults', '1');
+        fd.append('year', state.year);
+        busy(button, true, 'A pedir à AGT…');
+        try {
+            const data = await call('create_series', fd);
+            render(data);
+            const failed = data.created.some((c) => !c.success);
+            Swal.fire({ icon: failed ? 'warning' : 'success', title: data.message, html: createdSummary(data.created) });
+        } catch (e) {
+            Swal.fire('Não foi possível criar', e.message, 'error');
         } finally {
             busy(button, false);
         }

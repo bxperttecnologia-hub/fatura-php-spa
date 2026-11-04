@@ -6,7 +6,8 @@
   const selector = 'input:not([type]), input[type="text"], input[type="number"]';
 
   function isMoneyInput(input) {
-    if (!(input instanceof HTMLInputElement) || input.type === 'hidden' || input.disabled) return false;
+    // Só campos de texto/número: checkboxes e radios cujo rótulo diga "Crédito" (ex.: Nota de Crédito) perdiam o valor.
+    if (!(input instanceof HTMLInputElement) || !input.matches(selector) || input.disabled) return false;
     if (input.hasAttribute('data-money-input') || input.hasAttribute('data-price-display')) return true;
 
     const attributes = [
