@@ -2848,14 +2848,37 @@
         confirmButtonText: "Sim, finalizar",
       }).then((result) => {
         if (result.isConfirmed) {
-          $.post(
-            "invoices/ajax/update_status.php",
-            {
+          // A emissão espera pela resposta da API Node/AGT: bloqueia o ecrã até lá
+          // (sem duplo clique) e só depois mostra o documento atualizado.
+          $("#btnFinalizar").prop("disabled", true);
+          Swal.fire({
+            title: isReceipt ? "A emitir a Factura/Recibo…" : "A emitir a factura…",
+            html: agtConfig.enabled ? "A enviar à AGT e a aguardar a resposta. Não feche esta janela." : "Aguarde…",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading(),
+          });
+          $.ajax({
+            url: "invoices/ajax/update_status.php",
+            method: "POST",
+            dataType: "json",
+            timeout: 120000,
+            data: {
               invoice_id: currentInvoice.id,
               new_status: "Finalizada",
               document_type: document_type,
             },
-            function (res) {
+          }).fail((xhr, status) => {
+            $("#btnFinalizar").prop("disabled", false);
+            Swal.fire(
+              "Erro",
+              status === "timeout"
+                ? "O serviço de faturação eletrónica não respondeu a tempo. Atualize a página para ver o estado da factura."
+                : xhr?.responseJSON?.error || "Não foi possível emitir a factura. Tente novamente.",
+              "error",
+            );
+          }).done(function (res) {
+              $("#btnFinalizar").prop("disabled", false);
               if (res.success) {
                 const agt = res.agt;
                 const agtFailed = agt && ["error", "invalid"].includes(agt.status);
@@ -2879,9 +2902,7 @@
                   "error",
                 );
               }
-            },
-            "json",
-          );
+          });
         }
       });
     });
