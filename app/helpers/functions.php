@@ -59,15 +59,12 @@ function currencySelects($iso = null)
         $options = '';
         global $pdo;
 
-        // Pega ISO da sessão como fallback
-        $userIso = $_SESSION['user']['iso_code'] ?? '';
-
-        $stmt = $pdo->query("SELECT iso_code, currency FROM currencies ORDER BY currency");
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $selectedIso = $iso ?? $userIso;
-            $selected = ($row['iso_code'] === $selectedIso) ? 'selected' : '';
-            $options .= "<option value='{$row['iso_code']}' {$selected}>{$row['currency']} ({$row['iso_code']})</option>";
-        }
+        // Por agora o sistema só trabalha em Kwanza (AOA): é a única opção e vem sempre seleccionada.
+        // Antes listava todas as moedas e, sem moeda no utilizador, ficava escolhida a primeira (AFN).
+        $stmt = $pdo->prepare("SELECT iso_code, currency FROM currencies WHERE iso_code = ?");
+        $stmt->execute([(defined('BX_DEFAULT_CURRENCY') ? BX_DEFAULT_CURRENCY : 'AOA')]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['iso_code' => (defined('BX_DEFAULT_CURRENCY') ? BX_DEFAULT_CURRENCY : 'AOA'), 'currency' => 'Kwanza Angolano'];
+        $options .= "<option value='{$row['iso_code']}' selected>{$row['currency']} ({$row['iso_code']})</option>";
     } catch (PDOException $e) {
         $options =  '<option disabled>' . t('Erro ao carregar moedas') . '</option>';
     }

@@ -1,5 +1,10 @@
 <?php
 
+/** Moeda única do sistema por agora: Kwanza. */
+if (!defined('BX_DEFAULT_CURRENCY')) {
+  define('BX_DEFAULT_CURRENCY', 'AOA');
+}
+
 function bx_currency_iso_code(?string $currencyCode): string
 {
   $code = strtoupper(trim((string)$currencyCode));
@@ -21,11 +26,6 @@ function bx_currency_display_symbol(?string $currencyCode, ?string $configuredSy
  */
 function bx_document_currency(PDO $pdo, ?string $currencyCode): string
 {
-  $code = bx_currency_iso_code($currencyCode) ?: 'AOA';
-  $stmt = $pdo->prepare('SELECT 1 FROM currencies WHERE iso_code = ? LIMIT 1');
-  $stmt->execute([$code]);
-  if (!$stmt->fetchColumn()) {
-    throw new InvalidArgumentException('Moeda inválida: ' . $code . '. Escolha uma moeda da lista.');
-  }
-  return $code;
+  // Por agora todos os documentos são emitidos em Kwanza, seja qual for a moeda enviada.
+  return BX_DEFAULT_CURRENCY;
 }

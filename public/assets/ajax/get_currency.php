@@ -6,13 +6,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isset($_SESSION['user']['currency'])) {
-    echo json_encode(["error" => "Moeda não definida na sessão"]);
-    exit;
-}
-
-// A sessão guarda o nome da moeda (ex.: "Kwanza Angolano") em 'currency' e o código ISO em 'iso_code'.
-$currency_code = $_SESSION['user']['iso_code'] ?? $_SESSION['user']['currency'];
+// Por agora o sistema só trabalha em Kwanza (AOA), seja qual for a moeda do utilizador.
+$currency_code = 'AOA';
 
 try {
     $stmt = $pdo->prepare("SELECT symbol, position FROM currencies WHERE iso_code = :currency_code");

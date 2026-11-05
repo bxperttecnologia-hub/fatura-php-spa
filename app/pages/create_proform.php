@@ -1434,8 +1434,8 @@ $invTheme      = 'dark';
     }
 
     /* ===== MOEDA ===== */
-    window.userCurrency = <?= json_encode($_SESSION['user']['iso_code'] ?? 'AOA', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    window.currencySymbol = <?= json_encode($_SESSION['user']['symbol'] ?? 'Kz', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    window.userCurrency = "AOA"; // só Kwanza por agora
+    window.currencySymbol = "Kz";
     window.currencyPosition = <?= json_encode($_SESSION['user']['position'] ?? 'left', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
     /* ===== SÉRIE ===== */
