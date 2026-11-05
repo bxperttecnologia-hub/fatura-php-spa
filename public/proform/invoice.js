@@ -143,7 +143,7 @@ $(function () {
       $("#btnFinalizar, #btnEditar").removeClass("d-none");
     }
 
-    $("#btnPdf, #generatePdf, #btnEnviar").removeClass("d-none");
+    $("#btnPdf, #generatePdf, #btnEnviar, #btnPreviewProform").removeClass("d-none");
     $("#btnNotaCredito").removeClass("d-none");
     if (Number(inv.converted_invoice_id) > 0) {
       $("#btnDocumentHistory").removeClass("d-none");
@@ -316,6 +316,77 @@ $(function () {
   }
 
   $("#btnPdf, #generatePdf").on("click", gerarPdfProforma);
+
+  // Pré-visualizar e imprimir (como na fatura): mostra o PDF do documento à vista
+  // (a proforma ou o que estiver escolhido no histórico) com Imprimir e Baixar PDF.
+  async function previewProformPdf() {
+    const selected = window.BXDocumentHistory?.getSelectedDocument();
+    const documentId = Number(selected?.id || currentInvoice?.id);
+    if (!currentInvoice || documentId <= 0) {
+      Swal.fire("Pré-visualizar", "Os dados da proforma ainda não estão disponíveis. Atualize a página.", "error");
+      return;
+    }
+    const name = String(selected?.number || currentInvoice.reference || "proforma").replace(/[\\/:*?"<>|]+/g, "-");
+    let url = null;
+    Swal.fire({
+      title: "Pré-visualizar e imprimir",
+      width: "min(1000px, 96vw)",
+      html: `<div id="pfPreviewBox" style="height:75vh;display:flex;align-items:center;justify-content:center">
+               <div class="spinner-border" role="status" style="color:#007abd"></div></div>`,
+      showConfirmButton: true,
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: '<i class="bi bi-printer"></i> Imprimir',
+      denyButtonText: '<i class="bi bi-download"></i> Baixar PDF',
+      cancelButtonText: "Fechar",
+      confirmButtonColor: "#007abd",
+      denyButtonColor: "#6c757d",
+      preConfirm: () => {
+        const frame = document.getElementById("pfPreviewFrame");
+        if (frame?.contentWindow) { frame.contentWindow.focus(); frame.contentWindow.print(); }
+        return false;   // mantém a janela aberta
+      },
+      preDeny: () => {
+        if (!url) return false;
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${name}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return false;
+      },
+      didOpen: async () => {
+        Swal.getConfirmButton().disabled = true;
+        Swal.getDenyButton().disabled = true;
+        try {
+          const blob = selected && !selected.isRoot && window.BXDocumentHistory?.fetchPdf
+            ? await window.BXDocumentHistory.fetchPdf(selected)
+            : await (async () => {
+                const r = await fetch(`/api/documents/proformas/${encodeURIComponent(documentId)}/pdf`, {
+                  credentials: "same-origin", headers: { Accept: "application/pdf" },
+                });
+                const b = await r.blob();
+                if (!r.ok || (await b.slice(0, 5).text()) !== "%PDF-") throw new Error(`Não foi possível gerar o PDF (${r.status}).`);
+                return b;
+              })();
+          url = URL.createObjectURL(blob);
+          const box = document.getElementById("pfPreviewBox");
+          if (!box) return;
+          box.innerHTML = `<iframe id="pfPreviewFrame" title="Pré-visualização da proforma" src="${url}" style="width:100%;height:100%;border:0"></iframe>`;
+          Swal.getConfirmButton().disabled = false;
+          Swal.getDenyButton().disabled = false;
+        } catch (error) {
+          const box = document.getElementById("pfPreviewBox");
+          if (box) box.innerHTML = `<div class="text-danger">${String(error.message || "Erro ao gerar o PDF.").replace(/[<>&]/g, "")}</div>`;
+        }
+      },
+      willClose: () => {
+        if (url) window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+    });
+  }
+  $("#btnPreviewProform").off("click").on("click", previewProformPdf);
 
   $("#btnPagamentoRecibo").on("click", function () {
     if (!currentInvoice?.converted_invoice_id) {

@@ -339,6 +339,10 @@ try {
                     <i class="bi bi-check-circle" aria-hidden="true"></i>
                     Emitir Fatura
                 </button>
+                <button type="button" class="bx-btn-secondary d-none" id="btnPreviewProform" aria-label="Pré-visualizar e imprimir a proforma">
+                    <i class="bi bi-printer" aria-hidden="true"></i>
+                    Pré-visualizar
+                </button>
                 <button type="button" class="bx-btn-primary d-none" id="generatePdf" aria-label="Baixar PDF da proforma">
                     <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
                     Imprimir / Baixar PDF
@@ -628,6 +632,6 @@ try {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="proform/invoice.js?v=1.0"></script>
+<script src="proform/invoice.js?v=1.1"></script>
 
 <?php require_once '../app/views/footer.php'; ?>
