@@ -148,6 +148,13 @@ function agt_sync_series(PDO $pdo, int $companyId, string $environment, array $c
     return $updated;
 }
 
+/** A AGT aceitou uma operação assinada com a chave atual: deixa de estar "por validar". */
+function agt_mark_key_validated(PDO $pdo, int $companyId): void
+{
+    $pdo->prepare('UPDATE agt_settings SET key_validated_at = NOW() WHERE company_id = ? AND key_validated_at IS NULL')
+        ->execute([$companyId]);
+}
+
 /** Tipos base que ainda não têm série normal ativa (não fechada) no ano indicado. */
 function agt_missing_default_types(PDO $pdo, int $companyId, string $environment, int $year): array
 {
@@ -175,6 +182,8 @@ function agt_status_payload(PDO $pdo, int $companyId, string $environment): arra
             'exemption_code' => $settings['exemption_code'],
             'key_fingerprint' => substr($settings['key_fingerprint'], 0, 16),
             'key_bits' => (int) $settings['key_bits'],
+            'key_validated' => !empty($settings['key_validated_at']),
+            'key_validated_at' => $settings['key_validated_at'] ?? null,
             'environment' => $settings['environment'],
             'updated_at' => $settings['updated_at'],
         ] : null,
@@ -215,18 +224,19 @@ try {
 
             $previous = agt_settings($pdo, $companyId);
             $pdo->prepare("
-                INSERT INTO agt_settings (company_id, environment, tax_id, establishment, private_key_enc, key_fingerprint, key_bits, updated_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO agt_settings (company_id, environment, tax_id, establishment, private_key_enc, key_fingerprint, key_bits, key_validated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
                 ON DUPLICATE KEY UPDATE environment = VALUES(environment), tax_id = VALUES(tax_id),
                     establishment = VALUES(establishment), private_key_enc = VALUES(private_key_enc),
-                    key_fingerprint = VALUES(key_fingerprint), key_bits = VALUES(key_bits), updated_by = VALUES(updated_by)
+                    key_fingerprint = VALUES(key_fingerprint), key_bits = VALUES(key_bits),
+                    key_validated_at = NULL, updated_by = VALUES(updated_by)
             ")->execute([$companyId, $environment, $taxId, $establishment, agt_encrypt($key['pem']), $key['fingerprint'], $key['bits'], $userId]);
 
             // Repõe a chave anterior (ou nenhuma) quando a AGT não valida a nova.
             $restorePrevious = static function () use ($pdo, $previous, $companyId): void {
                 if ($previous) {
-                    $pdo->prepare('UPDATE agt_settings SET environment = ?, tax_id = ?, establishment = ?, private_key_enc = ?, key_fingerprint = ?, key_bits = ? WHERE company_id = ?')
-                        ->execute([$previous['environment'], $previous['tax_id'], $previous['establishment'], $previous['private_key_enc'], $previous['key_fingerprint'], $previous['key_bits'], $companyId]);
+                    $pdo->prepare('UPDATE agt_settings SET environment = ?, tax_id = ?, establishment = ?, private_key_enc = ?, key_fingerprint = ?, key_bits = ?, key_validated_at = ? WHERE company_id = ?')
+                        ->execute([$previous['environment'], $previous['tax_id'], $previous['establishment'], $previous['private_key_enc'], $previous['key_fingerprint'], $previous['key_bits'], $previous['key_validated_at'] ?? null, $companyId]);
                 } else {
                     $pdo->prepare('DELETE FROM agt_settings WHERE company_id = ?')->execute([$companyId]);
                 }
@@ -252,9 +262,15 @@ try {
                     $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, 'N');
                 }
             } catch (AgtUnavailableException $e) {
-                // A AGT não respondeu: não se sabe se a chave é válida, por isso não fica guardada.
-                $restorePrevious();
-                agt_respond(503, ['success' => false, 'unavailable' => true, 'message' => $e->getMessage()]);
+                // A AGT não respondeu: a chave (já verificada localmente: formato RSA) fica guardada
+                // "por validar". Valida-se em "Sincronizar com a AGT" quando a AGT voltar.
+                agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
+                    'pending_validation' => true,
+                    'message' => 'Chave guardada, por validar.',
+                    'detail' => 'O servidor da AGT não está a responder neste momento. A chave ficou guardada; quando a AGT voltar, '
+                        . 'clique em "Sincronizar com a AGT" para a validar e criar as séries.',
+                    'created' => $created,
+                ]);
             } catch (AgtApiConfigException $e) {
                 // A API adaptadora recusou a AGT_API_KEY: problema de configuração, a chave não foi sequer avaliada.
                 $restorePrevious();
@@ -268,7 +284,9 @@ try {
             // A chave só fica guardada se a AGT aceitar pelo menos uma operação assinada com ela
             // (a AGT valida a adesão (E06) antes da assinatura, por isso um erro não prova que a chave é boa).
             $accepted = $syncError === null || count(array_filter($created, static fn($c) => $c['success'])) > 0;
-            if (!$accepted) {
+            if ($accepted) {
+                agt_mark_key_validated($pdo, $companyId);
+            } else {
                 $restorePrevious();
                 $errors = array_values(array_unique(array_filter(array_merge(
                     [$syncError],
@@ -332,9 +350,33 @@ try {
             ]);
 
         case 'sync':
-            $count = agt_sync_series($pdo, $companyId, $environment, agt_credentials($pdo, $companyId));
+            $settingsBefore = agt_settings($pdo, $companyId);
+            $wasPending = $settingsBefore && empty($settingsBefore['key_validated_at']);
+            $creds = agt_credentials($pdo, $companyId);
+            try {
+                $count = agt_sync_series($pdo, $companyId, $environment, $creds);
+            } catch (AgtUnavailableException | AgtApiConfigException $e) {
+                throw $e;
+            } catch (RuntimeException $e) {
+                if ($wasPending && str_contains($e->getMessage(), 'E40')) {
+                    agt_respond(422, ['success' => false, 'message' => 'A AGT não reconheceu a chave guardada para o NIF ' . $creds['tax_id']
+                        . '. Carregue a chave privada correta obtida no Portal do Contribuinte.', 'errors' => [$e->getMessage()]]);
+                }
+                throw $e;
+            }
+            agt_mark_key_validated($pdo, $companyId);
+
+            // Chave guardada com a AGT em baixo: agora que foi aceite, cria as séries base em falta.
+            $created = [];
+            if ($wasPending) {
+                $year = (int) date('Y');
+                foreach (agt_missing_default_types($pdo, $companyId, $environment, $year) as $type) {
+                    $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $creds['establishment'], 'N');
+                }
+            }
             agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
-                'message' => $count . ' série(s) atualizada(s) a partir da AGT.',
+                'message' => ($wasPending ? 'Chave validada pela AGT. ' : '') . $count . ' série(s) atualizada(s) a partir da AGT.',
+                'created' => $created,
             ]);
 
         case 'set_default':

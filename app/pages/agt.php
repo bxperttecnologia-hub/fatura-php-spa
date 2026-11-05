@@ -163,6 +163,12 @@ require_once '../app/views/layout_creation.php';
                 <div><span>Estabelecimento</span><strong id="agtKeyEstablishment">—</strong></div>
                 <div><span>Chave</span><strong id="agtKeyInfo">—</strong></div>
                 <div><span>Atualizada em</span><strong id="agtKeyUpdated">—</strong></div>
+                <div><span>Validação AGT</span><strong id="agtKeyValidation">—</strong></div>
+            </div>
+            <div class="alert alert-warning small d-none" id="agtKeyPending">
+                <i class="bi bi-hourglass-split me-1"></i>
+                A chave está guardada mas <b>ainda não foi validada pela AGT</b> (a AGT estava indisponível).
+                Quando a AGT voltar, clique em <b>Sincronizar com a AGT</b> para a validar e criar as séries.
             </div>
 
             <form id="agtKeyForm" class="row g-3" autocomplete="off">
@@ -371,7 +377,11 @@ require_once '../app/views/layout_creation.php';
             document.getElementById('agtKeyEstablishment').textContent = settings.establishment;
             document.getElementById('agtKeyInfo').textContent = `RSA ${settings.key_bits} · ${settings.key_fingerprint}`;
             document.getElementById('agtKeyUpdated').textContent = new Date(settings.updated_at.replace(' ', 'T')).toLocaleString('pt-PT');
+            document.getElementById('agtKeyValidation').innerHTML = settings.key_validated
+                ? '<span class="text-success">Validada</span>'
+                : '<span class="text-warning">Por validar</span>';
         }
+        document.getElementById('agtKeyPending').classList.toggle('d-none', !settings || settings.key_validated);
         document.getElementById('agtSync').disabled = !settings;
         document.getElementById('agtCreateDefaults').disabled = !settings;
         document.getElementById('agtNewSeries').disabled = !settings;
@@ -484,6 +494,10 @@ require_once '../app/views/layout_creation.php';
             const data = await call('save_key', fd);
             form.reset();
             render(data);
+            if (data.pending_validation) {
+                Swal.fire({ icon: 'warning', title: data.message, text: data.detail });
+                return;
+            }
             const failed = (data.created || []).some((c) => !c.success);
             Swal.fire({
                 icon: failed ? 'warning' : 'success',
@@ -508,7 +522,12 @@ require_once '../app/views/layout_creation.php';
         try {
             const data = await call('sync', new FormData());
             render(data);
-            Swal.fire({ icon: 'success', title: data.message, timer: 2200, showConfirmButton: false });
+            if ((data.created || []).length) {
+                const failed = data.created.some((c) => !c.success);
+                Swal.fire({ icon: failed ? 'warning' : 'success', title: data.message, html: createdSummary(data.created) });
+            } else {
+                Swal.fire({ icon: 'success', title: data.message, timer: 2200, showConfirmButton: false });
+            }
         } catch (e) {
             Swal.fire('Sincronização falhou', e.message, 'error');
         } finally {
