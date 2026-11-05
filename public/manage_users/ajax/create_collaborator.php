@@ -1,6 +1,7 @@
 <?php
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/subscription.php';
+require_once '../../../app/helpers/password_generator.php';
 require_once '../../../vendor/autoload.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -150,7 +151,7 @@ try {
 
         // Se não vier senha, gera uma temporária
         if ($password === '') {
-            $password = bin2hex(random_bytes(4)); // 8 chars
+            $password = bx_generate_temp_password(8);
             $generatedPassword = $password;
         }
 

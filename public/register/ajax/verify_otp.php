@@ -8,6 +8,7 @@ ob_start();
 
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/otp.php';
+require_once '../../../app/helpers/password_generator.php';
 
 if (ob_get_length()) ob_clean();
 
@@ -66,7 +67,7 @@ try {
 
     // Código correto: cria a conta com uma senha aleatória que será enviada por SMS após a criação da empresa.
     $username = gerarUsername($pdo, $v['name']);
-    $password = bin2hex(random_bytes(8));
+    $password = bx_generate_temp_password(8);
     $agora    = date('Y-m-d H:i:s');
     $email    = 'phone-' . hash('sha256', $v['phone']) . '@users.bxpert.invalid';
 
