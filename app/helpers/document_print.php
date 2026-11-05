@@ -55,3 +55,34 @@ function bx_join_address(array $parts): string
     }
     return implode(', ', $clean);
 }
+
+/**
+ * Rodapé dos PDF (Dompdf) igual ao da fatura, desenhado depois do render em posições fixas da
+ * folha A4 (as mesmas da fatura): QR à esquerda, "Software certificado pela AGT | Nº …",
+ * "Powered by BXPERT" e "Página n de N". O modelo deve deixar livres os últimos ~70pt da página.
+ * $qrSrc: data URI PNG do QR (ou null).
+ */
+function bx_pdf_footer(\Dompdf\Dompdf $dompdf, ?string $qrSrc = null): void
+{
+    $qrFile = null;
+    if ($qrSrc && preg_match('~^data:image/png;base64,(.+)$~', $qrSrc, $m)) {
+        $qrFile = tempnam(sys_get_temp_dir(), 'bxqr') . '.png';
+        file_put_contents($qrFile, base64_decode($m[1]));
+    }
+    $cert = 'Software certificado pela AGT | Nº ' . bx_software_certificate();
+    $dompdf->getCanvas()->page_script(static function (int $page, int $count, $canvas, $metrics) use ($qrFile, $cert): void {
+        $font = $metrics->getFont('Helvetica', 'normal');
+        if ($qrFile) {
+            $canvas->image($qrFile, 49.2, 776.7, 45, 45);
+        }
+        $canvas->text(112.3, 795.5, $cert, $font, 8, [0, 0, 0]);
+        $canvas->text(112.3, 804.75, 'Powered by BXPERT', $font, 8, [0, 0, 0]);
+        $label = "Página {$page} de {$count}";
+        $canvas->text(550 - $metrics->getTextWidth($label, $font, 8), 795.5, $label, $font, 8, [0, 0, 0]);
+    });
+    if ($qrFile) {
+        register_shutdown_function(static function () use ($qrFile): void {
+            @unlink($qrFile);
+        });
+    }
+}

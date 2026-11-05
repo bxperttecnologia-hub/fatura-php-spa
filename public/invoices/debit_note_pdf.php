@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../app/config/db.php';
 require_once __DIR__ . '/../../app/helpers/company_logo.php';
 require_once __DIR__ . '/../../app/helpers/agt.php';
 require_once __DIR__ . '/../../app/helpers/agt_qr.php';
+require_once __DIR__ . '/../../app/helpers/document_print.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -43,6 +44,7 @@ SELECT
     comp.email AS company_email,
     comp.registration_number AS company_nif,
     comp.logo_url,
+    comp.vat_regime,
 
     c.name AS client_name,
     c.email AS client_email,
@@ -107,7 +109,7 @@ $logo = company_logo_pdf_src($d['logo_url'] ?? '') ?: company_logo_src($d['logo_
 $agtNumber = agt_parse_document_no($d['reference'] ?? null) ? (string)$d['reference'] : null;
 $number   = h($agtNumber ?? ($d['serie'] . ' ' . $d['number']));
 $agtQrUrl = $agtNumber ? agt_qr_url((string)$d['company_nif'], $agtNumber) : null;
-$qrHtml   = $agtQrUrl ? '<img src="' . agt_qr_image($agtQrUrl) . '" style="width:95px;height:95px">' : '';
+$qrSrc    = $agtQrUrl ? agt_qr_image($agtQrUrl) : null;   // vai para o rodapé comum (bx_pdf_footer)
 $issue    = $d['issue_date'] ? date('d/m/Y', strtotime($d['issue_date'])) : '-';
 $invRef   = $d['invoice_reference'] ?: $d['invoice_id'];
 $currency = h($d['currency']);
@@ -119,7 +121,7 @@ foreach ($items as $n => $it) {
   $lineBase = round($gross - $discount, 2);
   $rows .= '<tr>'
     . '<td class="c">' . ($n + 1) . '</td>'
-    . '<td>' . h($it['description']) . '</td>'
+    . '<td>' . h(bx_plain_text($it['description'])) . '</td>'
     . '<td class="r">' . qty($it['quantity']) . '</td>'
     . '<td class="r">' . money($it['unit_price']) . '</td>'
     . '<td class="r">' . rtrim(rtrim(number_format((float)$it['tax'], 2, ',', '.'), '0'), ',') . '%</td>'
@@ -133,7 +135,7 @@ $html = '
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { margin: 30px 35px; }
+  @page { margin: 30px 35px 80px; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; }
   table { width: 100%; border-collapse: collapse; }
   td, th { vertical-align: top; }
@@ -210,16 +212,8 @@ $html = '
   <tr><td>IVA</td><td style="text-align:right">' . money($d['total_tax']) . ' ' . $currency . '</td></tr>
   <tr class="grand"><td>Total a débito</td><td style="text-align:right">' . money($d['final_total']) . ' ' . $currency . '</td></tr>
 </table>
-' . ($qrHtml !== '' ? '
-<table style="margin-top:24px">
-  <tr>
-    <td style="width:110px">' . $qrHtml . '</td>
-    <td style="vertical-align:middle;font-size:10px">
-      Documento emitido no âmbito da faturação eletrónica da AGT.<br>
-      Consulte a autenticidade lendo o código QR.
-    </td>
-  </tr>
-</table>' : '') . '
+<p style="margin-top:18px"><strong>Regime de IVA:</strong> ' . h(bx_vat_regime_label($d['vat_regime'] ?? '')) . '</p>
+
 
 </body>
 </html>';
@@ -234,6 +228,7 @@ $dompdf = new Dompdf($options);
 $dompdf->setPaper('A4', 'portrait');
 $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->render();
+bx_pdf_footer($dompdf, $qrSrc);   // rodapé igual ao da fatura
 
 $dompdf->stream(
   'NotaDebito_' . preg_replace('/[^A-Za-z0-9_-]+/', '-', $agtNumber ?? ($d['serie'] . '-' . $d['number'])) . '.pdf',

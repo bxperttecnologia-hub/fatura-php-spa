@@ -101,8 +101,9 @@ function bx_generate_document_pdf(
     $dompdf->loadHtml($html, 'UTF-8');
     $dompdf->render();
     if ($showPageNumbers) {
-        $font = $dompdf->getFontMetrics()->getFont('Helvetica', 'normal');
-        $dompdf->getCanvas()->page_text(520, 820, '{PAGE_NUM} / {PAGE_COUNT}', $font, 8, [0, 0, 0]);
+        require_once __DIR__ . '/document_print.php';
+        // rodapé da fatura (QR, certificação, "Página n de N"); o modelo pode deixar o QR em $GLOBALS['bx_pdf_footer_qr']
+        bx_pdf_footer($dompdf, $GLOBALS['bx_pdf_footer_qr'] ?? null);
     }
 
     $temporaryPath = tempnam(sys_get_temp_dir(), $filePrefix);

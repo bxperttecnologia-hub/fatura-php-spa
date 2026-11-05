@@ -104,7 +104,7 @@ if (preg_match('~^(invoices|proformas|receipts|debit-notes|delivery-notes|credit
         case 'credit-notes':
             document_pdf_owned('SELECT 1 FROM credit_notes WHERE id = ? AND company_id = ?', $id);
             require_once __DIR__ . '/../app/helpers/document_pdf.php';
-            $file = bx_generate_document_pdf(__DIR__ . '/credit_notes/ajax/credit_note_public.php', $id, 'NC');
+            $file = bx_generate_document_pdf(__DIR__ . '/credit_notes/ajax/credit_note_public.php', $id, 'NC', true);
             header('Content-Type: application/pdf');
             header('Content-Disposition: inline; filename="nota-credito-' . $id . '.pdf"');
             header('Content-Length: ' . filesize($file));

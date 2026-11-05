@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/document_print.php';
 /**
  * Faturação eletrónica AGT — chave privada do contribuinte e séries de numeração.
  *
@@ -554,7 +555,7 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
         $line = [
             'operation_type' => $item['item_type'] === 'service' || $item['unit_measure'] === 'service' ? 'SG' : 'TB',
             'product_code' => (string) ($item['code'] ?: ('ITEM' . ($index + 1))),
-            'product_description' => mb_substr((string) ($item['name'] ?: 'Artigo'), 0, 200),
+            'product_description' => mb_substr(bx_plain_text((string) $item['name']) ?: 'Artigo', 0, 200),
             'quantity' => $qty,
             'unit_of_measure' => agt_unit_of_measure($item['unit_measure']),
             'unit_price_base' => $unitBase,

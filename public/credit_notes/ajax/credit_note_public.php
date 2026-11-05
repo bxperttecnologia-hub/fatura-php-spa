@@ -5,6 +5,7 @@ require_once '../../../app/helpers/company_logo.php';
 require_once '../../../app/helpers/document_tax.php';
 require_once __DIR__ . '/../../../vendor/autoload.php';
 require_once __DIR__ . '/../../../app/helpers/agt.php';
+require_once __DIR__ . '/../../../app/helpers/document_print.php';
 $sessionCompanyId = session_company_id();
 
 /*
@@ -22,7 +23,8 @@ function formatCurrency(
 
   $formatted = number_format(abs($value), 2, ',', '.');
 
-  $prefix = $asCredit ? '-' : '';
+  // Só o sumário leva o sinal de crédito, e nunca em zero ("-0,00").
+  $prefix = ($asCredit && round(abs($value), 2) > 0) ? '-' : '';
 
   return $currencyPosition === 'left'
     ? "{$prefix}{$currencySymbol} {$formatted}"
@@ -224,7 +226,8 @@ if ($grossTotalForDisplay === 0.0 && (float)($cn['final_total'] ?? 0) !== 0.0) {
 |--------------------------------------------------------------------------
 */
 
-$logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
+// data URI: o Dompdf não carrega imagens remotas nem pede o logo ao próprio servidor
+$logo = company_logo_pdf_src($cn['logo_url'] ?? '') ?: company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
 ?>
 
@@ -609,8 +612,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
               </td>
 
               <td>
-                <?= nl2br(htmlspecialchars($cn['client_address'])) ?>,
-                <?= htmlspecialchars("{$cn['client_city']} - {$cn['client_country']}") ?>
+                <?= htmlspecialchars(bx_join_address([$cn['client_address'] ?? '', $cn['client_city'] ?? '', $cn['client_country'] ?? '']) ?: '-') ?>
               </td>
             </tr>
 
@@ -695,7 +697,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
             </td>
 
             <td class="text-right nowrap">
-              <?= formatCurrency($price, $currencySymbol, $currencyPos, true) ?>
+              <?= formatCurrency($price, $currencySymbol, $currencyPos) ?>
             </td>
 
             <td class="text-center nowrap">
@@ -711,7 +713,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
             </td>
 
             <td class="text-right nowrap">
-              <?= formatCurrency($line, $currencySymbol, $currencyPos, true) ?>
+              <?= formatCurrency($line, $currencySymbol, $currencyPos) ?>
             </td>
 
           </tr>
@@ -754,8 +756,8 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
                 <?php foreach ($creditTaxSummary['rows'] as $taxRow): ?>
                   <tr>
                     <td><?= number_format((float)$taxRow['rate'], 2, ',', '.') ?>%</td>
-                    <td><?= formatCurrency((float)$taxRow['base'], $currencySymbol, $currencyPos, true) ?></td>
-                    <td><?= formatCurrency((float)$taxRow['iva'], $currencySymbol, $currencyPos, true) ?></td>
+                    <td><?= formatCurrency((float)$taxRow['base'], $currencySymbol, $currencyPos) ?></td>
+                    <td><?= formatCurrency((float)$taxRow['iva'], $currencySymbol, $currencyPos) ?></td>
                   </tr>
                 <?php endforeach; ?>
               <?php endif; ?>
@@ -767,7 +769,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
             <strong>Regime de IVA:</strong>
 
-            <?= htmlspecialchars($cn['vat_regime'] ?? '-') ?>
+            <?= htmlspecialchars(bx_vat_regime_label($cn['vat_regime'] ?? '')) ?>
 
           </div>
 
@@ -918,17 +920,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
 
     </div>
 
-    <?php if ($noteQrSrc): ?>
-    <table style="margin-top:14px;width:auto">
-      <tr>
-        <td style="width:100px;vertical-align:middle"><img src="<?= $noteQrSrc ?>" alt="QR" style="width:90px;height:90px"></td>
-        <td style="vertical-align:middle;font-size:10px;padding-left:8px">
-          Documento emitido no âmbito da faturação eletrónica da AGT.<br>
-          Consulte a autenticidade lendo o código QR.
-        </td>
-      </tr>
-    </table>
-    <?php endif; ?>
+
 
     <!-- =========================
          ASSINATURA
@@ -942,34 +934,7 @@ $logo = company_logo_src($cn['logo_url'] ?? '', $BASE_URL);
          FOOTER
     ========================= -->
 
-    <footer class="inv-footer">
-
-      <div class="inv-footer-line">
-
-        <?= htmlspecialchars($cn['company_name'] ?? '-') ?>
-
-        |
-
-        <?= htmlspecialchars($cn['company_address'] ?? '-') ?>
-
-        |
-
-        <?= htmlspecialchars(
-          trim(($cn['company_city'] ?? '') . ' - ' . ($cn['company_country'] ?? ''))
-        ) ?>
-
-        |
-
-        Tel:
-        <?= htmlspecialchars($cn['company_phone'] ?? '-') ?>
-
-      </div>
-
-      <div class="page-number">
-        1 de 1
-      </div>
-
-    </footer>
+    <?php $GLOBALS['bx_pdf_footer_qr'] = $noteQrSrc ?: null;   // rodapé desenhado no PDF (bx_pdf_footer) ?>
 
   </main>
 

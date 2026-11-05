@@ -87,7 +87,7 @@ function agt_build_debit_note_request(PDO $pdo, array $note, array $invoice, arr
         $line = [
             'operation_type' => 'SG',
             'product_code' => 'ND' . ($index + 1),
-            'product_description' => mb_substr((string) ($item['description'] ?: 'Débito adicional'), 0, 200),
+            'product_description' => mb_substr(bx_plain_text((string) $item['description']) ?: 'Débito adicional', 0, 200),
             'quantity' => $qty,
             'unit_of_measure' => 'UN',
             'unit_price_base' => $unitBase,

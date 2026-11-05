@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../app/config/db.php';
 require_once __DIR__ . '/../../app/helpers/company_logo.php';
 require_once __DIR__ . '/../../app/helpers/agt_qr.php';
 require_once __DIR__ . '/../../app/helpers/agt.php';
+require_once __DIR__ . '/../../app/helpers/document_print.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -69,7 +70,9 @@ SELECT
     c.name AS client_name,
     c.email AS client_email,
     c.contributor AS client_contributor,
-    c.address AS client_address
+    c.address AS client_address,
+    c.city AS client_city,
+    c.country AS client_country
 
 FROM receipts r
 
@@ -185,18 +188,13 @@ $retencaoLabel = trim((string)$d['tax_withholding_description']) !== ''
 $ivaPercent = (float)$d['subtotal_without_tax'] > 0 ? round($ivaFatura / (float)$d['subtotal_without_tax'] * 100, 2) : 0;
 $ivaLabel = $ivaFatura > 0 ? 'IVA - ' . rtrim(rtrim(number_format($ivaPercent, 2, ',', ''), '0'), ',') . '%' : 'Isento - 0%';
 
-$regimeIva = match (strtolower((string)($d['vat_regime'] ?? ''))) {
-  'geral'        => 'Regime Geral',
-  'simplificado' => 'Regime Simplificado',
-  'isento'       => 'Regime de Exclusão',
-  default        => '-',
-};
+$regimeIva = bx_vat_regime_label($d['vat_regime'] ?? '');
+$clientAddress = bx_join_address([$d['client_address'] ?? '', $d['client_city'] ?? '', $d['client_country'] ?? '']);
 
 // Recibo emitido na faturação eletrónica: "RC <série>/<n>" e QR de consulta da AGT.
 $agtNumber = agt_parse_document_no($d['receipt_reference'] ?? null) ? $d['receipt_reference'] : null;
 $receiptTitle = $agtNumber ?? ('RG ' . $d['number'] . '/' . $d['serie']);
 $agtQrUrl = $agtNumber ? agt_qr_url((string)$d['company_nif'], $agtNumber) : null;
-$qrHtml = $agtQrUrl ? '<img src="' . agt_qr_image($agtQrUrl) . '" style="width:95px;height:95px">' : '';
 
 /*
 |--------------------------------------------------------------------------
@@ -422,7 +420,7 @@ $html = '
       position: fixed;
       left: 0;
       right: 0;
-      bottom: 15px;
+      bottom: 60pt;   /* por cima do rodapé comum (QR, certificação, página) */
       page-break-inside: avoid;
     }
 
@@ -475,13 +473,13 @@ $html .= '
                 Tel: ' . h($d['company_phone']) . '
               </div>
 
+' . (trim((string)($d['website'] ?? '')) !== '' ? '
               <div class="company-info">
-                Web: ' . h($d['website'] ?? '') . '
-              </div>
-
+                Web: ' . h($d['website']) . '
+              </div>' : '') . (trim((string)($d['company_email'] ?? '')) !== '' ? '
               <div class="company-info">
                 E-mail: ' . h($d['company_email']) . '
-              </div>
+              </div>' : '') . '
 
               <div class="company-info">
                 Contribuinte: ' . h($d['company_nif']) . '
@@ -501,11 +499,7 @@ $html .= '
         </div>
 
         <div class="client-info">
-          ' . nl2br(h($d['client_address'] ?? '')) . '
-        </div>
-
-        <div class="client-info">
-          Contribuinte: ' . h($d['client_contributor']) . '
+          ' . h($clientAddress) . '
         </div>
 
       </td>
@@ -549,7 +543,7 @@ $html .= '
     <tr>
 
       <td>
-        ' . date('Y-m-d', strtotime($d['pay_date'])) . '
+        ' . date('d/m/Y', strtotime($d['pay_date'])) . '
       </td>
 
       <td>
@@ -748,17 +742,6 @@ $html .= '
     <div class="fs12 mt10">
       ' . h($regimeIva) . '
     </div>
-' . ($qrHtml !== '' ? '
-    <table class="mt20">
-      <tr>
-        <td width="110">' . $qrHtml . '</td>
-        <td style="vertical-align:middle;font-size:10px">
-          Documento emitido no âmbito da faturação eletrónica da AGT.<br>
-          Consulte a autenticidade lendo o código QR.
-        </td>
-      </tr>
-    </table>
-' : '') . '
 
   </div>
 
@@ -785,6 +768,7 @@ $dompdf->setPaper('A4', 'portrait');
 $dompdf->loadHtml($html, 'UTF-8');
 
 $dompdf->render();
+bx_pdf_footer($dompdf, $agtQrUrl ? agt_qr_image($agtQrUrl) : null);   // rodapé igual ao da fatura
 
 $dompdf->stream(
   'Recibo_' . preg_replace('/[^A-Za-z0-9_-]+/', '-', $receiptTitle) . '.pdf',
