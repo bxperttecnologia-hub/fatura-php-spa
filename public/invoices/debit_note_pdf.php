@@ -3,6 +3,8 @@
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
 require_once __DIR__ . '/../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../app/helpers/agt.php';
+require_once __DIR__ . '/../../app/helpers/agt_qr.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -27,7 +29,7 @@ if (!$ndId) {
 
 $st = $pdo->prepare("
 SELECT
-    nd.id, nd.serie, nd.number, nd.issue_date, nd.reason, nd.currency,
+    nd.id, nd.serie, nd.number, nd.reference, nd.agt_status, nd.issue_date, nd.reason, nd.currency,
     nd.subtotal_without_tax, nd.total_tax, nd.final_total,
 
     i.id AS invoice_id,
@@ -101,7 +103,11 @@ $logo = company_logo_pdf_src($d['logo_url'] ?? '') ?: company_logo_src($d['logo_
 
 /* ---------------- HTML ---------------- */
 
-$number   = h($d['serie'] . ' ' . $d['number']);
+// ND da faturação eletrónica: "ND <série>/<n>" e QR de consulta da AGT.
+$agtNumber = agt_parse_document_no($d['reference'] ?? null) ? (string)$d['reference'] : null;
+$number   = h($agtNumber ?? ($d['serie'] . ' ' . $d['number']));
+$agtQrUrl = $agtNumber ? agt_qr_url((string)$d['company_nif'], $agtNumber) : null;
+$qrHtml   = $agtQrUrl ? '<img src="' . agt_qr_image($agtQrUrl) . '" style="width:95px;height:95px">' : '';
 $issue    = $d['issue_date'] ? date('d/m/Y', strtotime($d['issue_date'])) : '-';
 $invRef   = $d['invoice_reference'] ?: $d['invoice_id'];
 $currency = h($d['currency']);
@@ -204,6 +210,16 @@ $html = '
   <tr><td>IVA</td><td style="text-align:right">' . money($d['total_tax']) . ' ' . $currency . '</td></tr>
   <tr class="grand"><td>Total a débito</td><td style="text-align:right">' . money($d['final_total']) . ' ' . $currency . '</td></tr>
 </table>
+' . ($qrHtml !== '' ? '
+<table style="margin-top:24px">
+  <tr>
+    <td style="width:110px">' . $qrHtml . '</td>
+    <td style="vertical-align:middle;font-size:10px">
+      Documento emitido no âmbito da faturação eletrónica da AGT.<br>
+      Consulte a autenticidade lendo o código QR.
+    </td>
+  </tr>
+</table>' : '') . '
 
 </body>
 </html>';
@@ -220,6 +236,6 @@ $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->render();
 
 $dompdf->stream(
-  'NotaDebito_' . $d['serie'] . '-' . $d['number'] . '.pdf',
+  'NotaDebito_' . preg_replace('/[^A-Za-z0-9_-]+/', '-', $agtNumber ?? ($d['serie'] . '-' . $d['number'])) . '.pdf',
   ['Attachment' => false]   // inline: a pré-visualização (iframe) mostra-o em vez de o descarregar
 );

@@ -1,13 +1,19 @@
 <?php
+/**
+ * Emite uma nota de débito sobre uma fatura finalizada.
+ *
+ * POST invoice_id, reason, items = JSON [{description, quantity, unit_price, discount, tax}, ...]
+ * Fatura com numeração AGT (validada) → ND "ND <série ND>/<n>" enviada à AGT depois do commit;
+ * caso contrário fica com a numeração interna "ND <n>".
+ */
 
 declare(strict_types=1);
 
-require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../app/helpers/require_login.php';
 require_once __DIR__ . '/../../../app/helpers/debit_note_calculation.php';
+require_once __DIR__ . '/../../../app/helpers/agt_debit_note.php';
+require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 header('Content-Type: application/json; charset=utf-8');
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 function fail(int $code, string $msg): void
 {
@@ -24,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     fail(405, 'Método inválido.');
 }
 
-if (!isset($_SESSION['user']['company_id'])) {
+if (empty($_SESSION['user']['company_id'])) {
     fail(401, 'Empresa não encontrada na sessão.');
 }
 $sessionCompany = (int)$_SESSION['user']['company_id'];
@@ -45,26 +51,6 @@ if (!is_array($rawItems) || !$rawItems) {
 if (count($rawItems) > 50) {
     fail(422, 'Máximo de 50 linhas por nota de débito.');
 }
-
-// Validar linhas e calcular totais no servidor (nunca confiar nos totais do browser)
-try {
-    $limits = bx_debit_note_schema_limits($pdo);
-    $totals = bx_calculate_debit_note_totals(
-        $rawItems,
-        $limits['quantity_scale'],
-        $limits['max_amount']
-    );
-} catch (InvalidArgumentException $e) {
-    fail(422, $e->getMessage());
-} catch (RuntimeException $e) {
-    fail(500, $e->getMessage());
-}
-
-$lines = $totals['lines'];
-$subtotal = $totals['subtotal_without_tax'];
-$totalDiscount = $totals['total_discount'];
-$totalTax = $totals['total_tax'];
-$final = $totals['final_total'];
 
 try {
     $pdo->beginTransaction();
@@ -90,22 +76,68 @@ try {
         fail(422, 'Não é possível emitir nota de débito sobre uma fatura cancelada.');
     }
 
-    // Numeração sequencial por empresa e série (bloqueia para evitar duplicados)
-    $serie = 'ND';
-    $n = $pdo->prepare("SELECT COALESCE(MAX(number), 0) + 1 FROM debit_notes WHERE company_id = :c AND serie = :s FOR UPDATE");
-    $n->execute([':c' => $inv['company_id'], ':s' => $serie]);
-    $number = (int)$n->fetchColumn();
+    // IVA segundo o regime da empresa (regime simplificado/exclusão → 0%), como na fatura.
+    $regimeStmt = $pdo->prepare('SELECT vat_regime FROM companies WHERE id = ?');
+    $regimeStmt->execute([(int)$inv['company_id']]);
+    $regime = (string)$regimeStmt->fetchColumn();
+    foreach ($rawItems as &$raw) {
+        if (is_array($raw) && isset($raw['tax']) && is_numeric($raw['tax'])) {
+            $raw['tax'] = bx_document_effective_tax_rate($raw['tax'], $regime);
+        }
+    }
+    unset($raw);
+
+    // Validar linhas e calcular totais no servidor (nunca confiar nos totais do browser)
+    try {
+        $limits = bx_debit_note_schema_limits($pdo);
+        $totals = bx_calculate_debit_note_totals($rawItems, $limits['quantity_scale'], $limits['max_amount']);
+    } catch (InvalidArgumentException $e) {
+        fail(422, $e->getMessage());
+    }
+    $lines = $totals['lines'];
+    $subtotal = $totals['subtotal_without_tax'];
+    $totalDiscount = $totals['total_discount'];
+    $totalTax = $totals['total_tax'];
+    $final = $totals['final_total'];
+
+    // Numeração: AGT ("ND <série>/<n>") se a fatura foi à AGT; senão interna "ND <n>".
+    $agtNote = agt_debit_note_required($pdo, $inv);
+    $reference = null;
+    $agtSeriesId = null;
+    if ($agtNote) {
+        if ($inv['agt_status'] !== 'valid') {
+            fail(422, $inv['agt_status'] === 'sent'
+                ? 'A fatura ainda está a aguardar validação da AGT. Tente a nota de débito daqui a pouco.'
+                : 'A fatura não foi validada pela AGT; só se emite nota de débito sobre uma fatura válida.');
+        }
+        try {
+            $nd = agt_debit_note_next_number($pdo, (int)$inv['company_id']);
+        } catch (RuntimeException $e) {
+            fail($e->getCode() === 422 ? 422 : 500, $e->getMessage());
+        }
+        $serie = $nd['series_code'];
+        $number = $nd['number'];
+        $reference = $nd['reference'];
+        $agtSeriesId = $nd['series_id'];
+    } else {
+        $serie = 'ND';
+        $n = $pdo->prepare("SELECT COALESCE(MAX(number), 0) + 1 FROM debit_notes WHERE company_id = :c AND serie = :s FOR UPDATE");
+        $n->execute([':c' => $inv['company_id'], ':s' => $serie]);
+        $number = (int)$n->fetchColumn();
+    }
 
     $ins = $pdo->prepare("
         INSERT INTO debit_notes
-            (invoice_id, contact_id, company_id, serie, number, issue_date, reason,
+            (invoice_id, reference, agt_series_id, contact_id, company_id, serie, number, issue_date, reason,
              currency, subtotal_without_tax, total_discount, total_tax, final_total, user_id)
         VALUES
-            (:invoice_id, :contact_id, :company_id, :serie, :number, :issue_date, :reason,
+            (:invoice_id, :reference, :agt_series_id, :contact_id, :company_id, :serie, :number, :issue_date, :reason,
              :currency, :subtotal, :discount, :tax, :final, :user_id)
     ");
     $ins->execute([
         ':invoice_id' => $inv['id'],
+        ':reference'  => $reference,
+        ':agt_series_id' => $agtSeriesId,
         ':contact_id' => $inv['contact_id'],
         ':company_id' => $inv['company_id'],
         ':serie'      => $serie,
@@ -138,11 +170,14 @@ try {
 
     $pdo->commit();
 
+    $agt = $agtNote ? agt_submit_debit_note($pdo, $ndId) : null;
     echo json_encode([
         'success'       => true,
         'debit_note_id' => $ndId,
-        'number'        => sprintf('%s %d', $serie, $number),
+        'number'        => $reference ?? sprintf('%s %d', $serie, $number),
+        'reference'     => $reference,
         'final_total'   => $final,
+        'agt'           => $agt,
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

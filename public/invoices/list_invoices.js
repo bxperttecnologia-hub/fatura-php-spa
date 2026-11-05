@@ -995,19 +995,32 @@ $(document).ready(function () {
 
 
   function renderDebitNoteRow(row) {
-    const number = `${row.serie ?? ""} ${row.number ?? ""}`.trim();
+    const number = row.reference || `${row.serie ?? ""} ${row.number ?? ""}`.trim();
+    const pdfUrl = `/api/documents/debit-notes/${encodeURIComponent(row.id)}/pdf`;
+    const agt = RECEIPT_AGT[row.agt_status];
+    const agtBadge = agt
+      ? `<span class="badge rounded-pill mt-1" style="color:${agt[1]};background:${agt[2]};font-weight:600">${agt[0].replace("Validado", "Validada").replace("Rejeitado", "Rejeitada").replace("Não enviado", "Não enviada")}</span>`
+      : "";
+    const invoiceLink = row.invoice_id
+      ? `<a href="/invoices/view?id=${encodeURIComponent(row.invoice_id)}" data-spa
+           data-bs-toggle="tooltip" data-bs-title="Abrir a fatura">${esc(row.invoice_reference || "#" + row.invoice_id)}</a>`
+      : "-";
     return `
       <tr class="invoice-row" data-id="${esc(row.id)}">
-        <td class="bx-td-doc">${docCell("debit_notes", "Nota de débito", number)}</td>
+        <td class="bx-td-doc">${docCell("debit_notes", "Nota de débito", number)}${agtBadge}</td>
         <td class="bx-td-client">${esc(row.client_name) || "-"}</td>
-        <td data-label="Fatura">${esc(row.invoice_id || "-")}</td>
+        <td data-label="Fatura">${invoiceLink}</td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
         <td data-label="Moeda">${esc(row.currency) || "-"}</td>
         <td class="bx-num bx-money bx-td-total" data-label="Total">${bxMoney(row.final_total)}</td>
         <td class="bx-td-actions">
           <div class="bx-actions">
+            <button type="button" class="bx-icon-btn js-pdf-open" data-url="${pdfUrl}"
+              data-bs-toggle="tooltip" data-bs-title="Visualizar nota de débito" aria-label="Visualizar nota de débito ${esc(number)}">
+              <i class="bi bi-eye" aria-hidden="true"></i><span class="bx-btn__label">Visualizar</span>
+            </button>
             ${pdfBtn(
-              `data-url="/api/documents/debit-notes/${encodeURIComponent(row.id)}/pdf" data-filename="NotaDebito_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
+              `data-url="${pdfUrl}" data-filename="NotaDebito_${esc(String(number).replace(/[^A-Za-z0-9_-]+/g, "-"))}.pdf"`,
               `Baixar PDF da nota de débito ${number}`,
               "js-pdf-url",
             )}

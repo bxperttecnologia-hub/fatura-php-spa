@@ -255,8 +255,13 @@ try {
         $stmtCredited->execute([$documentId]);
         $document['credited_total'] = round((float)$stmtCredited->fetchColumn(), 2);
 
+        // Notas de débito somam ao valor em dívida.
+        $stmtDebited = $pdo->prepare('SELECT COALESCE(SUM(final_total), 0) FROM debit_notes WHERE invoice_id = ?');
+        $stmtDebited->execute([$documentId]);
+        $document['debited_total'] = round((float)$stmtDebited->fetchColumn(), 2);
+
         $document['saldo'] =
-            (float)$document['final_total'] - $paid - $document['credited_total'];
+            (float)$document['final_total'] + $document['debited_total'] - $paid - $document['credited_total'];
 
         $document['pay_status'] =
             $paid <= 0

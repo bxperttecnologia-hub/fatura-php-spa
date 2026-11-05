@@ -477,17 +477,19 @@
     });
 
     // ---------- 4) abre modal Pagamento ----------
-    // Valores em dívida: total − notas de crédito − recibos já pagos. Vêm do servidor no
+    // Valores em dívida: total + notas de débito − notas de crédito − recibos já pagos. Vêm do servidor no
     // momento em que a janela abre (o currentInvoice pode estar desatualizado).
     function fillPaymentSummary(inv) {
       const total = Number(inv.final_total) || 0;
       const jaPago = Number(inv.paid_total) || 0;
       const creditado = Number(inv.credited_total) || 0;
-      const saldo = Math.max(0, Math.round((total - jaPago - creditado) * 100) / 100);
+      const debitado = Number(inv.debited_total) || 0;
+      const saldo = Math.max(0, Math.round((total + debitado - jaPago - creditado) * 100) / 100);
       const symbol = inv.symbol || currentInvoice?.symbol || "Kz";
       const money = (v) => `${Number(v || 0).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
 
       $("#pg_total").text(money(total));
+      $("#pg_debitado").text(debitado > 0 ? `+ ${money(debitado)}` : money(0));
       $("#pg_creditado").text(creditado > 0 ? `− ${money(creditado)}` : money(0));
       $("#pg_pago").text(jaPago > 0 ? `− ${money(jaPago)}` : money(0));
       $("#pg_falta").text(money(saldo));
@@ -523,6 +525,7 @@
             final_total: res.data.final_total,
             paid_total: res.data.paid_total,
             credited_total: res.data.credited_total,
+            debited_total: res.data.debited_total,
           });
           fillPaymentSummary(currentInvoice);
         }
@@ -1956,20 +1959,27 @@
     const ncQty = (v) => Number(v || 0).toLocaleString("pt-PT", { maximumFractionDigits: 4 });
     const NC_AGT = { valid: "Validada AGT", sent: "AGT pendente", invalid: "Rejeitada AGT", error: "Não enviada à AGT" };
 
+    $(document).off("click", ".js-nd-pdf").on("click", ".js-nd-pdf", function (e) {
+      e.preventDefault();
+      window.BXDocumentApi.openPdf(`/api/documents/debit-notes/${encodeURIComponent(this.dataset.id)}/pdf`)
+        .catch((error) => Swal.fire("Erro", error.message, "error"));
+    });
+
     $(document).off("click", ".js-nc-pdf").on("click", ".js-nc-pdf", function (e) {
       e.preventDefault();
       window.BXDocumentApi.openPdf(`/api/documents/credit-notes/${encodeURIComponent(this.dataset.id)}/pdf`)
         .catch((error) => Swal.fire("Erro", error.message, "error"));
     });
 
-    // Reenvio / consulta da NC na AGT (a partir da lista de NC já emitidas na janela).
-    $(document).off("click", ".js-nc-agt-send, .js-nc-agt-check").on("click", ".js-nc-agt-send, .js-nc-agt-check", async function () {
+    // Reenvio / consulta da NC/ND na AGT (a partir da lista de notas já emitidas na janela).
+    $(document).off("click", ".js-nc-agt-send, .js-nc-agt-check, .js-nd-agt-send, .js-nd-agt-check").on("click", ".js-nc-agt-send, .js-nc-agt-check, .js-nd-agt-send, .js-nd-agt-check", async function () {
       const btn = this;
-      const send = btn.classList.contains("js-nc-agt-send");
+      const send = btn.classList.contains("js-nc-agt-send") || btn.classList.contains("js-nd-agt-send");
+      const kind = btn.className.includes("js-nd-agt") ? "debit_note" : "credit_note";
       btn.disabled = true;
       btn.textContent = "Aguarde…";
       try {
-        const res = await fetch(`/agt/ajax/agt.php?action=${send ? "credit_note_send" : "credit_note"}&id=${encodeURIComponent(btn.dataset.id)}`, send
+        const res = await fetch(`/agt/ajax/agt.php?action=${send ? kind + "_send" : kind}&id=${encodeURIComponent(btn.dataset.id)}`, send
           ? { method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || "" }, body: new URLSearchParams({ id: btn.dataset.id }) }
           : { credentials: "same-origin" });
         const data = await res.json().catch(() => ({}));
@@ -2162,22 +2172,36 @@
 
         if (existing.length) {
           const last = existing[0];
+          const ndRows = existing.map((nd) => {
+            const agt = nd.agt;
+            const badge = agt
+              ? `<span class="badge ${agt.status === "valid" ? "bg-success" : agt.status === "sent" ? "bg-warning text-dark" : "bg-danger"}">${ncEsc(NC_AGT[agt.status] || agt.label || "")}</span>`
+              : "";
+            const btn = !agt ? ""
+              : ["error", null, undefined].includes(agt.status)
+                ? `<button type="button" class="btn btn-sm btn-outline-primary js-nd-agt-send" data-id="${nd.id}">Reenviar AGT</button>`
+                : agt.status === "sent"
+                  ? `<button type="button" class="btn btn-sm btn-outline-secondary js-nd-agt-check" data-id="${nd.id}">Consultar AGT</button>`
+                  : "";
+            return `<tr><td><a href="#" class="js-nd-pdf" data-id="${nd.id}">${ncEsc(nd.display_number || `${nd.serie} ${nd.number}`)}</a></td>
+              <td class="text-end">${ncNum(nd.final_total)}</td><td>${badge}</td><td class="text-end">${btn}</td></tr>`;
+          }).join("");
 
           const choice = await Swal.fire({
             title: "Nota de Débito",
-            text: `Já existem ${existing.length} nota(s) de débito para esta factura.`,
+            width: 640,
+            html: `<p class="mb-2">Já existem ${existing.length} nota(s) de débito para esta factura.</p>
+              <table class="table table-sm align-middle small text-start mb-0"><tbody>${ndRows}</tbody></table>`,
             showDenyButton: true,
             showCancelButton: true,
             confirmButtonText: "Emitir nova",
-            denyButtonText: `Ver última (${last.serie} ${last.number})`,
+            denyButtonText: `Ver última (${ncEsc(last.display_number || `${last.serie} ${last.number}`)})`,
             cancelButtonText: "Cancelar",
           });
 
           if (choice.isDenied) {
-            return window.BXDocumentApi.download(
-              `/api/documents/debit-notes/${encodeURIComponent(last.id)}/pdf`,
-              `NotaDebito_${last.id}.pdf`,
-            ).catch((error) => Swal.fire("Erro", error.message, "error"));
+            return window.BXDocumentApi.openPdf(`/api/documents/debit-notes/${encodeURIComponent(last.id)}/pdf`)
+              .catch((error) => Swal.fire("Erro", error.message, "error"));
           }
           if (!choice.isConfirmed) return;
         }
@@ -2366,6 +2390,7 @@
 
         if (!form.isConfirmed) return;
 
+        Swal.fire({ title: "A emitir…", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         const res = await $.ajax({
           url: "invoices/ajax/create_debit_note.php",
           method: "POST",
@@ -2378,9 +2403,23 @@
         });
 
         if (res?.success && res?.debit_note_id) {
+          refreshCurrentInvoice();
+          const agt = res.agt;
+          const agtFailed = agt && ["error", "invalid"].includes(agt.status);
+          const agtHtml = agt
+            ? `<div class="mt-2 small text-start"><strong>AGT:</strong> ${ncEsc(agt.label || "")}${
+                (agt.errors || []).length ? `<ul class="mb-0 mt-1">${agt.errors.map((e) => `<li>${ncEsc(e)}</li>`).join("")}</ul>` : ""
+              }</div>`
+            : "";
+          await Swal.fire({
+            icon: agtFailed ? "warning" : "success",
+            title: "Nota de débito emitida",
+            html: `Nota de débito <b>${ncEsc(res.number || "#" + res.debit_note_id)}</b> de
+              <b>${ncNum(res.final_total)} ${ncEsc(currentInvoice?.symbol || "Kz")}</b>.${agtHtml}`,
+          });
           window.BXDocumentApi.download(
             `/api/documents/debit-notes/${encodeURIComponent(res.debit_note_id)}/pdf`,
-            `NotaDebito_${res.debit_note_id}.pdf`,
+            `NotaDebito_${String(res.number || res.debit_note_id).replace(/[^A-Za-z0-9_-]+/g, "-")}.pdf`,
           ).catch((error) => Swal.fire("Erro", error.message, "error"));
         } else {
           Swal.fire({

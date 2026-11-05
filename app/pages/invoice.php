@@ -596,6 +596,7 @@ try {
                     <!-- Resumo: total, notas de crédito, recibos e o que falta pagar -->
                     <div class="p-3 bg-white rounded shadow-sm mb-2" id="pg_resumo">
                         <div class="d-flex justify-content-between small"><span>Total da fatura</span><span id="pg_total">—</span></div>
+                        <div class="d-flex justify-content-between small text-primary"><span>Notas de débito</span><span id="pg_debitado">—</span></div>
                         <div class="d-flex justify-content-between small text-danger"><span>Notas de crédito</span><span id="pg_creditado">—</span></div>
                         <div class="d-flex justify-content-between small text-success"><span>Já pago (recibos)</span><span id="pg_pago">—</span></div>
                         <hr class="my-2">
@@ -1096,7 +1097,7 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
 <script src="/assets/js/document-history.js?v=1.1" data-spa-repeat></script>
-<script src="invoices/invoice.js?v=5.18" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=5.19" data-spa-repeat></script>
 
 <script>
 // Estado na AGT (faturação eletrónica) do documento que está a ser visto: a fatura ou,
@@ -1119,6 +1120,7 @@ try {
         invoice: ['invoice', 'invoice_send'],
         receipt: ['receipt', 'receipt_send'],
         'credit-note': ['credit_note', 'credit_note_send'],
+        'debit-note': ['debit_note', 'debit_note_send'],
     };
     let current = { type: 'invoice', id: invoiceId };
     let timer = null;

@@ -115,7 +115,7 @@ function bx_document_history_add_invoice_children(array &$documents, int $invoic
         [
             'type' => 'debit-note',
             'label' => 'Nota de Débito',
-            'sql' => "SELECT id, issue_date, CONCAT(serie, ' ', number) AS number
+            'sql' => "SELECT id, issue_date, COALESCE(NULLIF(reference, ''), CONCAT(serie, ' ', number)) AS number
                 FROM debit_notes WHERE invoice_id = ? AND company_id = ?",
             'date' => 'issue_date',
             'status' => 'Emitida',

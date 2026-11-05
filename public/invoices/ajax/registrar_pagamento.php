@@ -80,8 +80,13 @@ try {
   $creditedStmt->execute([$invoice_id]);
   $creditedTotal = round((float)$creditedStmt->fetchColumn(), 2);
 
+  // Notas de débito somam ao valor em dívida.
+  $debitedStmt = $pdo->prepare('SELECT COALESCE(SUM(final_total), 0) FROM debit_notes WHERE invoice_id = ?');
+  $debitedStmt->execute([$invoice_id]);
+  $debitedTotal = round((float)$debitedStmt->fetchColumn(), 2);
+
   $currentPending = round(
-    max(0, $finalTotal - $paidTotal - $creditedTotal),
+    max(0, $finalTotal + $debitedTotal - $paidTotal - $creditedTotal),
     2
   );
 
@@ -106,7 +111,7 @@ try {
   );
 
   $newPendingAmount = round(
-    max(0, $finalTotal - $newPaidTotal - $creditedTotal),
+    max(0, $finalTotal + $debitedTotal - $newPaidTotal - $creditedTotal),
     2
   );
 
