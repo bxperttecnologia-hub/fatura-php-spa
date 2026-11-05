@@ -42,6 +42,9 @@ function patchGlobals() {
   // (o head.php já converte URLs relativos de fetch/XHR; aqui só se detecta a sessão expirada)
   const _fetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
+    // URLs relativos ("contacts/ajax/...") contam a partir da raiz, como no $.ajax acima:
+    // em /contacts/create ou /invoices/create iam para /contacts/contacts/ajax/... (404).
+    if (typeof input === 'string') input = toAbs(input);
     const res = await _fetch(input, init);
     const url = typeof input === 'string' ? input : input?.url || '';
     if (res.status === 401 && !url.includes('/api/')) document.dispatchEvent(new Event('app:unauthorized'));
