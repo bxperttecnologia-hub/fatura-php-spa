@@ -3,6 +3,7 @@ require_once '../../../app/helpers/require_login.php';
 require_once '../../../app/helpers/subscription.php';
 require_once '../../../app/helpers/anonymous_contact.php';
 require_once '../../../app/helpers/document_tax.php';
+require_once '../../../app/helpers/currency.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -161,7 +162,7 @@ try {
         'observation' => $proforma['observation'] ?? null,
         'series' => $proforma['series'] ?? null,
         'retention' => 0.0,
-        'currency' => $proforma['currency'],
+        'currency' => bx_document_currency($pdo, $proforma['currency'] ?? ''),   // vazio/AKZ → AOA; tem de existir
         'manual_exchange_rate' => (float)($proforma['manual_exchange_rate'] ?? 1),
         'total_sum' => $taxSummary['total_sum'],
         'total_discount' => $taxSummary['total_discount'],

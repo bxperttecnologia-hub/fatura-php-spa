@@ -79,8 +79,8 @@ try {
         JOIN contact c
             ON c.id = i.contact_id
 
-        JOIN currencies cr
-            ON cr.iso_code = i.currency
+        LEFT JOIN currencies cr
+            ON cr.iso_code = CASE WHEN i.currency IS NULL OR i.currency = '' OR i.currency = 'AKZ' THEN 'AOA' ELSE i.currency END
 
         JOIN invoice_status ivs
             ON ivs.id = i.status

@@ -252,7 +252,7 @@ FROM      invoices i
 JOIN      companies   comp ON comp.id = i.company_id
 JOIN      contact         c ON c.id    = i.contact_id
 JOIN      invoice_status ivs ON ivs.id = i.status
-JOIN      currencies    cr2 ON cr2.iso_code = i.currency
+LEFT JOIN currencies    cr2 ON cr2.iso_code = CASE WHEN i.currency IS NULL OR i.currency = '' OR i.currency = 'AKZ' THEN 'AOA' ELSE i.currency END
 WHERE i.id = :id";
 $stmt = $pdo->prepare($sql);
 $stmt->execute(['id' => $id]);

@@ -85,8 +85,8 @@ JOIN companies comp
 JOIN contact c 
     ON c.id = i.contact_id
 
-JOIN currencies cr 
-    ON cr.iso_code = i.currency
+LEFT JOIN currencies cr 
+    ON cr.iso_code = CASE WHEN i.currency IS NULL OR i.currency = '' OR i.currency = 'AKZ' THEN 'AOA' ELSE i.currency END
 
 WHERE r.id = :rid
 ";

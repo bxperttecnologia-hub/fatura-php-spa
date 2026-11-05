@@ -3,6 +3,7 @@ require_once '../../../app/helpers/require_login.php';
 require_once '../../../app/helpers/subscription.php';
 require_once '../../../app/helpers/anonymous_contact.php';
 require_once '../../../app/helpers/document_tax.php';
+require_once '../../../app/helpers/currency.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -130,7 +131,7 @@ try {
         // Tipo escolhido no formulário (FT/FR): sem isto a FR ficava gravada como FT.
         'document_type' => strtoupper((string)($fatura['document_type'] ?? '')) === 'FR' ? 'FR' : 'FT',
         'retention' => 0.0,
-        'currency' => $fatura['currency'],
+        'currency' => bx_document_currency($pdo, $fatura['currency'] ?? ''),   // vazio/AKZ → AOA; tem de existir
         'manual_exchange_rate' => (float)($fatura['manual_exchange_rate'] ?? 1),
         'total_sum' => $taxSummary['total_sum'],
         'total_discount' => $taxSummary['total_discount'],
