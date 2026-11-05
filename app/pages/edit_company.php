@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../helpers/document_tax.php';
 require_once '../app/views/layout_creation.php';
 ?>
 
