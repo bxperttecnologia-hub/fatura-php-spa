@@ -2316,7 +2316,11 @@
             <tbody id="ndLines"></tbody>
           </table>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <button type="button" id="ndAddLine" class="swal2-styled" style="background:#6c757d;margin:0">+ Linha</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" id="ndAddLine" class="swal2-styled" style="background:#6c757d;margin:0">+ Linha</button>
+              <button type="button" id="ndLoadAll" class="swal2-styled" style="background:#0d6efd;margin:0"${invoiceItems.length ? "" : " disabled"}>Trazer tudo da fatura</button>
+              <button type="button" id="ndClearAll" class="swal2-styled" style="background:#dc3545;margin:0">Remover tudo</button>
+            </div>
             <div style="text-align:right;font-size:.9rem">
               <div>Subtotal: <strong id="ndSub">0,00</strong></div>
               <div>IVA: <strong id="ndTax">0,00</strong></div>
@@ -2386,7 +2390,18 @@
 
             document
               .getElementById("ndAddLine")
-              .addEventListener("click", addLine);
+              .addEventListener("click", () => addLine());
+            // Trazer tudo: substitui as linhas pelas da fatura (quantidade, preço, IVA e desconto)
+            document.getElementById("ndLoadAll").addEventListener("click", () => {
+              body.replaceChildren();
+              invoiceItems.forEach((item) => addLine(item));
+              recalc();
+            });
+            // Remover tudo: fica uma linha vazia para escrever (ex.: juros de mora)
+            document.getElementById("ndClearAll").addEventListener("click", () => {
+              body.replaceChildren();
+              addLine();
+            });
             if (invoiceItems.length) {
               invoiceItems.forEach((item) => addLine(item));
             } else {
