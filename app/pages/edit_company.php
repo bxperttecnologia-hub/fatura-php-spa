@@ -372,7 +372,7 @@ require_once '../app/views/layout_creation.php';
                                     </select>
                                 </div>
 
-                                <div class="col-md-6 d-none">
+                                <div class="col-md-6">
                                     <label for="iban" class="form-label">IBAN</label>
                                     <input type="text" class="form-control" id="iban" name="iban">
                                 </div>
@@ -404,8 +404,8 @@ require_once '../app/views/layout_creation.php';
                                     </select>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <label for="iban_optional" class="form-label">IBAN</label>
+                                <div class="col-md-6 d-none">
+                                    <label for="iban_optional" class="form-label">IBAN (secundário)</label>
                                     <input type="text" class="form-control" id="iban_optional" name="iban_optional">
                                 </div>
                             </div>
@@ -444,7 +444,7 @@ require_once '../app/views/layout_creation.php';
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-    <script src="edit_company/edit_company.js?v=1.1" data-spa-repeat></script>
+    <script src="edit_company/edit_company.js?v=1.2" data-spa-repeat></script>
     <script>
         (() => {
             const root = document.getElementById("documentTaxConfig");

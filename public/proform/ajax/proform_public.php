@@ -341,6 +341,7 @@ SELECT  p.*,
         comp.website,
         comp.phone AS company_phone, comp.logo_url,
         comp.vat_regime, comp.goods_services, comp.bank_details, comp.bank_name, comp.iban,
+        comp.bank_name_optional, comp.iban_optional,
         'PF' AS document_type,
         c.name    AS client_name,    c.address  AS client_address,
         c.contributor AS client_contributor, c.city AS client_city, c.telephone AS client_phone,
@@ -431,10 +432,8 @@ $vatRegime = bx_vat_regime_label($inv['vat_regime'] ?? '');
 $goodsServices = trim((string)($inv['goods_services'] ?? ''));
 $goodsServicesText = bx_goods_services_text($goodsServices);
 
-$ibanRaw = preg_replace('/[.\s]/', '', (string)($inv['iban'] ?? ''));
-$iban = $ibanRaw !== ''
-  ? trim(substr($ibanRaw, 0, 4) . ' ' . trim(chunk_split(substr($ibanRaw, 4), 4, ' ')))
-  : '-';
+// banco + IBAN em grupos de 4 (IBAN principal ou, se vazio, o secundário), sem cortar dígitos
+$iban = bx_bank_details_text($inv);
 
 $isDraft  = strtolower(trim((string)($inv['status_invoice'] ?? ''))) === 'rascunho';
 $documentLabel = 'Proforma';
@@ -884,7 +883,7 @@ function lineSubtotal(array $it): float
         <?= drawText(45, $sy + 20, 'Bens e serviços:', 'f85 cg') ?>
         <?= drawText(145, $sy + 20, e($goodsServicesText), 'f85 cg wrap', 180 - 0.278 * 8.5) ?>
         <?= drawText(45, $sy + 62, 'Dados bancários:', 'f85 cg') ?>
-        <?= drawText(145, $sy + 62, e($iban), 'f85 cg', 190) ?>
+        <?= drawText(145, $sy + 62, nl2br(e($iban)), 'f85 cg wrap', 190) ?>
 
         <!-- direita -->
         <?php if (!$isLast): ?>

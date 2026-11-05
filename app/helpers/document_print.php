@@ -86,3 +86,21 @@ function bx_pdf_footer(\Dompdf\Dompdf $dompdf, ?string $qrSrc = null): void
         });
     }
 }
+
+/** IBAN em grupos de 4 ("AO06 0040 0000 …"), sem cortar dígitos. */
+function bx_format_iban(?string $iban): string
+{
+    $raw = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $iban));
+    return $raw === '' ? '' : trim(chunk_split($raw, 4, ' '));
+}
+
+/** "Banco · IBAN" para os documentos (usa o IBAN principal ou, se vazio, o secundário). */
+function bx_bank_details_text(array $company): string
+{
+    $iban = bx_format_iban(($company['iban'] ?? '') ?: ($company['iban_optional'] ?? ''));
+    $bank = trim((string) (($company['iban'] ?? '') ? ($company['bank_name'] ?? '') : (($company['bank_name_optional'] ?? '') ?: ($company['bank_name'] ?? ''))));
+    if ($iban === '') {
+        return '-';
+    }
+    return $bank !== '' ? $bank . "\nIBAN: " . $iban : 'IBAN: ' . $iban;
+}

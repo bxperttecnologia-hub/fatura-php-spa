@@ -312,6 +312,11 @@ $(document).ready(function () {
           }
         });
 
+        // IBAN guardado antes no campo secundário: passa a aparecer (e a gravar-se) como principal
+        if (!data.iban && data.iban_optional) {
+          $("#iban").val(data.iban_optional);
+        }
+
         /*
       |--------------------------------------------------------------------------
       | Logo da empresa
