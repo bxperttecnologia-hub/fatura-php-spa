@@ -1084,10 +1084,11 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
 <script src="/assets/js/document-history.js?v=1.0" data-spa-repeat></script>
-<script src="invoices/invoice.js?v=5.16" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=5.17" data-spa-repeat></script>
 
 <script>
-// Estado da fatura na AGT (faturação eletrónica, ambiente HML).
+// Estado na AGT (faturação eletrónica) do documento que está a ser visto: a fatura ou,
+// quando se escolhe outro no Histórico documental, o recibo / nota de crédito.
 (function () {
     const panel = document.getElementById('agtInvoicePanel');
     const invoiceId = new URLSearchParams(location.search).get('id');
@@ -1101,11 +1102,20 @@ try {
     const sendBtn = document.getElementById('agtInvoiceSend');
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmt = (value) => value ? new Date(String(value).replace(' ', 'T')).toLocaleString('pt-PT') : '';
+    // Tipo do Histórico documental → ações do agt.php (consulta / envio).
+    const ACTIONS = {
+        invoice: ['invoice', 'invoice_send'],
+        receipt: ['receipt', 'receipt_send'],
+        'credit-note': ['credit_note', 'credit_note_send'],
+    };
+    let current = { type: 'invoice', id: invoiceId };
     let timer = null;
     let lastAgt = null;
+    let token = 0;
 
     function render(agt) {
         lastAgt = agt;
+        clearTimeout(timer);
         if (!agt) {
             panel.classList.add('d-none');
             return;
@@ -1114,8 +1124,9 @@ try {
         badge.className = `agt-invoice-panel__badge is-${agt.status || 'none'}`;
         badge.textContent = agt.label;
         const parts = [];
+        if (agt.document_no) parts.push(esc(agt.document_no));
         if (agt.request_id) parts.push(`Pedido AGT nº ${esc(agt.request_id)}`);
-        if (agt.sent_at) parts.push(`enviada em ${esc(fmt(agt.sent_at))}`);
+        if (agt.sent_at) parts.push(`enviado em ${esc(fmt(agt.sent_at))}`);
         if (agt.checked_at) parts.push(`última consulta ${esc(fmt(agt.checked_at))}`);
         if (agt.consumer_final) parts.push(`cliente sem NIF: enviada com o NIF de consumidor final ${esc(agt.consumer_tax_id || '')}`);
         meta.innerHTML = parts.join(' · ');
@@ -1124,20 +1135,27 @@ try {
         refreshBtn.classList.toggle('d-none', agt.status !== 'sent');
         sendBtn.classList.toggle('d-none', !(agt.status === 'error' || !agt.status));
 
-        clearTimeout(timer);
         // A AGT valida de forma assíncrona: volta a perguntar enquanto estiver pendente.
         if (agt.status === 'sent' && document.body.contains(panel)) {
             timer = setTimeout(() => load(), 25000);
         }
     }
 
-    async function load(action = 'invoice', method = 'GET') {
-        const url = `${endpoint}?action=${action}&id=${encodeURIComponent(invoiceId)}`;
-        const options = method === 'POST'
-            ? { method, credentials: 'same-origin', headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: new URLSearchParams({ id: invoiceId }) }
+    async function load(send = false) {
+        const actions = ACTIONS[current.type];
+        if (!actions) {          // proforma, nota de débito, guia: não vão à AGT
+            render(null);
+            return;
+        }
+        const mine = ++token;
+        const id = current.id;
+        const url = `${endpoint}?action=${send ? actions[1] : actions[0]}&id=${encodeURIComponent(id)}`;
+        const options = send
+            ? { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: new URLSearchParams({ id }) }
             : { credentials: 'same-origin' };
         const res = await fetch(url, options);
         const data = await res.json().catch(() => ({}));
+        if (mine !== token) return;   // entretanto escolheu-se outro documento
         if (!res.ok || !data.success) throw new Error(data.message || 'Não foi possível consultar a AGT.');
         render(data.agt);
     }
@@ -1156,7 +1174,7 @@ try {
         }
     }
 
-    refreshBtn.addEventListener('click', () => withButton(refreshBtn, () => load('invoice')));
+    refreshBtn.addEventListener('click', () => withButton(refreshBtn, () => load()));
     sendBtn.addEventListener('click', async () => {
         if (lastAgt?.consumer_final) {
             const ok = await Swal.fire({
@@ -1169,8 +1187,18 @@ try {
             });
             if (!ok.isConfirmed) return;
         }
-        withButton(sendBtn, () => load('invoice_send', 'POST'));
+        withButton(sendBtn, () => load(true));
     });
+
+    document.addEventListener('bx:document-selected', (event) => {
+        if (!document.body.contains(panel)) return;   // listener de uma visita anterior (SPA)
+        const doc = event.detail || {};
+        current = { type: doc.type || 'invoice', id: String(doc.id || invoiceId) };
+        clearTimeout(timer);
+        panel.classList.add('d-none');
+        load().catch(() => panel.classList.add('d-none'));
+    });
+
     window.bxAgtInvoiceReload = () => load().catch(() => {});
     load().catch(() => panel.classList.add('d-none'));
 })();

@@ -1895,6 +1895,27 @@
       });
     }
 
+    // ---------- Histórico documental: opções do documento escolhido ----------
+    // As ações do menu (recibo, NC, ND, editar, enviar…) são da fatura. Ao ver outro
+    // documento do histórico (recibo, NC…) ficam escondidas — só imprimir/descarregar o
+    // documento escolhido; ao voltar à fatura repõe-se o que estava visível.
+    const INVOICE_ONLY_ACTIONS =
+      "#btnRecibo, #btnEnviar, #btnCloneToInvoice, #btnNotaCredito, #btnNotaDebito, #btnNotaEntrega, #btnEditar, #btnFinalizar, #btnDeleteInvoice, #btnToggleCreditNote";
+    let hiddenForHistory = null;
+    $(document).off("bx:document-selected.invoiceActions").on("bx:document-selected.invoiceActions", (event) => {
+      const doc = event.originalEvent?.detail || event.detail || {};
+      if (!doc.isRoot) {
+        if (!hiddenForHistory) {
+          hiddenForHistory = $(INVOICE_ONLY_ACTIONS).not(".d-none");
+        }
+        hiddenForHistory.addClass("d-none");
+        $("#generatePdf").removeClass("d-none");
+      } else if (hiddenForHistory) {
+        hiddenForHistory.removeClass("d-none");
+        hiddenForHistory = null;
+      }
+    });
+
     // ---------- Nota de Crédito ----------
     // Credita a fatura toda ou só algumas linhas/quantidades. Cada NC fica ligada às linhas
     // da fatura; a fatura só passa a Cancelada quando tudo estiver creditado.

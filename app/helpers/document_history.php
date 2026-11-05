@@ -107,7 +107,7 @@ function bx_document_history_add_invoice_children(array &$documents, int $invoic
         [
             'type' => 'credit-note',
             'label' => 'Nota de Crédito',
-            'sql' => "SELECT id, issue_date, CONCAT(YEAR(issue_date), '/', id) AS number
+            'sql' => "SELECT id, issue_date, COALESCE(NULLIF(reference, ''), CONCAT(YEAR(issue_date), '/', id)) AS number
                 FROM credit_notes WHERE invoice_id = ? AND company_id = ?",
             'date' => 'issue_date',
             'status' => 'Emitida',
@@ -131,7 +131,7 @@ function bx_document_history_add_invoice_children(array &$documents, int $invoic
         [
             'type' => 'receipt',
             'label' => 'Recibo',
-            'sql' => "SELECT r.id, r.pay_date AS issue_date, CONCAT(r.serie, ' ', r.number) AS number
+            'sql' => "SELECT r.id, r.pay_date AS issue_date, COALESCE(NULLIF(r.reference, ''), CONCAT(r.serie, ' ', r.number)) AS number
                 FROM receipts r
                 INNER JOIN invoices i ON i.id = r.invoice_id
                 WHERE r.invoice_id = ? AND i.company_id = ?",
