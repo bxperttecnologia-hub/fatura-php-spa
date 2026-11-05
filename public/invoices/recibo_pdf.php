@@ -211,7 +211,7 @@ $html = '
 
   <style>
     @page {
-      margin: 30px 35px;
+      margin: ' . BX_PDF_HEADER_BOTTOM . 'pt 45pt 80pt 45pt;   /* entre o cabeçalho e o rodapé da fatura */
     }
 
     body {
@@ -434,90 +434,7 @@ $html = '
 
 <body>
 
-  <!-- HEADER -->
-  <table class="header-table">
-
-    <tr>
-
-      <td class="header-left">
-
-        <table>
-          <tr>
-
-            <td width="110">
-
-              ';
-
-if ($logo) {
-  $html .= '
-              <img src="' . h($logo) . '" class="logo">
-              ';
-}
-
-$html .= '
-
-
-              <div class="company-name">
-                ' . h($d['company_name']) . '
-              </div>
-
-              <div class="company-info">
-                ' . h($d['company_address']) . '
-              </div>
-
-              <div class="company-info">
-                ' . h($d['company_city']) . '
-              </div>
-
-              <div class="company-info">
-                Tel: ' . h($d['company_phone']) . '
-              </div>
-
-' . (trim((string)($d['website'] ?? '')) !== '' ? '
-              <div class="company-info">
-                Web: ' . h($d['website']) . '
-              </div>' : '') . (trim((string)($d['company_email'] ?? '')) !== '' ? '
-              <div class="company-info">
-                E-mail: ' . h($d['company_email']) . '
-              </div>' : '') . '
-
-              <div class="company-info">
-                Contribuinte: ' . h($d['company_nif']) . '
-              </div>
-
-            </td>
-
-          </tr>
-        </table>
-
-      </td>
-
-      <td class="header-right">
-
-        <div class="client-name">
-          ' . h($d['client_name']) . '
-        </div>
-
-        <div class="client-info">
-          ' . h($clientAddress) . '
-        </div>
-
-      </td>
-
-    </tr>
-
-  </table>
-
-  <!-- RECIBO -->
-  <div class="mt25 fs12">
-    Original
-  </div>
-
-  <div class="bold fs15 mt10">
-    Recibo n.º ' . h($receiptTitle) . '
-  </div>
-
-  <div class="line"></div>
+  <!-- cabeçalho (logo, empresa, cliente, "Original" e título) desenhado por bx_pdf_header, igual à fatura -->
 
   <!-- DADOS -->
   <table class="doc-table">
@@ -768,6 +685,15 @@ $dompdf->setPaper('A4', 'portrait');
 $dompdf->loadHtml($html, 'UTF-8');
 
 $dompdf->render();
+bx_pdf_header($dompdf, [   // cabeçalho igual ao da fatura
+  'logo' => $logo,
+  'company_name' => $d['company_name'],
+  'company_address' => bx_join_address([$d['company_address'], $d['company_city']]),
+  'company_lines' => ['Tel: ' . ($d['company_phone'] ?: '-'), 'E-mail: ' . ($d['company_email'] ?: '-'), 'Contribuinte: ' . ($d['company_nif'] ?: '-')],
+  'client_name' => $d['client_name'],
+  'client_lines' => [$clientAddress],
+  'title' => 'Recibo n.º ' . $receiptTitle,
+]);
 bx_pdf_footer($dompdf, $agtQrUrl ? agt_qr_image($agtQrUrl) : null);   // rodapé igual ao da fatura
 
 $dompdf->stream(

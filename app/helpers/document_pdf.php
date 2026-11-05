@@ -100,6 +100,12 @@ function bx_generate_document_pdf(
     $dompdf->setPaper('A4', 'portrait');
     $dompdf->loadHtml($html, 'UTF-8');
     $dompdf->render();
+    // cabeçalho igual ao da fatura: o modelo deixa os dados em $GLOBALS['bx_pdf_header'] (ex.: nota de crédito)
+    if (!empty($GLOBALS['bx_pdf_header']) && is_array($GLOBALS['bx_pdf_header'])) {
+        require_once __DIR__ . '/document_print.php';
+        bx_pdf_header($dompdf, $GLOBALS['bx_pdf_header']);
+        unset($GLOBALS['bx_pdf_header']);
+    }
     if ($showPageNumbers) {
         require_once __DIR__ . '/document_print.php';
         // rodapé da fatura (QR, certificação, "Página n de N"); o modelo pode deixar o QR em $GLOBALS['bx_pdf_footer_qr']

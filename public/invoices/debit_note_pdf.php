@@ -119,13 +119,15 @@ foreach ($items as $n => $it) {
   $gross = round((float)$it['quantity'] * (float)$it['unit_price'], 2);
   $discount = round($gross * (float)($it['discount'] ?? 0) / 100, 2);
   $lineBase = round($gross - $discount, 2);
+  $lineTotal = round($lineBase * (1 + (float)$it['tax'] / 100), 2);
   $rows .= '<tr>'
-    . '<td class="c">' . ($n + 1) . '</td>'
+    . '<td>' . ($n + 1) . '</td>'
     . '<td>' . h(bx_plain_text($it['description'])) . '</td>'
-    . '<td class="r">' . qty($it['quantity']) . '</td>'
-    . '<td class="r">' . money($it['unit_price']) . '</td>'
-    . '<td class="r">' . rtrim(rtrim(number_format((float)$it['tax'], 2, ',', '.'), '0'), ',') . '%</td>'
-    . '<td class="r">' . money($lineBase) . '</td>'
+    . '<td class="r">' . money($it['unit_price']) . ' Kz</td>'
+    . '<td class="ce">' . qty($it['quantity']) . '</td>'
+    . '<td class="ce">' . rtrim(rtrim(number_format((float)$it['tax'], 2, ',', '.'), '0'), ',') . '%</td>'
+    . '<td class="ce">' . qty($it['discount'] ?? 0) . '%</td>'
+    . '<td class="r">' . money($lineTotal) . ' Kz</td>'
     . '</tr>';
 }
 
@@ -135,85 +137,88 @@ $html = '
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { margin: 30px 35px 80px; }
+  /* cabeçalho e rodapé iguais aos da fatura (bx_pdf_header / bx_pdf_footer): o corpo fica entre eles */
+  @page { margin: ' . BX_PDF_HEADER_BOTTOM . 'pt 45pt 80pt 45pt; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; }
+  .info td { font-size: 9pt; color: #707070; padding: 0 0 6pt 0; }
+  .info .lab { width: 100pt; }
+  .info .lab2 { width: 78pt; }
+  .info .val { width: 220pt; color: #444; }
+  .info td:last-child { white-space: nowrap; }
   table { width: 100%; border-collapse: collapse; }
   td, th { vertical-align: top; }
-  .head td { padding-bottom: 14px; }
-  .title { font-size: 20px; font-weight: bold; text-align: right; }
-  .muted { color: #555; }
-  .box { border: 1px solid #ccc; padding: 8px 10px; }
-  .items { margin-top: 18px; }
-  .items th { background: #f0f0f0; border: 1px solid #ccc; padding: 7px; text-align: left; }
-  .items td { border: 1px solid #ccc; padding: 7px; }
-  .c { text-align: center; width: 36px; }
-  .r { text-align: right; width: 80px; }
-  .totals { margin-top: 14px; width: 45%; margin-left: 55%; }
-  .totals td { padding: 5px 7px; border: 1px solid #ccc; }
-  .totals .grand td { background: #f0f0f0; font-weight: bold; font-size: 13px; }
+  .info td { font-size: 9pt; color: #707070; padding: 0 0 6pt 0; }
+  .info .lab { width: 100pt; }
+  .info .lab2 { width: 78pt; }
+  .info .val { width: 220pt; color: #444; }
+  .info td:last-child { white-space: nowrap; }
+  .r { text-align: right; }
+  .ce { text-align: center; }
+  .items { margin-top: 10pt; font-size: 8pt; }
+  .items th { font-weight: bold; color: #555; text-align: left; padding: 6pt 5pt;
+              border-top: 1pt solid #8C8C8C; border-bottom: .8pt solid #D2D2D2; }
+  .items th.r { text-align: right; } .items th.ce { text-align: center; }
+  .items td { color: #666; padding: 7pt 5pt; border-bottom: .5pt solid #EEEEEE; }
+  .bottom { margin-top: 20pt; }
+  .sec { font-size: 10pt; font-weight: bold; color: #555; padding-bottom: 5pt;
+         border-top: 1.5pt solid #8C8C8C; padding-top: 6pt; border-bottom: .8pt solid #C4C4C4; margin-bottom: 6pt; }
+  .kv td { font-size: 8.5pt; color: #707070; padding: 3pt 0; }
+  .kv .k { width: 100pt; }
+  .sum .grand td { font-size: 12pt; font-weight: bold; color: #000; padding-top: 8pt;
+                   border-top: 1pt solid #000; border-bottom: 2pt solid #555; }
 </style>
 </head>
 <body>
 
-<table class="head">
+<table class="info">
   <tr>
-    <td style="width:55%">'
-  . ($logo ? '<img src="' . h($logo) . '" style="max-height:60px;max-width:200px"><br>' : '')
-  . '<strong>' . h($d['company_name']) . '</strong><br>
-      ' . h($d['company_address']) . '<br>
-      ' . h(trim($d['company_city'] . ' ' . $d['company_country'])) . '<br>
-      NIF: ' . h($d['company_nif']) . '<br>
-      ' . h($d['company_phone']) . ' ' . h($d['company_email']) . '
-    </td>
-    <td>
-      <div class="title">NOTA DE DÉBITO</div>
-      <div style="text-align:right;margin-top:6px">
-        <strong>N.º ' . $number . '</strong><br>
-        Data: ' . h($issue) . '<br>
-        <span class="muted">Fatura: ' . h($invRef) . '</span>
-      </div>
-    </td>
+    <td class="lab">Cliente:</td><td class="val"><strong>' . h($d['client_name']) . '</strong></td>
+    <td class="lab2">Data de emissão:</td><td>' . h($issue) . '</td>
+  </tr>
+  <tr>
+    <td class="lab">Contribuinte:</td><td class="val">' . h($d['client_contributor'] ?: '-') . '</td>
+    <td class="lab2">Fatura associada:</td><td>' . h($invRef) . '</td>
+  </tr>
+  <tr>
+    <td class="lab">Motivo:</td><td class="val" colspan="3">' . nl2br(h($d['reason'])) . '</td>
   </tr>
 </table>
 
-<table>
-  <tr>
-    <td style="width:49%" class="box">
-      <strong>Cliente</strong><br>
-      ' . h($d['client_name']) . '<br>
-      NIF: ' . h($d['client_contributor']) . '<br>
-      ' . h($d['client_email']) . '<br>
-      ' . nl2br(h($d['client_address'])) . '
-    </td>
-    <td style="width:2%"></td>
-    <td style="width:49%" class="box">
-      <strong>Motivo</strong><br>
-      ' . nl2br(h($d['reason'])) . '
-    </td>
-  </tr>
-</table>
-
+<!-- tabela e totais com o mesmo aspecto da fatura / nota de crédito -->
 <table class="items">
   <thead>
     <tr>
-      <th class="c">#</th>
+      <th style="width:30pt">#</th>
       <th>Descrição</th>
-      <th class="r">Qtd.</th>
-      <th class="r">Preço unit.</th>
-      <th class="r">IVA</th>
-      <th class="r">Total</th>
+      <th class="r" style="width:85pt">Preço Uni.</th>
+      <th class="ce" style="width:32pt">Qtd.</th>
+      <th class="ce" style="width:45pt">Taxa/IVA</th>
+      <th class="ce" style="width:38pt">Desc.</th>
+      <th class="r" style="width:95pt">Total</th>
     </tr>
   </thead>
   <tbody>' . $rows . '</tbody>
 </table>
 
-<table class="totals">
-  <tr><td>Subtotal (sem IVA)</td><td style="text-align:right">' . money($d['subtotal_without_tax']) . ' ' . $currency . '</td></tr>
-  <tr><td>IVA</td><td style="text-align:right">' . money($d['total_tax']) . ' ' . $currency . '</td></tr>
-  <tr class="grand"><td>Total a débito</td><td style="text-align:right">' . money($d['final_total']) . ' ' . $currency . '</td></tr>
+<table class="bottom">
+  <tr>
+    <td style="width:58%;padding-right:25pt">
+      <div class="sec">Dados fiscais</div>
+      <table class="kv">
+        <tr><td class="k">Regime de IVA:</td><td>' . h(bx_vat_regime_label($d['vat_regime'] ?? '')) . '</td></tr>
+        <tr><td class="k">Fatura associada:</td><td>' . h($invRef) . '</td></tr>
+      </table>
+    </td>
+    <td style="width:42%">
+      <div class="sec">Sumário</div>
+      <table class="kv sum">
+        <tr><td class="k">Sem Imposto/IVA:</td><td class="r">' . money($d['subtotal_without_tax']) . ' Kz</td></tr>
+        <tr><td class="k">Imposto/IVA:</td><td class="r">' . money($d['total_tax']) . ' Kz</td></tr>
+        <tr class="grand"><td>Total a débito:</td><td class="r">' . money($d['final_total']) . ' Kz</td></tr>
+      </table>
+    </td>
+  </tr>
 </table>
-<p style="margin-top:18px"><strong>Regime de IVA:</strong> ' . h(bx_vat_regime_label($d['vat_regime'] ?? '')) . '</p>
-
 
 </body>
 </html>';
@@ -228,6 +233,15 @@ $dompdf = new Dompdf($options);
 $dompdf->setPaper('A4', 'portrait');
 $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->render();
+bx_pdf_header($dompdf, [   // cabeçalho igual ao da fatura
+  'logo' => $logo,
+  'company_name' => $d['company_name'],
+  'company_address' => bx_join_address([$d['company_address'], $d['company_city'], $d['company_country']]),
+  'company_lines' => ['Tel: ' . ($d['company_phone'] ?: '-'), 'E-mail: ' . ($d['company_email'] ?: '-'), 'Contribuinte: ' . ($d['company_nif'] ?: '-')],
+  'client_name' => $d['client_name'],
+  'client_lines' => [bx_join_address([$d['client_address']])],
+  'title' => 'Nota de Débito n.º ' . ($agtNumber ?? ($d['serie'] . ' ' . $d['number'])),
+]);
 bx_pdf_footer($dompdf, $qrSrc);   // rodapé igual ao da fatura
 
 $dompdf->stream(

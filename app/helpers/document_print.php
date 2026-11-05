@@ -95,6 +95,131 @@ function bx_pdf_footer(\Dompdf\Dompdf $dompdf, ?string $qrSrc = null): void
     }
 }
 
+/**
+ * Cabeçalho igual ao da fatura (invoice_public.php), desenhado em todas as páginas de um
+ * documento Dompdf (recibo, nota de crédito, nota de débito, nota de entrega).
+ * Mesmas coordenadas (pt) da fatura: logo na caixa 105x55 em (45,35), empresa em (45,100),
+ * cliente em (435,100), via em y245, título em y263 e linha em y288.
+ * O conteúdo do documento deve começar abaixo de BX_PDF_HEADER_BOTTOM (@page margin-top).
+ *
+ * $h: logo (data URI ou caminho), company_name, company_address, company_lines[] (Tel, E-mail,
+ *     Contribuinte…), client_name, client_lines[] (morada, Tel…), copy_label, title.
+ */
+const BX_PDF_HEADER_BOTTOM = 300;   // pt: a tabela/corpo do documento começa aqui
+
+function bx_pdf_header(\Dompdf\Dompdf $dompdf, array $h): void
+{
+    $logoFile = null;
+    $logoW = $logoH = 0.0;
+    $logo = (string) ($h['logo'] ?? '');
+    if ($logo !== '' && preg_match('~^data:image/(png|jpe?g|gif);base64,(.+)$~i', $logo, $m)) {
+        $logoFile = tempnam(sys_get_temp_dir(), 'bxlogo') . '.' . (strtolower($m[1]) === 'png' ? 'png' : (strtolower($m[1]) === 'gif' ? 'gif' : 'jpg'));
+        file_put_contents($logoFile, base64_decode($m[2]));
+        register_shutdown_function(static fn() => @unlink($logoFile));
+    } elseif ($logo !== '' && is_file($logo)) {
+        $logoFile = $logo;
+    }
+    if ($logoFile && ($size = @getimagesize($logoFile)) && $size[0] > 0 && $size[1] > 0) {
+        $scale = min(105 / $size[0], 55 / $size[1]);   // cabe na caixa 105x55, sem deformar
+        $logoW = $size[0] * $scale;
+        $logoH = $size[1] * $scale;
+    } else {
+        $logoFile = null;
+    }
+
+    $grey = [0x70 / 255, 0x70 / 255, 0x70 / 255];
+    $black = [0, 0, 0];
+    $line9 = 9 * 1.156 + 3;    // linha de 9pt + margem de 3pt (como .blk>div)
+    $line12 = 12 * 1.156 + 3;
+
+    $companyName = mb_strtoupper(trim((string) ($h['company_name'] ?? '')) ?: '-');
+    $companyAddress = trim((string) ($h['company_address'] ?? ''));
+    $companyLines = array_values(array_filter(array_map('strval', $h['company_lines'] ?? []), 'strlen'));
+    $clientName = trim((string) ($h['client_name'] ?? '')) ?: '-';
+    $clientLines = array_values(array_filter(array_map('strval', $h['client_lines'] ?? []), 'strlen'));
+    $copyLabel = (string) ($h['copy_label'] ?? 'Original');
+    $title = (string) ($h['title'] ?? '');
+
+    $dompdf->getCanvas()->page_script(static function (int $page, int $count, $canvas, $metrics) use (
+        $logoFile, $logoW, $logoH, $grey, $black, $line9, $line12,
+        $companyName, $companyAddress, $companyLines, $clientName, $clientLines, $copyLabel, $title
+    ): void {
+        $regular = $metrics->getFont('Helvetica', 'normal');
+        $bold = $metrics->getFont('Helvetica', 'bold');
+
+        // quebra por palavras (ou por vírgulas, como a morada da fatura) dentro de $width
+        $wrap = static function (string $text, float $width, $font, float $size, bool $byComma = false) use ($metrics): array {
+            if ($byComma) {
+                // "Rua X, Bairro Y, Luanda": cada parte fica inteira; só quebra nas vírgulas
+                $parts = array_values(array_filter(array_map('trim', explode(',', $text)), 'strlen'));
+                $tokens = [];
+                foreach ($parts as $i => $part) {
+                    $tokens[] = $part . ($i < count($parts) - 1 ? ',' : '');
+                }
+            } else {
+                $tokens = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+            }
+            $lines = [];
+            $cur = '';
+            foreach ($tokens as $tok) {
+                $try = $cur === '' ? $tok : $cur . ' ' . $tok;
+                if ($cur !== '' && $metrics->getTextWidth($try, $font, $size) > $width) {
+                    $lines[] = $cur;
+                    $cur = $tok;
+                } else {
+                    $cur = $try;
+                }
+            }
+            if ($cur !== '') {
+                $lines[] = $cur;
+            }
+            return $lines ?: [''];
+        };
+
+        if ($logoFile) {
+            $canvas->image($logoFile, 45, 35, $logoW, $logoH);
+        }
+
+        // EMPRESA (45,100)
+        $y = 100.0;
+        foreach ($wrap($companyName, 365, $bold, 12) as $l) {
+            $canvas->text(45, $y, $l, $bold, 12, $black);
+            $y += $line12;
+        }
+        if ($companyAddress !== '') {
+            foreach ($wrap($companyAddress, 190, $regular, 9, true) as $l) {
+                $canvas->text(45, $y, $l, $regular, 9, $grey);
+                $y += 9 * 1.156;
+            }
+            $y += 3;
+        }
+        foreach ($companyLines as $l) {
+            $canvas->text(45, $y, $l, $regular, 9, $grey);
+            $y += $line9;
+        }
+
+        // CLIENTE (435,100)
+        $cw = 115 - 0.278 * 9;
+        $y = 100.0;
+        foreach ($wrap($clientName, $cw, $bold, 12) as $l) {
+            $canvas->text(435, $y, $l, $bold, 12, $black);
+            $y += $line12;
+        }
+        foreach ($clientLines as $text) {
+            foreach ($wrap($text, $cw, $regular, 9) as $l) {
+                $canvas->text(435, $y, $l, $regular, 9, $grey);
+                $y += 9 * 1.156;
+            }
+            $y += 3;
+        }
+
+        // VIA, TÍTULO E LINHA
+        $canvas->text(45, 245, $copyLabel, $regular, 10, $grey);
+        $canvas->text(45, 263, $title, $bold, 12, $black);
+        $canvas->line(45, 288, 550, 288, [0x8C / 255, 0x8C / 255, 0x8C / 255], 1.5);
+    });
+}
+
 /** IBAN em grupos de 4 ("AO06 0040 0000 …"), sem cortar dígitos. */
 function bx_format_iban(?string $iban): string
 {

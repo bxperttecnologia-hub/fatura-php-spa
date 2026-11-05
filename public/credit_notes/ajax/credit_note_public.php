@@ -245,7 +245,8 @@ $logo = company_logo_pdf_src($cn['logo_url'] ?? '') ?: company_logo_src($cn['log
 
   <style>
     @page {
-    margin: 15mm 12mm 18mm 12mm;
+    /* entre o cabeçalho (bx_pdf_header) e o rodapé (bx_pdf_footer), iguais aos da fatura */
+    margin: <?= BX_PDF_HEADER_BOTTOM ?>pt 45pt 80pt 45pt;
     }
 
     body {
@@ -498,74 +499,21 @@ $logo = company_logo_pdf_src($cn['logo_url'] ?? '') ?: company_logo_src($cn['log
 
   <main>
 
-    <!-- =========================
-         HEADER
-    ========================= -->
-
-    <table class="inv-header-table">
-
-      <tr>
-
-        <!-- EMPRESA -->
-        <td style="width:60%;">
-          <div class="cn-company">
-
-            <h3>
-              <?= htmlspecialchars($cn['company_name']) ?>
-            </h3>
-
-            <p>
-              <?= nl2br(htmlspecialchars($cn['company_address'] ?? '-')) ?>
-            </p>
-
-            <p>
-              <?= htmlspecialchars(
-                trim(($cn['company_city'] ?? '') . ' - ' . ($cn['company_country'] ?? ''))
-              ) ?>
-            </p>
-
-            <p>
-              Tel: <?= htmlspecialchars($cn['company_phone'] ?? '-') ?>
-            </p>
-
-            <p>
-              E-mail: <?= htmlspecialchars($cn['company_email'] ?? '-') ?>
-            </p>
-
-            <p>
-              Contribuinte:
-              <?= htmlspecialchars($cn['registration_number'] ?? '-') ?>
-            </p>
-
-          </div>
-
-        </td>
-
-        <!-- CLIENTE -->
-        <td style="width:40%;">
-
-          <div class="cn-client">
-            <?php if (!empty($logo)): ?>
-              <div class="cn-logo">
-                <img src="<?= htmlspecialchars($logo) ?>" alt="Logo">
-              </div>
-            <?php endif; ?>
-          </div>
-
-        </td>
-
-      </tr>
-
-    </table>
-
-    <!-- =========================
-         TITLE
-    ========================= -->
-
-    <div class="title-line" style="margin-top: 50px;">
-      Nota de Crédito (<?= $noteIsPartial ? 'CRÉDITO PARCIAL' : 'ANULAÇÃO INTEGRAL' ?>) n.º
-      <?= htmlspecialchars($noteNumber) ?>
-    </div>
+    <!-- Cabeçalho (logo, empresa, cliente, "Original" e título) desenhado no PDF por
+         bx_pdf_header, com as mesmas posições da fatura. -->
+    <?php $GLOBALS['bx_pdf_header'] = [
+      'logo' => $logo,
+      'company_name' => $cn['company_name'] ?? '',
+      'company_address' => bx_join_address([$cn['company_address'] ?? '', $cn['company_city'] ?? '', $cn['company_country'] ?? '']),
+      'company_lines' => [
+        'Tel: ' . (($cn['company_phone'] ?? '') ?: '-'),
+        'E-mail: ' . (($cn['company_email'] ?? '') ?: '-'),
+        'Contribuinte: ' . (($cn['registration_number'] ?? '') ?: '-'),
+      ],
+      'client_name' => $cn['client_name'] ?? '',
+      'client_lines' => [bx_join_address([$cn['client_address'] ?? '', $cn['client_city'] ?? '', $cn['client_country'] ?? ''])],
+      'title' => 'Nota de Crédito (' . ($noteIsPartial ? 'Crédito parcial' : 'Anulação integral') . ') n.º ' . $noteNumber,
+    ]; ?>
 
     <!-- =========================
          META INFO

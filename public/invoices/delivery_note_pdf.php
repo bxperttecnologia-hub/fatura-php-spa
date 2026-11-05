@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
 require_once __DIR__ . '/../../app/helpers/company_logo.php';
+require_once __DIR__ . '/../../app/helpers/document_print.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -144,62 +145,44 @@ $html = '
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { margin: 30px 35px; }
+  /* cabeçalho e rodapé iguais aos da fatura (bx_pdf_header / bx_pdf_footer) */
+  @page { margin: ' . BX_PDF_HEADER_BOTTOM . 'pt 45pt 80pt 45pt; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; }
   table { width: 100%; border-collapse: collapse; }
   td, th { vertical-align: top; }
-  .head td { padding-bottom: 14px; }
-  .title { font-size: 20px; font-weight: bold; text-align: right; }
-  .muted { color: #555; }
-  .box { border: 1px solid #ccc; padding: 8px 10px; }
-  .items { margin-top: 18px; }
-  .items th { background: #f0f0f0; border: 1px solid #ccc; padding: 7px; text-align: left; }
-  .items td { border: 1px solid #ccc; padding: 7px; }
-  .code { width: 72px; }
-  .unit { width: 72px; }
-  .r { text-align: right; width: 90px; }
-  .sign { margin-top: 70px; }
-  .sign td { width: 50%; text-align: center; padding: 0 20px; }
-  .line { border-top: 1px solid #000; padding-top: 5px; }
+  .muted { color: #888; }
+  .info td { font-size: 9pt; color: #707070; padding: 0 0 6pt 0; }
+  .info .lab { width: 100pt; }
+  .info .lab2 { width: 78pt; }
+  .info .val { width: 220pt; color: #444; }
+  .info td:last-child { white-space: nowrap; }
+  .r { text-align: right; }
+  .items { margin-top: 10pt; font-size: 8pt; }
+  .items th { font-weight: bold; color: #555; text-align: left; padding: 6pt 5pt;
+              border-top: 1pt solid #8C8C8C; border-bottom: .8pt solid #D2D2D2; }
+  .items th.r { text-align: right; }
+  .items td { color: #666; padding: 7pt 5pt; border-bottom: .5pt solid #EEEEEE; }
+  .code { width: 75pt; }
+  .unit { width: 70pt; }
+  .obs { margin-top: 14pt; font-size: 9pt; color: #707070; }
+  .sign { margin-top: 60pt; font-size: 9pt; color: #555; }
+  .sign td { width: 50%; text-align: center; padding: 0 20pt; }
+  .line { border-top: .8pt solid #555; padding-top: 5pt; }
 </style>
 </head>
 <body>
 
-<table class="head">
+<table class="info">
   <tr>
-    <td style="width:55%">'
-  . ($logo ? '<img src="' . h($logo) . '" style="max-height:60px;max-width:200px"><br>' : '')
-  . '<strong>' . h($d['company_name']) . '</strong><br>
-      ' . h($d['company_address']) . '<br>
-      ' . h(trim($d['company_city'] . ' ' . $d['company_country'])) . '<br>
-      NIF: ' . h($d['company_nif']) . '<br>
-      ' . h($d['company_phone']) . ' ' . h($d['company_email']) . '
-    </td>
-    <td>
-      <div class="title">NOTA DE ENTREGA</div>
-      <div style="text-align:right;margin-top:6px">
-        <strong>N.º ' . $number . '</strong><br>
-        Data: ' . h($issue) . '<br>
-        <span class="muted">Fatura: ' . h($invRef) . '</span>
-      </div>
-    </td>
+    <td class="lab">Cliente:</td><td class="val"><strong>' . h($d['client_name']) . '</strong></td>
+    <td class="lab2">Data de emissão:</td><td>' . h($issue) . '</td>
   </tr>
-</table>
-
-<table>
   <tr>
-    <td style="width:49%" class="box">
-      <strong>Cliente</strong><br>
-      ' . h($d['client_name']) . '<br>
-      NIF: ' . h($d['client_contributor']) . '<br>
-      ' . ($clientPhone !== '' ? 'Telefone: ' . h($clientPhone) . '<br>' : '') . '
-      ' . h($d['client_email']) . '
-    </td>
-    <td style="width:2%"></td>
-    <td style="width:49%" class="box">
-      <strong>Local de entrega</strong><br>
-      ' . nl2br(h($address)) . '
-    </td>
+    <td class="lab">Contribuinte:</td><td class="val">' . h($d['client_contributor'] ?: '-') . '</td>
+    <td class="lab2">Fatura associada:</td><td>' . h($invRef) . '</td>
+  </tr>
+  <tr>
+    <td class="lab">Local de entrega:</td><td class="val" colspan="3">' . nl2br(h($address ?: '-')) . '</td>
   </tr>
 </table>
 
@@ -210,7 +193,7 @@ $html = '
   <tbody>' . $rows . '</tbody>
 </table>'
   . ($d['notes']
-    ? '<p style="margin-top:14px"><strong>Observações:</strong><br>' . nl2br(h($d['notes'])) . '</p>'
+    ? '<div class="obs"><strong>Observações:</strong><br>' . nl2br(h($d['notes'])) . '</div>'
     : '')
   . '
 <table class="sign">
@@ -233,6 +216,16 @@ $dompdf = new Dompdf($options);
 $dompdf->setPaper('A4', 'portrait');
 $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->render();
+bx_pdf_header($dompdf, [   // cabeçalho igual ao da fatura
+  'logo' => $logo,
+  'company_name' => $d['company_name'],
+  'company_address' => bx_join_address([$d['company_address'], $d['company_city'], $d['company_country']]),
+  'company_lines' => ['Tel: ' . ($d['company_phone'] ?: '-'), 'E-mail: ' . ($d['company_email'] ?: '-'), 'Contribuinte: ' . ($d['company_nif'] ?: '-')],
+  'client_name' => $d['client_name'],
+  'client_lines' => array_filter([bx_join_address([$d['client_address']]), $clientPhone !== '' ? 'Tel: ' . $clientPhone : '']),
+  'title' => 'Nota de Entrega n.º ' . $d['serie'] . ' ' . $d['number'],
+]);
+bx_pdf_footer($dompdf);   // rodapé igual ao da fatura
 
 $dompdf->stream(
   'NotaEntrega_' . $d['serie'] . '-' . $d['number'] . '.pdf',
