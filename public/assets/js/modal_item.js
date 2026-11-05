@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const formData = new FormData();
       formData.append("codigo", codigo);
 
-      const res = await fetch("items/ajax/check_code.php", {
+      const res = await fetch("/items/ajax/check_code.php", {
         method: "POST",
         body: formData,
       });

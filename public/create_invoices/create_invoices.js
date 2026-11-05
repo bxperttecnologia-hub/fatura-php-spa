@@ -418,7 +418,7 @@ $(document).ready(function () {
       .filter(
         (c) =>
           !query ||
-          `${c.name || ""} ${c.email || ""}`.toLowerCase().includes(query),
+          `${c.name || ""} ${c.email || ""} ${c.contributor || ""} ${c.telephone || ""}`.toLowerCase().includes(query),
       )
       .forEach((c) => {
         cards.push(
