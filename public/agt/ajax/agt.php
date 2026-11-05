@@ -151,7 +151,7 @@ function agt_sync_series(PDO $pdo, int $companyId, string $environment, array $c
 /** A AGT aceitou uma operação assinada com a chave atual: deixa de estar "por validar". */
 function agt_mark_key_validated(PDO $pdo, int $companyId): void
 {
-    $pdo->prepare('UPDATE agt_settings SET key_validated_at = NOW() WHERE company_id = ? AND key_validated_at IS NULL')
+    $pdo->prepare('UPDATE agt_settings SET key_validated_at = NOW(), updated_at = updated_at WHERE company_id = ? AND key_validated_at IS NULL')
         ->execute([$companyId]);
 }
 
@@ -168,6 +168,16 @@ function agt_missing_default_types(PDO $pdo, int $companyId, string $environment
 function agt_status_payload(PDO $pdo, int $companyId, string $environment): array
 {
     $settings = agt_settings($pdo, $companyId);
+    // Chave "por validar" mas a AGT já criou séries depois de ela ser guardada (ex.: a operação parou
+    // a meio): a AGT aceitou pedidos assinados com esta chave, logo está validada.
+    if ($settings && empty($settings['key_validated_at'])) {
+        $stmt = $pdo->prepare('SELECT 1 FROM agt_series WHERE company_id = ? AND environment = ? AND created_at >= ? LIMIT 1');
+        $stmt->execute([$companyId, $environment, $settings['updated_at']]);
+        if ($stmt->fetchColumn()) {
+            agt_mark_key_validated($pdo, $companyId);
+            $settings = agt_settings($pdo, $companyId);
+        }
+    }
     $stmt = $pdo->prepare('SELECT name, registration_number FROM companies WHERE id = ?');
     $stmt->execute([$companyId]);
     $company = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -189,6 +199,7 @@ function agt_status_payload(PDO $pdo, int $companyId, string $environment): arra
         ] : null,
         'document_types' => agt_document_types(),
         'default_types' => agt_default_document_types(),
+        'missing_types' => $settings ? agt_missing_default_types($pdo, $companyId, $environment, (int) date('Y')) : [],
         'series' => agt_list_local_series($pdo, $companyId, $environment),
         'year' => (int) date('Y'),
         // Depois de 15/12 a AGT aceita também séries do ano seguinte.
@@ -256,10 +267,13 @@ try {
                     $syncError = $e->getMessage();
                 }
 
-                // Cria as séries base que ainda não existam para o ano corrente.
-                $year = (int) date('Y');
-                foreach (agt_missing_default_types($pdo, $companyId, $environment, $year) as $type) {
-                    $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, 'N');
+                // listarSeries falhou (ex.: E06 sem séries): valida a chave com UMA série em falta.
+                // As restantes séries são criadas pela página, uma de cada vez (missing_types).
+                if ($syncError !== null) {
+                    $missing = agt_missing_default_types($pdo, $companyId, $environment, (int) date('Y'));
+                    if ($missing) {
+                        $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $missing[0], (int) date('Y'), $establishment, 'N');
+                    }
                 }
             } catch (AgtUnavailableException $e) {
                 // A AGT não respondeu: a chave (já verificada localmente: formato RSA) fica guardada
@@ -340,11 +354,25 @@ try {
             $contingency = !$defaults && ($_POST['contingency'] ?? 'N') === 'C' ? 'C' : 'N';
 
             $created = [];
+            $unavailable = null;
             foreach ($types as $type) {
-                $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, $contingency);
+                try {
+                    $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $establishment, $contingency);
+                } catch (AgtUnavailableException $e) {
+                    $unavailable = $e->getMessage();   // as séries já criadas ficam; as restantes ficam por criar
+                    break;
+                }
             }
             $ok = count(array_filter($created, static fn($c) => $c['success']));
+            if ($ok > 0) {
+                agt_mark_key_validated($pdo, $companyId);
+            }
+            if ($unavailable !== null && $ok === 0 && !array_filter($created, static fn($c) => !$c['success'])) {
+                throw new AgtUnavailableException($unavailable);
+            }
             agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
+                'unavailable' => $unavailable,
+                'pending_types' => array_values(array_slice($types, count($created))),
                 'created' => $created,
                 'message' => $ok === count($created) ? 'Séries criadas na AGT.' : ($ok ? 'Algumas séries não foram criadas.' : 'A AGT não criou as séries.'),
             ]);
@@ -365,18 +393,10 @@ try {
                 throw $e;
             }
             agt_mark_key_validated($pdo, $companyId);
-
-            // Chave guardada com a AGT em baixo: agora que foi aceite, cria as séries base em falta.
-            $created = [];
-            if ($wasPending) {
-                $year = (int) date('Y');
-                foreach (agt_missing_default_types($pdo, $companyId, $environment, $year) as $type) {
-                    $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $type, $year, $creds['establishment'], 'N');
-                }
-            }
+            // As séries base em falta (missing_types) são criadas pela página, uma de cada vez.
             agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
                 'message' => ($wasPending ? 'Chave validada pela AGT. ' : '') . $count . ' série(s) atualizada(s) a partir da AGT.',
-                'created' => $created,
+                'was_pending' => $wasPending,
             ]);
 
         case 'set_default':

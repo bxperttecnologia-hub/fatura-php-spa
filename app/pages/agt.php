@@ -168,7 +168,8 @@ require_once '../app/views/layout_creation.php';
             <div class="alert alert-warning small d-none" id="agtKeyPending">
                 <i class="bi bi-hourglass-split me-1"></i>
                 A chave está guardada mas <b>ainda não foi validada pela AGT</b> (a AGT estava indisponível).
-                Quando a AGT voltar, clique em <b>Sincronizar com a AGT</b> para a validar e criar as séries.
+                Quando a AGT voltar, clique em <b>Sincronizar com a AGT</b> ou <b>Criar séries em falta</b>:
+                a primeira resposta da AGT valida a chave.
             </div>
 
             <form id="agtKeyForm" class="row g-3" autocomplete="off">
@@ -352,6 +353,56 @@ require_once '../app/views/layout_creation.php';
         }
     }
 
+    /**
+     * Cria as séries UMA A UMA: cada pedido à AGT grava a série e atualiza logo a tabela.
+     * Se a AGT parar a meio, as já criadas ficam e as restantes aparecem como "por criar"
+     * (basta clicar outra vez em "Criar séries em falta").
+     */
+    async function createSeriesOneByOne(types, { year, establishment, contingency } = {}) {
+        if (!types.length) return;
+        const labels = state?.document_types || {};
+        const rows = types.map((t) => ({ type: t, status: 'waiting', text: '' }));
+        const icon = { waiting: '<span class="text-muted">•</span>', running: '<span class="spinner-border spinner-border-sm text-primary"></span>',
+            ok: '<i class="bi bi-check-circle-fill text-success"></i>', fail: '<i class="bi bi-x-circle-fill text-danger"></i>',
+            skipped: '<i class="bi bi-pause-circle text-warning"></i>' };
+        const html = () => `<ul class="list-unstyled text-start small mb-0">${rows.map((r) => `
+            <li class="d-flex gap-2 align-items-start py-1">${icon[r.status]}
+              <span><strong>${esc(r.type)}</strong> ${esc(labels[r.type] || '')}${r.text ? ` — <span class="${r.status === 'ok' ? '' : 'text-muted'}">${r.text}</span>` : ''}</span></li>`).join('')}</ul>`;
+        Swal.fire({ title: 'A criar séries na AGT', html: html(), allowOutsideClick: false, showConfirmButton: false });
+        let stopped = '';
+        for (const row of rows) {
+            if (stopped) { row.status = 'skipped'; row.text = 'por criar'; continue; }
+            row.status = 'running';
+            Swal.update({ html: html() });
+            const fd = new FormData();
+            fd.append('types[]', row.type);
+            fd.append('year', year || state.year);
+            if (establishment) fd.append('establishment', establishment);
+            if (contingency) fd.append('contingency', contingency);
+            try {
+                const data = await call('create_series', fd);
+                render(data);
+                const r = (data.created || [])[0];
+                if (r?.success) { row.status = 'ok'; row.text = `série <code>${esc(r.series_code)}</code>`; }
+                else if (r) { row.status = 'fail'; row.text = esc(r.message); }
+                else { row.status = 'skipped'; row.text = 'por criar'; stopped = data.unavailable || 'A AGT não respondeu.'; }
+            } catch (e) {
+                row.status = 'skipped'; row.text = 'por criar';
+                stopped = e.message;
+            }
+            Swal.update({ html: html() });
+        }
+        const ok = rows.filter((r) => r.status === 'ok').length;
+        Swal.update({
+            title: stopped ? 'A AGT parou a meio' : (ok === rows.length ? 'Séries criadas' : 'Algumas séries não foram criadas'),
+            icon: stopped || ok < rows.length ? 'warning' : 'success',
+            html: html() + (stopped ? `<p class="small text-muted mt-3 mb-0">${esc(stopped)}<br>As séries criadas ficaram guardadas. Quando a AGT responder, clique em <b>Criar séries em falta</b> para continuar.</p>` : ''),
+            showConfirmButton: true,
+            allowOutsideClick: true,
+        });
+        try { render(await call('status')); } catch (_) { /* a tabela já foi atualizada a cada série */ }
+    }
+
     function createdSummary(created) {
         if (!created || !created.length) return '';
         const types = state?.document_types || {};
@@ -498,6 +549,10 @@ require_once '../app/views/layout_creation.php';
                 Swal.fire({ icon: 'warning', title: data.message, text: data.detail });
                 return;
             }
+            if ((data.missing_types || []).length) {
+                await createSeriesOneByOne(data.missing_types);
+                return;
+            }
             const failed = (data.created || []).some((c) => !c.success);
             Swal.fire({
                 icon: failed ? 'warning' : 'success',
@@ -522,9 +577,8 @@ require_once '../app/views/layout_creation.php';
         try {
             const data = await call('sync', new FormData());
             render(data);
-            if ((data.created || []).length) {
-                const failed = data.created.some((c) => !c.success);
-                Swal.fire({ icon: failed ? 'warning' : 'success', title: data.message, html: createdSummary(data.created) });
+            if (data.was_pending && (data.missing_types || []).length) {
+                await createSeriesOneByOne(data.missing_types);
             } else {
                 Swal.fire({ icon: 'success', title: data.message, timer: 2200, showConfirmButton: false });
             }
@@ -537,15 +591,15 @@ require_once '../app/views/layout_creation.php';
 
     document.getElementById('agtCreateDefaults').addEventListener('click', async (event) => {
         const button = event.currentTarget;
-        const fd = new FormData();
-        fd.append('defaults', '1');
-        fd.append('year', state.year);
         busy(button, true, 'A pedir à AGT…');
         try {
-            const data = await call('create_series', fd);
+            const data = await call('status');
             render(data);
-            const failed = data.created.some((c) => !c.success);
-            Swal.fire({ icon: failed ? 'warning' : 'success', title: data.message, html: createdSummary(data.created) });
+            if (!(data.missing_types || []).length) {
+                Swal.fire({ icon: 'success', title: `Todos os tipos de documento já têm série em ${data.year}.`, timer: 2500, showConfirmButton: false });
+            } else {
+                await createSeriesOneByOne(data.missing_types);
+            }
         } catch (e) {
             Swal.fire('Não foi possível criar', e.message, 'error');
         } finally {
@@ -577,11 +631,10 @@ require_once '../app/views/layout_creation.php';
         const button = document.getElementById('agtSeriesSubmit');
         busy(button, true, 'A pedir à AGT…');
         try {
-            const data = await call('create_series', fd);
             bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-            render(data);
-            const failed = data.created.some((c) => !c.success);
-            Swal.fire({ icon: failed ? 'warning' : 'success', title: data.message, html: createdSummary(data.created) });
+            await createSeriesOneByOne(fd.getAll('types[]'), {
+                year: fd.get('year'), establishment: fd.get('establishment'), contingency: fd.get('contingency'),
+            });
         } catch (e) {
             Swal.fire('Não foi possível criar', e.message, 'error');
         } finally {
