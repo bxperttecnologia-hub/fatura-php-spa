@@ -51,6 +51,11 @@ require_once '../app/views/layout_creation.php';
                         <i class="bi bi-plus-lg" aria-hidden="true"></i>
                         <span>Nova fatura</span>
                     </a>
+                    <button type="button" class="bx-btn-secondary" id="autoCollectionBtn"
+                        data-bs-toggle="modal" data-bs-target="#autoCollectionModal">
+                        <i class="bi bi-bell" aria-hidden="true"></i>
+                        <span>Cobrança automática</span>
+                    </button>
                     <div class="bx-export" id="exportMenu">
                         <button type="button" class="bx-btn-primary" id="exportMenuBtn"
                             aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuList">
@@ -322,7 +327,63 @@ require_once '../app/views/layout_creation.php';
         </div>
     </div> -->
 
+    <!-- ============ COBRANÇA AUTOMÁTICA ============ -->
+    <div class="modal fade" id="autoCollectionModal" tabindex="-1" aria-labelledby="autoCollectionTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="autoCollectionForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="autoCollectionTitle"><i class="bi bi-bell me-2"></i>Cobrança automática</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning small d-none" id="acSmtpWarning">
+                            O envio de e-mail ainda não está configurado no servidor (SMTP no <code>.env</code>).
+                            A configuração fica guardada, mas os avisos só saem depois de configurar o SMTP.
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="acEnabled" name="enabled" value="1">
+                            <label class="form-check-label fw-semibold" for="acEnabled">Enviar avisos de cobrança automaticamente todos os dias</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="acDays" class="form-label small fw-bold text-muted">Etapas (dias em relação ao vencimento)</label>
+                            <input type="text" class="form-control" id="acDays" name="reminder_days" placeholder="-3,0,7,15,30">
+                            <div class="form-text">Negativo = antes do vencimento. Ex.: <code>-3,0,7,15,30</code> avisa 3 dias antes, no dia, e 7, 15 e 30 dias depois. Cada etapa é enviada uma só vez por fatura.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="acSubject" class="form-label small fw-bold text-muted">Assunto (opcional)</label>
+                            <input type="text" class="form-control" id="acSubject" name="email_subject" maxlength="200" placeholder="Por omissão: conforme a etapa (vence a…, vence hoje, em atraso)">
+                        </div>
+                        <div class="mb-2">
+                            <label for="acMessage" class="form-label small fw-bold text-muted">Mensagem (opcional)</label>
+                            <textarea class="form-control" id="acMessage" name="email_message" rows="4" maxlength="4000" placeholder="Por omissão: texto conforme a etapa"></textarea>
+                            <div class="form-text">Pode usar: {cliente} {empresa} {fatura} {valor} {vencimento} {dias}</div>
+                        </div>
+                        <div class="alert alert-danger small d-none" id="acError"></div>
+
+                        <h6 class="mt-4 fw-semibold">Avisos por enviar hoje <span class="badge bg-secondary" id="acPendingCount">0</span></h6>
+                        <div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+                            <thead><tr><th>Fatura</th><th>Cliente</th><th>E-mail</th><th class="text-end">Em dívida</th><th>Etapa</th></tr></thead>
+                            <tbody id="acPendingBody"><tr><td colspan="5" class="text-muted">A carregar…</td></tr></tbody>
+                        </table></div>
+
+                        <h6 class="mt-4 fw-semibold">Histórico</h6>
+                        <div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+                            <thead><tr><th>Data</th><th>Fatura</th><th>Cliente</th><th>Etapa</th><th>Estado</th></tr></thead>
+                            <tbody id="acHistoryBody"><tr><td colspan="5" class="text-muted">—</td></tr></tbody>
+                        </table></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" id="acRunBtn"><i class="bi bi-send me-1"></i> Enviar avisos agora</button>
+                        <button type="submit" class="btn btn-primary" id="acSaveBtn"><i class="bi bi-check2 me-1"></i> Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="invoices/list_invoices.js?v=spa-fix-20261105b"></script>
+    <script src="invoices/collections.js?v=1.0"></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>
