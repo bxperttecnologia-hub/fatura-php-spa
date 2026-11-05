@@ -477,30 +477,60 @@
     });
 
     // ---------- 4) abre modal Pagamento ----------
+    // Valores em dívida: total − notas de crédito − recibos já pagos. Vêm do servidor no
+    // momento em que a janela abre (o currentInvoice pode estar desatualizado).
+    function fillPaymentSummary(inv) {
+      const total = Number(inv.final_total) || 0;
+      const jaPago = Number(inv.paid_total) || 0;
+      const creditado = Number(inv.credited_total) || 0;
+      const saldo = Math.max(0, Math.round((total - jaPago - creditado) * 100) / 100);
+      const symbol = inv.symbol || currentInvoice?.symbol || "Kz";
+      const money = (v) => `${Number(v || 0).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+
+      $("#pg_total").text(money(total));
+      $("#pg_creditado").text(creditado > 0 ? `− ${money(creditado)}` : money(0));
+      $("#pg_pago").text(jaPago > 0 ? `− ${money(jaPago)}` : money(0));
+      $("#pg_falta").text(money(saldo));
+      $("#pg_saldo").text(`em falta ${money(saldo)}`);
+
+      $("#pg_valor")
+        .val(saldo.toFixed(2)) // sugestão: tudo o que falta pagar
+        .attr("max", saldo)
+        .data("saldo", saldo)
+        .removeClass("is-invalid");
+      $("#pg_valor_feedback").remove();
+
+      const $submit = $("#formPagamento button[type=submit]");
+      $submit.prop("disabled", saldo <= 0);
+      $("#pg_pagar_tudo").toggleClass("d-none", saldo <= 0);
+      if (saldo <= 0) {
+        $("#pg_saldo").text("fatura liquidada");
+      }
+    }
+
+    $("#pg_pagar_tudo").on("click", function () {
+      const saldo = Number($("#pg_valor").data("saldo")) || 0;
+      $("#pg_valor").val(saldo.toFixed(2)).trigger("input");
+    });
+
     $("#modalPagamento").on("show.bs.modal", function () {
       if (!currentInvoice) return alert("Factura ainda não carregada!");
 
-      console.log(currentInvoice);
-
-      const total = Number(currentInvoice.final_total) || 0;
-      const jaPago = Number(currentInvoice.paid_total) || 0;
-      const retention = Number(currentInvoice.retention) || 0;
-      const creditado = Number(currentInvoice.credited_total) || 0;
-      const saldo = Math.max(0, total - jaPago - creditado);
-
-      $("#pg_valor")
-        .val(saldo.toFixed(2))
-        .attr("max", saldo) // HTML5 — impede submit se > max
-        .data("saldo", saldo); // guarda para o listener abaixo
-
-      $("#pg_saldo").text(
-        `Kz de ${saldo.toLocaleString("pt-PT", { minimumFractionDigits: 2 })} Kz`,
-      );
+      fillPaymentSummary(currentInvoice);
+      $.getJSON("invoices/ajax/get_invoice.php", { id: currentInvoice.id }).done((res) => {
+        if (res?.success && res.data) {
+          Object.assign(currentInvoice, {
+            final_total: res.data.final_total,
+            paid_total: res.data.paid_total,
+            credited_total: res.data.credited_total,
+          });
+          fillPaymentSummary(currentInvoice);
+        }
+      });
 
       // data = hoje
       $("#pg_data").val(new Date().toISOString().slice(0, 10));
-
-      $("#pg_obs").val(retention != null ? `Retenção: ${retention}` : "");
+      $("#pg_obs").val("");
     });
 
     // ---------- 4) submit do pagamento ----------
@@ -2478,8 +2508,8 @@
     });
 
     $("#pg_valor").on("input", function () {
-      const saldo = $(this).data("saldo"); // quanto ainda falta pagar
-      const valor = parseFloat(this.value) || 0;
+      const saldo = Number($(this).data("saldo")) || 0; // quanto ainda falta pagar
+      const valor = Number($(this).val()) || 0; // valor numérico (o campo mostra "2 330,00")
       const $submit = $("#formPagamento button[type=submit]");
 
       if (valor > saldo) {

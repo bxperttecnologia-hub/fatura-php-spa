@@ -593,10 +593,22 @@ try {
                 </div>
 
                 <div class="modal-body">
+                    <!-- Resumo: total, notas de crédito, recibos e o que falta pagar -->
+                    <div class="p-3 bg-white rounded shadow-sm mb-2" id="pg_resumo">
+                        <div class="d-flex justify-content-between small"><span>Total da fatura</span><span id="pg_total">—</span></div>
+                        <div class="d-flex justify-content-between small text-danger"><span>Notas de crédito</span><span id="pg_creditado">—</span></div>
+                        <div class="d-flex justify-content-between small text-success"><span>Já pago (recibos)</span><span id="pg_pago">—</span></div>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between fw-semibold"><span>Em falta</span><span id="pg_falta">—</span></div>
+                    </div>
+
                     <!-- Valor -->
                     <div class="p-3 bg-white rounded shadow-sm mb-2">
                         <div class="mb-3">
-                            <label class="form-label">Valor</label>
+                            <label class="form-label d-flex justify-content-between align-items-center">
+                                <span>Valor</span>
+                                <button type="button" class="btn btn-link btn-sm p-0" id="pg_pagar_tudo">Pagar o valor em falta</button>
+                            </label>
                             <div class="input-group d-flex gap-0">
                                 <input type="number" step="0.01" min="0" id="pg_valor"
                                     name="amount" class="form-control" required>
@@ -1084,7 +1096,7 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
 <script src="/assets/js/document-history.js?v=1.1" data-spa-repeat></script>
-<script src="invoices/invoice.js?v=5.17" data-spa-repeat></script>
+<script src="invoices/invoice.js?v=5.18" data-spa-repeat></script>
 
 <script>
 // Estado na AGT (faturação eletrónica) do documento que está a ser visto: a fatura ou,
