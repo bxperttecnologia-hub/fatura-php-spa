@@ -1870,6 +1870,10 @@ $(document).ready(function () {
     // AJAX
     // =========================
     const $saveBtn = $("#saveInvoiceBtn").prop("disabled", true);
+    const saveBtnHtml = $saveBtn.html();
+    const isUpdate = proformId != null;
+    $saveBtn.html('<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> A guardar…');
+    const releaseSaveBtn = () => $saveBtn.prop("disabled", false).html(saveBtnHtml);
 
     $.ajax({
       url:
@@ -1885,7 +1889,7 @@ $(document).ready(function () {
       },
       success: function (response) {
         if (!response.success) {
-          $saveBtn.prop("disabled", false);
+          releaseSaveBtn();
           return Swal.fire({
             icon: "error",
             title: "Erro",
@@ -1897,36 +1901,46 @@ $(document).ready(function () {
 
         console.log("✅ Proforma guardada com sucesso:", response);
 
+        const savedId = response.proform_id;
+        const viewUrl = savedId ? `/proformas/view?id=${encodeURIComponent(savedId)}` : null;
+        const go = () => {
+          if (!viewUrl) return;
+          if (typeof window.navigateSPA === "function") window.navigateSPA(viewUrl);
+          else window.location.assign(viewUrl);
+        };
+
+        // A partir daqui o formulário passa a atualizar este documento (não cria outro ao voltar a gravar).
+        if (savedId) {
+          proformId = savedId;
+          $("#edit_proform_id").val(savedId);
+        }
+        releaseSaveBtn();
+
+        if (isUpdate) {
+          // Atualizar: volta logo ao documento, com uma confirmação breve.
+          Swal.fire({ icon: "success", title: "Proforma atualizada", timer: 1400, showConfirmButton: false }).then(go);
+          return;
+        }
+
         Swal.fire({
           icon: "success",
-          title: proformId
-            ? "Proforma atualizada com sucesso!"
-            : "Proforma criada com sucesso!",
+          title: "Proforma criada com sucesso!",
           text: "Clique abaixo para visualizar.",
+          showCancelButton: true,
           confirmButtonText: "Ver proforma",
+          cancelButtonText: "Continuar a editar",
           confirmButtonColor: "#007abd",
         }).then((result) => {
-          if (result.isConfirmed) {
-            if (!response.proform_id) {
-              Swal.fire(
-                "Erro",
-                "A proforma foi gravada, mas o servidor não devolveu o identificador para a visualizar.",
-                "error",
-              );
-              return;
-            }
-
-            const proformUrl = `/proformas/view?id=${encodeURIComponent(response.proform_id)}`;
-            if (typeof window.navigateSPA === "function") {
-              window.navigateSPA(proformUrl);
-            } else {
-              window.location.assign(proformUrl);
-            }
+          if (!result.isConfirmed) return;
+          if (!viewUrl) {
+            Swal.fire("Erro", "O documento foi gravado, mas o servidor não devolveu o identificador para o visualizar.", "error");
+            return;
           }
+          go();
         });
       },
       error: function (xhr, status, error) {
-        $saveBtn.prop("disabled", false);
+        releaseSaveBtn();
 
         Swal.fire({
           icon: "error",

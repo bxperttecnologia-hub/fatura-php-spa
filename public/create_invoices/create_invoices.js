@@ -1870,6 +1870,10 @@ $(document).ready(function () {
     // AJAX
     // =========================
     const $saveBtn = $("#saveInvoiceBtn").prop("disabled", true);
+    const saveBtnHtml = $saveBtn.html();
+    const isUpdate = invoiceId != null;
+    $saveBtn.html('<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> A guardar…');
+    const releaseSaveBtn = () => $saveBtn.prop("disabled", false).html(saveBtnHtml);
 
     $.ajax({
       url:
@@ -1885,7 +1889,7 @@ $(document).ready(function () {
       },
       success: function (response) {
         if (!response.success) {
-          $saveBtn.prop("disabled", false);
+          releaseSaveBtn();
           return Swal.fire({
             icon: "error",
             title: "Erro",
@@ -1897,36 +1901,46 @@ $(document).ready(function () {
 
         console.log("✅ Fatura salva com sucesso:", response);
 
+        const savedId = response.invoice_id;
+        const viewUrl = savedId ? `/invoices/view?id=${encodeURIComponent(savedId)}` : null;
+        const go = () => {
+          if (!viewUrl) return;
+          if (typeof window.navigateSPA === "function") window.navigateSPA(viewUrl);
+          else window.location.assign(viewUrl);
+        };
+
+        // A partir daqui o formulário passa a atualizar este documento (não cria outro ao voltar a gravar).
+        if (savedId) {
+          invoiceId = savedId;
+          $("#edit_invoice_id").val(savedId);
+        }
+        releaseSaveBtn();
+
+        if (isUpdate) {
+          // Atualizar: volta logo ao documento, com uma confirmação breve.
+          Swal.fire({ icon: "success", title: "Factura atualizada", timer: 1400, showConfirmButton: false }).then(go);
+          return;
+        }
+
         Swal.fire({
           icon: "success",
-          title: invoiceId
-            ? "Rascunho atualizado com sucesso!"
-            : "Rascunho criado com sucesso!",
+          title: "Rascunho criado com sucesso!",
           text: "A factura só é emitida e enviada à AGT quando a finalizar.",
+          showCancelButton: true,
           confirmButtonText: "Ver rascunho",
+          cancelButtonText: "Continuar a editar",
           confirmButtonColor: "#007abd",
         }).then((result) => {
-          if (result.isConfirmed) {
-            if (!response.invoice_id) {
-              Swal.fire(
-                "Erro",
-                "A factura foi gravada, mas o servidor não devolveu o identificador para a visualizar.",
-                "error",
-              );
-              return;
-            }
-
-            const invoiceUrl = `/invoices/view?id=${encodeURIComponent(response.invoice_id)}`;
-            if (typeof window.navigateSPA === "function") {
-              window.navigateSPA(invoiceUrl);
-            } else {
-              window.location.assign(invoiceUrl);
-            }
+          if (!result.isConfirmed) return;
+          if (!viewUrl) {
+            Swal.fire("Erro", "O documento foi gravado, mas o servidor não devolveu o identificador para o visualizar.", "error");
+            return;
           }
+          go();
         });
       },
       error: function (xhr, status, error) {
-        $saveBtn.prop("disabled", false);
+        releaseSaveBtn();
 
         Swal.fire({
           icon: "error",

@@ -1473,4 +1473,4 @@ $invTheme      = 'dark';
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_proform/create_proform.js?v=3.4" data-spa-repeat></script>
+<script src="create_proform/create_proform.js?v=3.5" data-spa-repeat></script>
