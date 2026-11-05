@@ -1911,6 +1911,30 @@
         .catch((error) => Swal.fire("Erro", error.message, "error"));
     });
 
+    // Reenvio / consulta da NC na AGT (a partir da lista de NC já emitidas na janela).
+    $(document).off("click", ".js-nc-agt-send, .js-nc-agt-check").on("click", ".js-nc-agt-send, .js-nc-agt-check", async function () {
+      const btn = this;
+      const send = btn.classList.contains("js-nc-agt-send");
+      btn.disabled = true;
+      btn.textContent = "Aguarde…";
+      try {
+        const res = await fetch(`/agt/ajax/agt.php?action=${send ? "credit_note_send" : "credit_note"}&id=${encodeURIComponent(btn.dataset.id)}`, send
+          ? { method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || "" }, body: new URLSearchParams({ id: btn.dataset.id }) }
+          : { credentials: "same-origin" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.message || "Não foi possível comunicar com a AGT.");
+        const agt = data.agt || {};
+        await Swal.fire({
+          icon: ["error", "invalid"].includes(agt.status) ? "warning" : "success",
+          title: "Faturação eletrónica",
+          html: `<b>${ncEsc(agt.document_no || "")}</b>: ${ncEsc(agt.label || "")}${
+            (agt.errors || []).length ? `<ul class="text-start mt-2 mb-0">${agt.errors.map((e) => `<li>${ncEsc(e)}</li>`).join("")}</ul>` : ""}`,
+        });
+      } catch (error) {
+        Swal.fire("Faturação eletrónica", error.message, "error");
+      }
+    });
+
     $("#btnNotaCredito").off("click").on("click", async function () {
       if (!currentInvoice?.id) {
         return Swal.fire({ icon: "error", title: "Erro", text: "Factura ainda não carregada." });
@@ -1931,7 +1955,9 @@
         ? `<div class="text-start small mb-3"><div class="fw-semibold mb-1">Notas de crédito já emitidas</div>
             ${notes.map((n) => `<div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1">
               <span><a href="#" class="js-nc-pdf" data-id="${n.id}">${ncEsc(n.reference)}</a>
-                ${n.agt_status ? `<span class="badge bg-light text-dark border ms-1">${ncEsc(NC_AGT[n.agt_status] || n.agt_status)}</span>` : ""}</span>
+                ${n.agt_status ? `<span class="badge bg-light text-dark border ms-1">${ncEsc(NC_AGT[n.agt_status] || n.agt_status)}</span>` : ""}
+                ${n.agt_status === "error" ? `<button type="button" class="btn btn-sm btn-warning py-0 ms-1 js-nc-agt-send" data-id="${n.id}">Reenviar à AGT</button>` : ""}
+                ${n.agt_status === "sent" ? `<button type="button" class="btn btn-sm btn-outline-secondary py-0 ms-1 js-nc-agt-check" data-id="${n.id}">Consultar AGT</button>` : ""}</span>
               <span>${ncNum(n.final_total)} ${ncEsc(symbol)}</span></div>`).join("")}</div>`
         : "";
 

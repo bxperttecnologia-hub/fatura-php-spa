@@ -166,7 +166,7 @@ function agt_credentials(PDO $pdo, int $companyId): array
  * POST JSON à API Node. Devolve ['status' => int, 'data' => array].
  * Erros de ligação lançam RuntimeException com mensagem para o utilizador.
  */
-function agt_api_post(string $path, array $body, int $timeout = 60): array
+function agt_api_post(string $path, array $body, int $timeout = 90): array
 {
     $apiUrl = agt_config_value('AGT_API_URL');
     $apiKey = agt_config_value('AGT_API_KEY');
@@ -196,6 +196,46 @@ function agt_api_post(string $path, array $body, int $timeout = 60): array
     }
     $data = json_decode((string) $response, true);
     return ['status' => $status, 'data' => is_array($data) ? $data : []];
+}
+
+/**
+ * Consulta um documento na AGT pelo número (consultarFactura). Devolve true se a AGT o tem
+ * registado, false se não o conhece, null se não foi possível saber (AGT/API indisponível).
+ */
+function agt_document_registered(PDO $pdo, int $companyId, string $documentNo): ?bool
+{
+    try {
+        $creds = agt_credentials($pdo, $companyId);
+        unset($creds['establishment']);
+        $res = agt_api_post('/api/faturas/consultar', $creds + ['document_no' => $documentNo], 30);
+    } catch (Throwable $e) {
+        return null;
+    }
+    $r = $res['data']['resultado'] ?? null;
+    if (!is_array($r)) {
+        return null;
+    }
+    if (!empty($r['found'])) {
+        return true;
+    }
+    return preg_match('/\bE93\b/', (string) ($r['error'] ?? '')) || !empty($res['data']['success']) ? false : null;
+}
+
+/**
+ * Um envio falhou porque a AGT já tem o documento (E04) ou porque a resposta não chegou
+ * (timeout / indisponível — o pedido pode ter sido registado na mesma)? Então pergunta à AGT
+ * pelo número: se o documento lá estiver, fica validado em vez de "não enviado".
+ * Devolve os campos a gravar, ou null se não houver nada a recuperar.
+ */
+function agt_recover_submission(PDO $pdo, int $companyId, string $documentNo, string $errorMessage): ?array
+{
+    $maybeRegistered = preg_match('/\bE04\b/', $errorMessage)
+        || $errorMessage === agt_unavailable_message()
+        || str_contains($errorMessage, 'não está disponível');
+    if (!$maybeRegistered || agt_document_registered($pdo, $companyId, $documentNo) !== true) {
+        return null;
+    }
+    return ['agt_status' => 'valid', 'agt_errors' => null, 'agt_checked_at' => date('Y-m-d H:i:s')];
 }
 
 /** Mensagem legível a partir da resposta da API Node (erros de validação ou da AGT). */
@@ -603,6 +643,12 @@ function agt_submit_invoice(PDO $pdo, int $invoiceId): ?array
         }
     } catch (Throwable $e) {
         $fields += ['agt_status' => 'error', 'agt_errors' => json_encode([$e->getMessage()], JSON_UNESCAPED_UNICODE)];
+    }
+    if ($fields['agt_status'] === 'error') {
+        $recovered = agt_recover_submission($pdo, (int) $invoice['company_id'], (string) $invoice['reference'], (string) (json_decode($fields['agt_errors'], true)[0] ?? ''));
+        if ($recovered) {
+            $fields = $recovered + $fields;
+        }
     }
     agt_save_invoice_state($pdo, $invoiceId, $fields);
     return agt_invoice_state(array_merge($invoice, $fields));

@@ -143,6 +143,12 @@ function agt_submit_credit_note(PDO $pdo, int $noteId): ?array
     } catch (Throwable $e) {
         $fields += ['agt_status' => 'error', 'agt_errors' => json_encode([$e->getMessage()], JSON_UNESCAPED_UNICODE)];
     }
+    if ($fields['agt_status'] === 'error') {
+        $recovered = agt_recover_submission($pdo, (int) $note['company_id'], (string) $note['reference'], (string) (json_decode($fields['agt_errors'], true)[0] ?? ''));
+        if ($recovered) {
+            $fields = $recovered + $fields;
+        }
+    }
     agt_save_credit_note_state($pdo, $noteId, $fields);
     return agt_credit_note_state(array_merge($note, $fields));
 }

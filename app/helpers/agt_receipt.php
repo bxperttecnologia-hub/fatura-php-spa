@@ -156,6 +156,12 @@ function agt_submit_receipt(PDO $pdo, int $receiptId): ?array
     } catch (Throwable $e) {
         $fields += ['agt_status' => 'error', 'agt_errors' => json_encode([$e->getMessage()], JSON_UNESCAPED_UNICODE)];
     }
+    if ($fields['agt_status'] === 'error') {
+        $recovered = agt_recover_submission($pdo, (int) $invoice['company_id'], (string) $receipt['reference'], (string) (json_decode($fields['agt_errors'], true)[0] ?? ''));
+        if ($recovered) {
+            $fields = $recovered + $fields;
+        }
+    }
     agt_save_receipt_state($pdo, $receiptId, $fields);
     return agt_receipt_state(array_merge($receipt, $fields));
 }
