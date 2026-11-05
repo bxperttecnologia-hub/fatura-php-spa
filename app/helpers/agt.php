@@ -360,6 +360,29 @@ function agt_default_series(PDO $pdo, int $companyId, string $docType, int $year
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+/**
+ * Com a faturação eletrónica ativa, nenhum documento (FT, FR, RC, NC, ND) é emitido sem a
+ * série AGT do tipo: devolve a série por omissão ou lança RuntimeException (422).
+ * Sem AGT ativa devolve null (numeração interna).
+ */
+function agt_require_series(PDO $pdo, int $companyId, string $docType): ?array
+{
+    if (!agt_enabled($pdo, $companyId)) {
+        return null;
+    }
+    $docType = strtoupper($docType);
+    $series = agt_default_series($pdo, $companyId, $docType, (int) date('Y'));
+    if (!$series) {
+        $name = agt_document_types()[$docType] ?? $docType;
+        throw new RuntimeException(
+            "Não é possível emitir: a empresa não tem série de {$name} ({$docType}) aberta na AGT para " . date('Y')
+            . '. Crie-a em Definições › Faturação eletrónica e tente novamente.',
+            422
+        );
+    }
+    return $series;
+}
+
 /** Série aberta da empresa com este código, desde que seja do tipo de documento pedido. */
 function agt_find_series(PDO $pdo, int $companyId, string $docType, string $seriesCode): ?array
 {
@@ -398,7 +421,8 @@ function agt_invoice_series_options(PDO $pdo, int $companyId): array
 /**
  * Número do documento no formato SAF-T(AO) exigido pela AGT: "<tipo> <série>/<sequência>"
  * (ex.: "FT FT7826S1N/1"). Usa a série escolhida na fatura ($seriesCode) se for válida
- * para o tipo; senão a série por omissão. Devolve null se a empresa não usar a AGT ou não tiver série.
+ * para o tipo; senão a série por omissão. Devolve null se a empresa não usar a AGT; com AGT
+ * ativa e sem série lança RuntimeException (o documento não pode ser emitido).
  */
 function agt_issue_number(PDO $pdo, int $companyId, string $docType, ?string $seriesCode = null): ?string
 {
@@ -407,10 +431,7 @@ function agt_issue_number(PDO $pdo, int $companyId, string $docType, ?string $se
         return null;
     }
     $series = $seriesCode ? agt_find_series($pdo, $companyId, $docType, $seriesCode) : null;
-    $series = $series ?: agt_default_series($pdo, $companyId, $docType, (int) date('Y'));
-    if (!$series) {
-        return null;
-    }
+    $series = $series ?: agt_require_series($pdo, $companyId, $docType);   // sem série → não emite
     $prefix = $docType . ' ' . $series['series_code'] . '/';
     $stmt = $pdo->prepare("
         SELECT MAX(CAST(SUBSTRING_INDEX(reference, '/', -1) AS UNSIGNED))

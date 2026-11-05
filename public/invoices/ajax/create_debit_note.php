@@ -101,6 +101,11 @@ try {
     $final = $totals['final_total'];
 
     // Numeração: AGT ("ND <série>/<n>") se a fatura foi à AGT; senão interna "ND <n>".
+    try {
+        agt_require_series($pdo, (int)$inv['company_id'], 'ND');   // AGT ativa sem série ND → não emite
+    } catch (RuntimeException $e) {
+        fail(422, $e->getMessage());
+    }
     $agtNote = agt_debit_note_required($pdo, $inv);
     $reference = null;
     $agtSeriesId = null;

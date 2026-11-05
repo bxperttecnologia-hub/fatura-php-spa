@@ -160,6 +160,7 @@ try {
   }
 
   // ---- Numeração AGT -------------------------------------------------------
+  agt_require_series($pdo, (int)$inv['company_id'], 'NC');   // AGT ativa sem série NC → não emite
   $agtNote = agt_credit_note_required($pdo, $inv);
   $noteReference = null;
   $noteSeriesId = null;

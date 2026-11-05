@@ -132,6 +132,7 @@ try {
   // que depois é enviado à AGT. Senão, numeração interna (legado).
   // ======================================================
 
+  agt_require_series($pdo, $companyId, 'RC');   // AGT ativa sem série RC → não emite
   $agtReceipt = agt_receipt_required($pdo, $invoice);
   $agtSeriesId = null;
 
