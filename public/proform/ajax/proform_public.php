@@ -378,25 +378,25 @@ JOIN   items it ON it.id = ii.item_id
 WHERE  ii.proforma_id = :id");
 $stmt->execute(['id' => $id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$taxSummary = bx_document_tax_summary(
-  $items,
-  (string)($inv['vat_regime'] ?? '')
-);
-$retentionValue = max(
-  0.0,
-  ($taxSummary['subtotal'] + $taxSummary['total_tax'])
-    * (float)($inv['retention'] ?? 0) / 100
-);
+// Retenção gravada pelo servidor (só serviços), como na fatura.
 $taxSummary = bx_document_tax_summary(
   $items,
   (string)($inv['vat_regime'] ?? ''),
-  $retentionValue
+  (float)($inv['retention_value'] ?? 0)
 );
 $inv['total_sum'] = $taxSummary['total_sum'];
 $inv['total_discount'] = $taxSummary['total_discount'];
 $inv['total_tax'] = $taxSummary['total_tax'];
 $inv['final_total'] = $taxSummary['final_total'];
 $inv['retention_value'] = $taxSummary['retention'];
+// Retenção documental (IPU, IAC, IRT, Imposto Industrial…): soma à retenção e sai do total a pagar.
+$documentWithholding = ((string)($inv['tax_withholding_type'] ?? 'none')) !== 'none'
+  ? round((float)($inv['tax_withholding_amount'] ?? 0), 2)
+  : 0.0;
+if ($documentWithholding > 0) {
+  $inv['retention_value'] += $documentWithholding;
+  $inv['final_total'] = max(0.0, round($inv['final_total'] - $documentWithholding, 2));
+}
 
 // ---------- QR ----------
 $qrData = "https://bxpert.co.ao/sistema/proform/ajax/proform_public.php?id={$inv['id']}";

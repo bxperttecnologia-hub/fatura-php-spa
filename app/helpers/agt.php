@@ -600,13 +600,62 @@ function agt_build_invoice_request(PDO $pdo, array $invoice, array $creds, strin
         'gross_total' => round($net + $taxTotal, 2),
         'lines' => $lines,
     ];
-    $retention = round((float) ($invoice['retention_value'] ?? 0), 2);
-    if ($retention > 0) {
-        throw new RuntimeException(
-            'A retenção configurada não tem tipo fiscal AGT associado; a submissão foi interrompida para evitar um enquadramento presumido.'
-        );
+    // Retenção na fonte → withholdingTaxList. Numa NC parcial ($quantities) vai na proporção
+    // do valor creditado.
+    $invoiceNet = round((float) ($invoice['subtotal_without_tax'] ?? 0), 2);
+    $share = $quantities === null || $invoiceNet <= 0 ? 1.0 : min(1.0, $net / $invoiceNet);
+    $withholding = agt_withholding_list($invoice, $share);
+    if ($withholding) {
+        $body['withholding_tax_list'] = $withholding;
     }
     return $body;
+}
+
+/**
+ * Código AGT (withholdingTaxType) de cada retenção do BX:
+ * II = Imposto Industrial, IRT = Imposto sobre os Rendimentos do Trabalho,
+ * IP = Imposto Predial (IPU), IAC = Imposto sobre a Aplicação de Capitais.
+ */
+function agt_withholding_type_code(string $bxType): ?string
+{
+    return [
+        'withholding_6_5' => 'II',
+        'irt_group_b' => 'IRT',
+        'ipu_rent' => 'IP',
+        'iac' => 'IAC',
+        'iac_reduced' => 'IAC',
+    ][$bxType] ?? null;
+}
+
+/**
+ * Retenções da fatura para a AGT: a retenção documental (tax_withholding_*) e a retenção por
+ * artigo (retention_value, que só incide sobre serviços: Imposto Industrial).
+ */
+function agt_withholding_list(array $invoice, float $share = 1.0): array
+{
+    $list = [];
+    $docType = (string) ($invoice['tax_withholding_type'] ?? 'none');
+    $docAmount = round((float) ($invoice['tax_withholding_amount'] ?? 0) * $share, 2);
+    if ($docType !== 'none' && $docAmount > 0) {
+        $code = agt_withholding_type_code($docType);
+        if ($code === null) {
+            throw new RuntimeException('A retenção "' . $docType . '" não tem tipo fiscal AGT associado; a submissão foi interrompida.');
+        }
+        $list[] = [
+            'withholding_tax_type' => $code,
+            'withholding_tax_description' => mb_substr(trim((string) ($invoice['tax_withholding_description'] ?? '')) ?: bx_document_tax_label($docType), 0, 60),
+            'withholding_tax_amount' => $docAmount,
+        ];
+    }
+    $lineAmount = round((float) ($invoice['retention_value'] ?? 0) * $share, 2);
+    if ($lineAmount > 0) {
+        $list[] = [
+            'withholding_tax_type' => 'II',
+            'withholding_tax_description' => 'Retenção na fonte — Imposto Industrial',
+            'withholding_tax_amount' => $lineAmount,
+        ];
+    }
+    return $list;
 }
 
 function agt_save_invoice_state(PDO $pdo, int $invoiceId, array $fields): void

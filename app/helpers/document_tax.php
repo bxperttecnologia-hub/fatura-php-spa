@@ -167,6 +167,10 @@ function bx_document_assign_retention_rates(PDO $pdo, array $items, int $company
         $item['tax'] = $taxRates[$itemId];
         $item['tax_classification'] = $classifications[$itemId];
         $item['item_type'] = $itemTypes[$itemId];
+        // A retenção na fonte só incide sobre serviços: bens nunca levam retenção.
+        if ($item['item_type'] !== 'service') {
+            $item['retention_rate'] = 0.0;
+        }
     }
     unset($item);
 

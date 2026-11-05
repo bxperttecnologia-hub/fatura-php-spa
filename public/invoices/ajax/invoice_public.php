@@ -285,6 +285,14 @@ $inv['total_discount'] = $taxSummary['total_discount'];
 $inv['total_tax'] = $taxSummary['total_tax'];
 $inv['final_total'] = $taxSummary['final_total'];
 $inv['retention_value'] = $taxSummary['retention'];
+// Retenção documental (IPU, IAC, IRT, Imposto Industrial…): soma à retenção e sai do total a pagar.
+$documentWithholding = ((string)($inv['tax_withholding_type'] ?? 'none')) !== 'none'
+  ? round((float)($inv['tax_withholding_amount'] ?? 0), 2)
+  : 0.0;
+if ($documentWithholding > 0) {
+  $inv['retention_value'] += $documentWithholding;
+  $inv['final_total'] = max(0.0, round($inv['final_total'] - $documentWithholding, 2));
+}
 
 // ---------- QR ----------
 // Documento com numeração AGT: QR de consulta no Portal do Contribuinte (homologação ou produção,

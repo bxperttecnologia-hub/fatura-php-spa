@@ -1026,7 +1026,9 @@ $(document).ready(function () {
     // Dados do item
     const description = item?.name || item?.description || "";
     const code = item?.code || item?.codigo || "";
-    const retention = item?.retention || 0;
+    // Retenção na fonte só em serviços (igual ao servidor: bx_document_assign_retention_rates)
+    const retention =
+      item?.item_type === "service" || String(code).toUpperCase().startsWith("SERV") ? item?.retention || 0 : 0;
     const taxClassification = item?.tax_classification || "standard";
 
     // IVA: taxa do produto, só aplicada no regime geral

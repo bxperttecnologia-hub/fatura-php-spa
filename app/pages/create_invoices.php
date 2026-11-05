@@ -1527,4 +1527,4 @@ $invTheme      = 'dark';
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_invoices/create_invoices.js?v=3.3" data-spa-repeat></script>
+<script src="create_invoices/create_invoices.js?v=3.4" data-spa-repeat></script>
