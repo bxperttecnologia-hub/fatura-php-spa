@@ -46,7 +46,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Se o modal/painel não existir nesta página, não faz nada.
   if (!quickPanel || !fullFormWrapper || !itemForm) return;
-  if (document.getElementById("item_select")) return;
+  // Nas páginas de fatura/proforma (#item_select) o modal abre logo o formulário de criação
+  // (ver "show.bs.modal" abaixo); a SPA pode carregar este ficheiro numa dessas páginas.
 
   if (
     typeof PRESET_ITEMS === "undefined" ||
@@ -339,10 +340,24 @@ document.addEventListener("DOMContentLoaded", () => {
   // Se o modal for reaproveitado para edição, vai direto ao formulário.
   // =========================
   modalEl?.addEventListener("show.bs.modal", () => {
-    if (document.getElementById("item_select")) return;
-    if (document.getElementById("item_select")) return;
     const isNewItem =
       !itemIdField || itemIdField.value === "0" || itemIdField.value === "";
+
+    // Fatura/proforma: "Novo produto/serviço" cria um artigo novo, sem a lista de pesquisa
+    // (a pesquisa de artigos dessas páginas é o próprio campo da linha).
+    if (document.getElementById("item_select")) {
+      if (isNewItem) {
+        itemForm.reset();
+        if (itemIdField) itemIdField.value = "0";
+        fireChange(categorySelect);
+        const title = document.getElementById("itemModalLabel");
+        if (title) title.textContent = "Criar produto ou serviço";
+        const subtitle = document.getElementById("itemModalSubtitle");
+        if (subtitle) subtitle.textContent = "Preencha os dados do produto ou serviço.";
+      }
+      showFullForm();
+      return;
+    }
 
     if (isNewItem) {
       activeCategory = "all";
@@ -359,7 +374,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   modalEl?.addEventListener("shown.bs.modal", () => {
-    if (document.getElementById("item_select")) return;
+    if (document.getElementById("item_select")) {
+      nameInput?.focus();
+      return;
+    }
     if (!quickPanel.hidden && quickPanel.style.display !== "none") quickSearch?.focus();
   });
 
