@@ -5,6 +5,28 @@
   const invoiceId = get.substring(get.lastIndexOf("/") + 1);
   let document_type = "FT";
 
+  // Depois de emitir um recibo/NC/ND/guia, a página recarrega e abre logo esse documento
+  // na pré-visualização (em vez de voltar à fatura e obrigar a ir ao histórico).
+  const OPEN_DOC_KEY = "bx:open-document";
+  function pendingDocument(invId, consume) {
+    try {
+      const p = JSON.parse(sessionStorage.getItem(OPEN_DOC_KEY) || "null");
+      if (!p || String(p.invoiceId) !== String(invId) || Date.now() - p.at > 120000) return null;
+      if (consume) sessionStorage.removeItem(OPEN_DOC_KEY);
+      return p;
+    } catch {
+      return null;
+    }
+  }
+  function refreshAndOpen(invId, doc) {
+    try {
+      sessionStorage.setItem(OPEN_DOC_KEY, JSON.stringify({ ...doc, invoiceId: invId, at: Date.now() }));
+    } catch {
+      // sem sessionStorage: fica só o refresh
+    }
+    refreshCurrentInvoice();
+  }
+
   function refreshCurrentInvoice() {
     if (typeof window.navigateSPA === "function") {
       window.navigateSPA(
@@ -27,6 +49,12 @@
     const $container = $("#fatura-container");
 
     function tryLoad() {
+      if (pendingDocument(invoiceId, false)) {
+        // vai mostrar o documento acabado de emitir (ver showDocument abaixo)
+        $preloader.hide();
+        $container.show();
+        return;
+      }
       attempts++;
       $preloader.show();
       $container.hide();
@@ -102,6 +130,12 @@
           status: inv.status_invoice,
           client: inv.client_name || "",
         });
+        const justIssued = pendingDocument(inv.id, true);
+        if (justIssued && window.BXDocumentHistory?.showDocument) {
+          window.BXDocumentHistory.showDocument(justIssued).catch(() => loadFaturaWithRetry(inv.id, 5));
+        } else if (justIssued) {
+          loadFaturaWithRetry(inv.id, 5);
+        }
 
         // Esconde todos os botões antes
         $(
@@ -579,7 +613,11 @@
               ? `O pagamento foi registrado (recibo <b>${receiptRef}</b>), mas não foi possível descarregar o recibo: ${escapeReceiptHtml(receiptDownloadError.message)}`
               : `Pagamento registrado. Recibo <b>${receiptRef}</b> emitido.`) + receiptAgtHtml(resp && resp.agt),
           });
-          refreshCurrentInvoice();
+          if (resp && resp.receipt_id) {
+            refreshAndOpen(currentInvoice?.id || invoiceId, { type: "receipt", id: resp.receipt_id, label: "Recibo", number: resp.reference || "" });
+          } else {
+            refreshCurrentInvoice();
+          }
         })
         .fail((xhr) => {
           Swal.close();
@@ -2149,7 +2187,7 @@
         });
       }
 
-      refreshCurrentInvoice();
+      refreshAndOpen(currentInvoice.id, { type: "credit-note", id: res.credit_note_id, label: "Nota de Crédito", number: res.reference || "" });
       const agt = res.agt;
       const agtFailed = agt && ["error", "invalid"].includes(agt.status);
       const agtHtml = agt
@@ -2423,7 +2461,7 @@
         });
 
         if (res?.success && res?.debit_note_id) {
-          refreshCurrentInvoice();
+          refreshAndOpen(currentInvoice.id, { type: "debit-note", id: res.debit_note_id, label: "Nota de Débito", number: res.number || "" });
           const agt = res.agt;
           const agtFailed = agt && ["error", "invalid"].includes(agt.status);
           const agtHtml = agt
@@ -2543,6 +2581,10 @@
         });
 
         if (res?.success && res?.delivery_note_id) {
+          if (window.BXDocumentHistory?.showDocument) {
+            window.BXDocumentHistory.showDocument({ type: "delivery-note", id: res.delivery_note_id, label: "Nota de Entrega" })
+              .catch(() => {});
+          }
           window.BXDocumentApi.download(
             `/api/documents/delivery-notes/${encodeURIComponent(res.delivery_note_id)}/pdf`,
             `NotaEntrega_${res.delivery_note_id}.pdf`,

@@ -268,6 +268,29 @@
     getSelectedDocument() {
       return selectedDocument;
     },
+    /**
+     * Mostra logo um documento da cadeia (ex.: o recibo/NC/ND acabado de emitir),
+     * sem o utilizador ter de ir ao histórico. Procura-o no histórico para ter o
+     * número e o estado; se ainda não aparecer, mostra-o só com o tipo e o id.
+     */
+    async showDocument({ type, id, label, number }) {
+      if (!rootDocument) throw new Error("O documento ainda está a carregar.");
+      let record = null;
+      try {
+        const response = await fetch(`${endpoint}?id=${encodeURIComponent(rootDocument.id)}`, {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        const payload = await response.json();
+        if (response.ok && payload?.success === true && Array.isArray(payload.data)) {
+          documents = payload.data.map((d) => ({ ...d, pdf_url: d.pdf_url || pdfUrl(d) }));
+          record = documents.find((d) => d.type === type && Number(d.id) === Number(id)) || null;
+        }
+      } catch {
+        // sem histórico: usa os dados mínimos abaixo
+      }
+      setSelected(record || { type, id: Number(id), label: label || "Documento", number: number || `#${id}` });
+    },
     fetchPdf,
     downloadSelected,
   };
