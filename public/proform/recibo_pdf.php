@@ -120,4 +120,4 @@ $dompdf->setPaper('A4', 'portrait');
 $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->render();
 
-$dompdf->stream('Recibo_'.$d['serie'].'-'.$d['number'].'.pdf', ['Attachment' => 1]);
+$dompdf->stream('Recibo_'.$d['serie'].'-'.$d['number'].'.pdf', ['Attachment' => false]);

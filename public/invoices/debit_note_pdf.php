@@ -221,5 +221,5 @@ $dompdf->render();
 
 $dompdf->stream(
   'NotaDebito_' . $d['serie'] . '-' . $d['number'] . '.pdf',
-  ['Attachment' => true]
+  ['Attachment' => false]   // inline: a pré-visualização (iframe) mostra-o em vez de o descarregar
 );

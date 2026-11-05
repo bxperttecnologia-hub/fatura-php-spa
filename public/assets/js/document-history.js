@@ -74,12 +74,50 @@
     return document.getElementById(id);
   }
 
-  function updatePreview(record) {
-    const frame = document.createElement("iframe");
-    frame.title = `${record.label || "Documento"} ${record.number || ""}`.trim();
-    frame.src = `${pdfUrl(record)}#toolbar=0&navpanes=0`;
-    frame.style.cssText = "display:block;width:100%;height:100%;min-height:calc(100vh - 2rem);border:0;background:#fff";
-    container.replaceChildren(frame);
+  let previewToken = 0;
+  let previewUrl = null;
+
+  function previewMessage(html, isError = false) {
+    const box = document.createElement("div");
+    box.className = "d-flex flex-column align-items-center justify-content-center text-center gap-3 p-5";
+    box.style.cssText = `min-height:60vh;color:${isError ? "#b42318" : "#475569"}`;
+    box.innerHTML = html;
+    container.replaceChildren(box);
+    return box;
+  }
+
+  // Descarrega o PDF (com loader) e só depois o mostra: assim há feedback enquanto o
+  // servidor o gera e um erro legível se falhar, em vez de um quadro em branco.
+  async function updatePreview(record) {
+    const token = ++previewToken;
+    const label = `${record.label || "Documento"} ${record.number || ""}`.trim();
+    previewMessage(`
+      <div class="spinner-border" role="status" style="width:2.5rem;height:2.5rem;color:#007abd"></div>
+      <div><div class="fw-semibold">A carregar ${escapeHtml(label)}…</div>
+      <div class="small">A gerar o PDF do documento.</div></div>`);
+    try {
+      const blob = await fetchPdf(record);
+      if (token !== previewToken) return;   // entretanto escolheu-se outro documento
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = URL.createObjectURL(blob);
+      const frame = document.createElement("iframe");
+      frame.title = label;
+      frame.src = `${previewUrl}#toolbar=0&navpanes=0`;
+      frame.style.cssText = "display:block;width:100%;height:100%;min-height:calc(100vh - 2rem);border:0;background:#fff";
+      container.replaceChildren(frame);
+    } catch (previewError) {
+      if (token !== previewToken) return;
+      const box = previewMessage(`
+        <i class="bi bi-exclamation-triangle" style="font-size:2rem"></i>
+        <div><div class="fw-semibold">Não foi possível mostrar ${escapeHtml(label)}.</div>
+        <div class="small">${escapeHtml(previewError.message || "Erro desconhecido.")}</div></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary">Tentar novamente</button>`, true);
+      box.querySelector("button").addEventListener("click", () => updatePreview(record));
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
 
   function setSelected(record) {

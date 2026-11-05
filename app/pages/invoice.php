@@ -1083,7 +1083,7 @@ try {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="/assets/js/document-tax.js"></script>
-<script src="/assets/js/document-history.js?v=1.0" data-spa-repeat></script>
+<script src="/assets/js/document-history.js?v=1.1" data-spa-repeat></script>
 <script src="invoices/invoice.js?v=5.17" data-spa-repeat></script>
 
 <script>

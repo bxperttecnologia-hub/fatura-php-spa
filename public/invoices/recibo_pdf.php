@@ -789,6 +789,6 @@ $dompdf->render();
 $dompdf->stream(
   'Recibo_' . preg_replace('/[^A-Za-z0-9_-]+/', '-', $receiptTitle) . '.pdf',
   [
-    'Attachment' => true
+    'Attachment' => false   // inline: a pré-visualização (iframe) mostra-o em vez de o descarregar
   ]
 );

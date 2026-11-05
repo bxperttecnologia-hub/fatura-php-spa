@@ -236,5 +236,5 @@ $dompdf->render();
 
 $dompdf->stream(
   'NotaEntrega_' . $d['serie'] . '-' . $d['number'] . '.pdf',
-  ['Attachment' => true]
+  ['Attachment' => false]   // inline: a pré-visualização (iframe) mostra-o em vez de o descarregar
 );
