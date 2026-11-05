@@ -2046,10 +2046,17 @@
         title: "Emitir Nota de Crédito",
         width: 860,
         html: `${notesHtml}
-          <div class="text-start small text-muted mb-2">Escolha as linhas e as quantidades a creditar.</div>
+          <div class="d-flex justify-content-between align-items-center small mb-2">
+            <span class="text-muted">Escolha as linhas e as quantidades a creditar.</span>
+            <span class="text-nowrap">
+              <button type="button" class="btn btn-link btn-sm p-0 me-2" id="ncSelectAll">Selecionar todas</button>
+              <button type="button" class="btn btn-link btn-sm p-0" id="ncSelectNone">Desmarcar todas</button>
+            </span>
+          </div>
           <div class="table-responsive" style="max-height:45vh">
             <table class="table table-sm align-middle mb-2">
-              <thead><tr><th></th><th class="text-start">Artigo</th><th class="text-end">Preço</th>
+              <thead><tr><th><input type="checkbox" class="form-check-input" id="ncAll" checked
+                aria-label="Selecionar ou desmarcar todas as linhas" title="Selecionar / desmarcar todas"></th><th class="text-start">Artigo</th><th class="text-end">Preço</th>
                 <th class="text-end">Qtd. a creditar</th><th></th><th class="text-end">Valor (s/ IVA)</th></tr></thead>
               <tbody id="ncLines">${rowsHtml}</tbody>
             </table>
@@ -2074,7 +2081,20 @@
               total += value;
             });
             popup.querySelector("#ncTotal").textContent = ncNum(total);
+            // caixa do cabeçalho: marcada (todas), vazia (nenhuma) ou a meio (algumas)
+            const checks = [...popup.querySelectorAll("#ncLines .nc-check")];
+            const marked = checks.filter((c) => c.checked).length;
+            const all = popup.querySelector("#ncAll");
+            all.checked = marked === checks.length;
+            all.indeterminate = marked > 0 && marked < checks.length;
           };
+          const setAll = (on) => {
+            popup.querySelectorAll("#ncLines .nc-check").forEach((c) => { c.checked = on; });
+            recalc();
+          };
+          popup.querySelector("#ncAll").addEventListener("change", (e) => setAll(e.target.checked));
+          popup.querySelector("#ncSelectAll").addEventListener("click", () => setAll(true));
+          popup.querySelector("#ncSelectNone").addEventListener("click", () => setAll(false));
           popup.querySelector("#ncLines").addEventListener("input", recalc);
           popup.querySelector("#ncLines").addEventListener("change", recalc);
           recalc();
