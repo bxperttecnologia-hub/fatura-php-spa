@@ -32,6 +32,30 @@ function gosmsLoadConfig(): void
     }
 }
 
+/**
+ * Ficheiro de CAs para o cURL do GoSMS (GOSMS_CA_BUNDLE no .env).
+ * Aceita caminho Windows (C:\xampp\...) também quando o PHP corre em Linux/WSL (/mnt/c/xampp/...).
+ * Se o ficheiro não existir, usa os certificados do sistema (a verificação SSL continua ligada).
+ */
+function gosmsResolveCaBundle(string $configured): ?string
+{
+    $configured = trim($configured, " \t\"'");
+    if ($configured === '') {
+        return null;
+    }
+    $candidates = [$configured];
+    if (DIRECTORY_SEPARATOR === '/' && preg_match('~^([A-Za-z]):[\\\\/](.*)$~', $configured, $m)) {
+        $candidates[] = '/mnt/' . strtolower($m[1]) . '/' . str_replace('\\', '/', $m[2]);
+    }
+    foreach ($candidates as $path) {
+        if (is_file($path) && is_readable($path)) {
+            return $path;
+        }
+    }
+    error_log('[gosms] GOSMS_CA_BUNDLE (' . $configured . ') não encontrado; a usar os certificados do sistema.');
+    return null;
+}
+
 function enviarMensagemGoSms(string $telefone, string $mensagem, ?string &$erro = null): bool
 {
     $erro = null;
@@ -86,14 +110,8 @@ function enviarMensagemGoSms(string $telefone, string $mensagem, ?string &$erro 
         CURLOPT_TIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => true,
     ];
-    $caBundle = (string) bx_env('GOSMS_CA_BUNDLE');
-    if ($caBundle !== '') {
-        if (!is_file($caBundle) || !is_readable($caBundle)) {
-            curl_close($ch);
-            $erro = 'O certificado de segurança do serviço SMS não está configurado corretamente.';
-            error_log('[gosms] O ficheiro configurado em GOSMS_CA_BUNDLE não existe ou não pode ser lido.');
-            return false;
-        }
+    $caBundle = gosmsResolveCaBundle((string) bx_env('GOSMS_CA_BUNDLE'));
+    if ($caBundle !== null) {
         $options[CURLOPT_CAINFO] = $caBundle;
     }
     curl_setopt_array($ch, $options);
