@@ -545,20 +545,11 @@ require_once '../app/views/layout_creation.php';
             const data = await call('save_key', fd);
             form.reset();
             render(data);
-            if (data.pending_validation) {
-                Swal.fire({ icon: 'warning', title: data.message, text: data.detail });
-                return;
-            }
-            if ((data.missing_types || []).length) {
-                await createSeriesOneByOne(data.missing_types);
-                return;
-            }
-            const failed = (data.created || []).some((c) => !c.success);
-            Swal.fire({
-                icon: failed ? 'warning' : 'success',
-                title: data.message,
-                html: createdSummary(data.created) || 'As séries base já existiam na AGT.',
-            });
+            // Guardar a chave não cria séries: avisa e abre a janela "Nova série" com os tipos em falta marcados
+            await Swal.fire(data.pending_validation
+                ? { icon: 'warning', title: data.message, text: data.detail, confirmButtonText: 'Criar séries' }
+                : { icon: 'success', title: data.message, text: 'Escolha agora as séries a criar.', confirmButtonText: 'Criar séries', timer: 2500 });
+            openSeriesModal(data.missing_types || []);
         } catch (e) {
             const details = (e.errors || []).map((m) => `<li>${esc(m)}</li>`).join('');
             Swal.fire({
@@ -578,7 +569,8 @@ require_once '../app/views/layout_creation.php';
             const data = await call('sync', new FormData());
             render(data);
             if (data.was_pending && (data.missing_types || []).length) {
-                await createSeriesOneByOne(data.missing_types);
+                await Swal.fire({ icon: 'success', title: 'Chave validada pela AGT.', text: 'Escolha agora as séries a criar.', confirmButtonText: 'Criar séries' });
+                openSeriesModal(data.missing_types);
             } else {
                 Swal.fire({ icon: 'success', title: data.message, timer: 2200, showConfirmButton: false });
             }
@@ -608,18 +600,20 @@ require_once '../app/views/layout_creation.php';
     });
 
     const modalEl = document.getElementById('agtSeriesModal');
-    document.getElementById('agtNewSeries').addEventListener('click', () => {
+    document.getElementById('agtNewSeries').addEventListener('click', () => openSeriesModal());
+
+    function openSeriesModal(preselect = []) {
         const used = new Set(state.series.filter((s) => s.series_year === state.year && s.status !== 'F').map((s) => s.document_type));
         document.getElementById('agtTypeList').innerHTML = Object.entries(state.document_types).map(([code, label]) => `
             <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="types[]" value="${code}" id="agtType${code}">
+                <input class="form-check-input" type="checkbox" name="types[]" value="${code}" id="agtType${code}"${preselect.includes(code) ? ' checked' : ''}>
                 <label class="form-check-label" for="agtType${code}"><strong>${code}</strong> ${esc(label)}${used.has(code) ? ' <span class="text-muted small">(já tem série)</span>' : ''}</label>
             </div>`).join('');
         document.getElementById('agtSeriesYear').innerHTML = state.years.map((y) => `<option value="${y}">${y}</option>`).join('');
         document.getElementById('agtSeriesEstablishment').value = state.settings?.establishment || 'SEDE';
         document.getElementById('agtSeriesContingency').value = 'N';
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    });
+    }
 
     document.getElementById('agtSeriesForm').addEventListener('submit', async (event) => {
         event.preventDefault();

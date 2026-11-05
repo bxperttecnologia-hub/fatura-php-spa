@@ -267,14 +267,8 @@ try {
                     $syncError = $e->getMessage();
                 }
 
-                // listarSeries falhou (ex.: E06 sem séries): valida a chave com UMA série em falta.
-                // As restantes séries são criadas pela página, uma de cada vez (missing_types).
-                if ($syncError !== null) {
-                    $missing = agt_missing_default_types($pdo, $companyId, $environment, (int) date('Y'));
-                    if ($missing) {
-                        $created[] = agt_request_series($pdo, $companyId, $userId, $environment, $creds, $missing[0], (int) date('Y'), $establishment, 'N');
-                    }
-                }
+                // Guardar a chave não cria séries: a página abre a seguir a janela "Nova série"
+                // para o utilizador escolher os tipos de documento.
             } catch (AgtUnavailableException $e) {
                 // A AGT não respondeu: a chave (já verificada localmente: formato RSA) fica guardada
                 // "por validar". Valida-se em "Sincronizar com a AGT" quando a AGT voltar.
@@ -282,7 +276,7 @@ try {
                     'pending_validation' => true,
                     'message' => 'Chave guardada, por validar.',
                     'detail' => 'O servidor da AGT não está a responder neste momento. A chave ficou guardada; quando a AGT voltar, '
-                        . 'clique em "Sincronizar com a AGT" para a validar e criar as séries.',
+                        . 'clique em "Sincronizar com a AGT" para a validar. Pode já escolher as séries a criar.',
                     'created' => $created,
                 ]);
             } catch (AgtApiConfigException $e) {
@@ -295,19 +289,15 @@ try {
                 throw $e;
             }
 
-            // A chave só fica guardada se a AGT aceitar pelo menos uma operação assinada com ela
-            // (a AGT valida a adesão (E06) antes da assinatura, por isso um erro não prova que a chave é boa).
-            $accepted = $syncError === null || count(array_filter($created, static fn($c) => $c['success'])) > 0;
-            if ($accepted) {
+            // listarSeries aceite: chave validada. Se falhou com E40 (a assinatura não confere) a chave
+            // não é a deste NIF e não fica guardada. Outro erro (ex.: empresa ainda sem séries) não prova
+            // nada: a chave fica "por validar" e a primeira série criada valida-a.
+            $signatureRejected = $syncError !== null && str_contains($syncError, 'E40');
+            if ($syncError === null) {
                 agt_mark_key_validated($pdo, $companyId);
-            } else {
+            } elseif ($signatureRejected) {
                 $restorePrevious();
-                $errors = array_values(array_unique(array_filter(array_merge(
-                    [$syncError],
-                    array_map(static fn($c) => $c['message'] ?? null, $created)
-                ))));
-                // E40 = a jwsSignature não confere: a chave não é a registada na AGT para este NIF.
-                $signatureRejected = count(array_filter($errors, static fn($m) => str_contains($m, 'E40'))) > 0;
+                $errors = [$syncError];
                 agt_respond(422, [
                     'success' => false,
                     'message' => $signatureRejected
@@ -321,7 +311,8 @@ try {
             agt_respond(200, agt_status_payload($pdo, $companyId, $environment) + [
                 'message' => 'Chave guardada.',
                 'sync_error' => $syncError,
-                'created' => $created,
+                'created' => [],
+                'open_series' => true,   // a página abre a janela para criar as séries
             ]);
 
         case 'create_series':
