@@ -50,6 +50,9 @@ try {
             ) AS codigo,
 
             COALESCE(c.name, 'Sem cliente') AS cliente,
+            c.contributor AS client_contributor,
+            i.reference,
+            i.agt_status,
 
             i.issue_date,
             i.due_date,

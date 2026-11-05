@@ -160,8 +160,8 @@ require_once '../app/views/layout_creation.php';
                     </div>
 
                     <div class="bx-field bx-field--wide">
-                        <label for="filterClient" id="filterClientLabel">Cliente</label>
-                        <input type="search" id="filterClient" class="form-control" placeholder="Pesquisar cliente..." autocomplete="off">
+                        <label for="filterClient" id="filterClientLabel">Cliente ou nº do documento</label>
+                        <input type="search" id="filterClient" class="form-control" placeholder="Pesquisar cliente, nº ou referência..." autocomplete="off">
                     </div>
 
                     <div class="bx-field bx-field--wide" id="filterStatusWrapper">
@@ -322,7 +322,7 @@ require_once '../app/views/layout_creation.php';
         </div>
     </div> -->
 
-    <script src="invoices/list_invoices.js?v=spa-fix-20261105a"></script>
+    <script src="invoices/list_invoices.js?v=spa-fix-20261105b"></script>
 
     <?php require_once '../app/views/footer.php'; ?>
 </body>

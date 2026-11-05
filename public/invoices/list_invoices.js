@@ -251,7 +251,7 @@ $(document).ready(function () {
       `,
       renderRow: renderInvoiceRow,
       exportColumns: [
-        ["Documento", (r) => `${r.document_type || "Fatura"} ${r.codigo || "-"}`],
+        ["Documento", (r) => r.reference || `${r.document_type || "Fatura"} ${r.codigo || "-"}`],
         ["Cliente", (r) => r.cliente],
         ["Status", (r) => invoiceStatus(r).label],
         ["Emissão", (r) => fmtDate(r.issue_date)],
@@ -771,10 +771,10 @@ $(document).ready(function () {
     $("#bxDocumentTitle").text(config.title);
 
     // label do campo "cliente/referência"
-    $("#filterClientLabel").text(config.clientLabel);
+    $("#filterClientLabel").text(`${config.clientLabel} ou nº do documento`);
     $("#filterClient")
       .val("")
-      .attr("placeholder", `Pesquisar ${config.clientLabel.toLowerCase()}...`);
+      .attr("placeholder", `Pesquisar ${config.clientLabel.toLowerCase()}, nº ou referência...`);
 
     // filtro de status só faz sentido para Faturas
     $("#filterStatusWrapper").toggle(config.hasStatusFilter);
@@ -805,9 +805,25 @@ $(document).ready(function () {
     const dataset = currentDataset();
 
     filteredInvoices = dataset.filter((row) => {
-      const clienteValor = String(row[config.clientField] ?? "").toLowerCase();
-
-      if (clienteFiltro && !clienteValor.includes(clienteFiltro)) return false;
+      // pesquisa: cliente, nº do documento (referência AGT ou série+número) ou fatura associada
+      if (clienteFiltro) {
+        const norm = (v) => String(v ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+        const haystack = [
+          row[config.clientField],
+          row.client_name,
+          row.reference,
+          row.codigo,
+          row.invoice_reference,
+          row.display_number,
+          row.number,
+          row.serie != null && row.number != null ? `${row.serie} ${row.number}` : "",
+          row.serie != null && row.number != null ? `${row.serie}/${row.number}` : "",
+          row.client_contributor,
+          row.contributor,
+        ].map(norm).join(" | ");
+        const compact = (v) => v.replace(/\s+/g, "");
+        if (!haystack.includes(norm(clienteFiltro)) && !compact(haystack).includes(compact(norm(clienteFiltro)))) return false;
+      }
 
       if (config.hasStatusFilter && config.statusField && statusFiltro) {
         if (invoiceStatus(row).key !== statusFiltro) return false;
@@ -863,7 +879,8 @@ $(document).ready(function () {
     const st = invoiceStatus(row);
     const isDraft = st.base === "rascunho";
     const checked = selectedIds.has(String(row.id));
-    const code = row.codigo || "-";
+    // nº real do documento (ex.: "FT FT1226S13348N/3"); rascunhos sem número mostram o código interno
+    const code = (!isDraft && row.reference) || row.codigo || "-";
     const overdueDays = st.overdue ? daysOverdue(row) : 0;
 
     const dueHtml = row.due_date
