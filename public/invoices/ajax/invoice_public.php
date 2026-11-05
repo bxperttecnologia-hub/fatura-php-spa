@@ -19,7 +19,9 @@ require_once __DIR__ . '/../../../app/helpers/company_logo.php';
 require_once __DIR__ . '/../../../app/helpers/agt.php';
 
 // ---------- configuração (igual ao PDF) ----------
-const AGT_CERTIFICATE = 'FE/344/AGT/2026';
+require_once __DIR__ . '/../../../app/helpers/document_print.php';
+define('AGT_CERTIFICATE', bx_software_certificate());   // do .env (AGT_SOFTWARE_CERTIFICATE)
+const CARRY_IN_H      = 14;    // linha "Transportado" no topo da tabela das páginas 2+
 const ITEMS_PER_PAGE  = 10;
 const ITEMS_BOTTOM    = 588;   // limite vertical (pt) das linhas: deixa 26pt p/ "Subtotal da página" + "A transportar…" antes dos totais (y620)
 const TOTALS_Y        = 620;   // y (pt) do bloco de totais
@@ -77,7 +79,8 @@ function firstAndLastName(?string $name): string
 
 function itemLabel(array $it): string
 {
-  return (string)(($it['name'] ?? '') !== '' ? $it['name'] : ($it['description'] ?? ''));
+  // descrições gravadas pelo editor vêm com HTML ("<p>…&nbsp;</p>"): imprime só o texto
+  return bx_plain_text((string)(($it['name'] ?? '') !== '' ? $it['name'] : ($it['description'] ?? '')));
 }
 
 // "Rua X, Edifício Y, Piso 9" -> cada parte numa <span> que nunca parte a meio:
@@ -197,7 +200,7 @@ function paginateItems(array $items, float $firstRowY): array
     if ($current && (count($current) >= ITEMS_PER_PAGE || $y + $h > ITEMS_BOTTOM)) {
       $pages[] = $current;
       $current = [];
-      $y = $firstRowY;
+      $y = $firstRowY + CARRY_IN_H;   // páginas seguintes começam com a linha "Transportado"
     }
     $current[] = $it;
     $y += $h;
@@ -240,7 +243,7 @@ SELECT  i.*,
         comp.phone AS company_phone, comp.logo_url,
         comp.vat_regime, comp.goods_services, comp.bank_details, comp.bank_name, comp.iban,
         c.name    AS client_name,    c.address  AS client_address,
-        c.contributor AS client_contributor, c.city AS client_city,
+        c.contributor AS client_contributor, c.city AS client_city, c.telephone AS client_phone,
         c.country AS client_country,
         ivs.name  AS status_invoice, ivs.color, ivs.text_color,
         cr2.symbol AS moneySymbol,   cr2.position AS moneyPos
@@ -309,21 +312,15 @@ $dueBr = $inv['issue_date']
   : '-';
 
 $companyAddress = implode(', ', array_filter([$inv['company_address'], $inv['company_city'], $inv['company_country']]));
-$clientAddress  = implode(', ', array_filter([$inv['client_address'], $inv['client_city'], $inv['client_country']])) ?: '-';
+$clientAddress  = bx_join_address([$inv['client_address'], $inv['client_city'], $inv['client_country']]);
 $clientName     = firstAndLastName($inv['client_name']);
 $clientNif      = $inv['client_contributor'] ?: '-';
-$clientPhone    = ($inv['client_phone'] ?? '') !== '' ? $inv['client_phone'] : '-';   // adicione c.phone AS client_phone à query para mostrar o telefone
+$clientPhone    = trim((string)($inv['client_phone'] ?? ''));
 
-$vatRegime = match (strtolower((string)($inv['vat_regime'] ?? ''))) {
-  'geral'        => 'Regime Geral',
-  'simplificado' => 'Regime Simplificado',
-  default        => '-',
-};
+$vatRegime = bx_vat_regime_label($inv['vat_regime'] ?? '');
 
 $goodsServices = trim((string)($inv['goods_services'] ?? ''));
-$goodsServicesText = $goodsServices !== ''
-  ? $goodsServices
-  : 'Os bens/serviços foram colocados à disposição do adquirente na data e local do documento.';
+$goodsServicesText = bx_goods_services_text($goodsServices);
 
 $ibanRaw = preg_replace('/[.\s]/', '', (string)($inv['iban'] ?? ''));
 $iban = $ibanRaw !== ''
@@ -642,6 +639,11 @@ function lineSubtotal(array $it): float
       height: 26pt;
     }
 
+    .carry-in {
+      position: relative;
+      height: 14pt;
+    }
+
     /* ---------- rodapé ---------- */
     .qr {
       position: absolute;
@@ -664,7 +666,8 @@ function lineSubtotal(array $it): float
       // subtotal (incidência) desta página e acumulado até aqui
       $pageSubtotal = 0.0;
       foreach ($pageItems as $it) $pageSubtotal += lineSubtotal($it);
-      $carried += $pageSubtotal;
+      $carriedIn = $carried;            // vem da página anterior ("Transportado")
+      $carried += $pageSubtotal;        // segue para a página seguinte ("A transportar")
       $sy = TOTALS_Y + 8 + 16 + 10; // 654: início das linhas dentro do bloco de totais
   ?>
 
@@ -690,9 +693,9 @@ function lineSubtotal(array $it): float
         <!-- CLIENTE -->
         <div class="blk client">
           <div class="px f12 b c0"><?= e($clientName) ?></div>
-          <div class="px f9 cg">Contribuinte: <?= e($clientNif) ?></div>
-          <div class="px f9 cg"><?= e($clientAddress) ?></div>
-          <div class="px f9 cg"><?= e($clientPhone) ?></div>
+          <?php /* o NIF do cliente aparece uma só vez, na linha "Contribuinte" do documento */ ?>
+          <?php if ($clientAddress !== ''): ?><div class="px f9 cg addr"><?= wrapByCommaHtml($clientAddress) ?></div><?php endif; ?>
+          <?php if ($clientPhone !== ''): ?><div class="px f9 cg">Tel: <?= e($clientPhone) ?></div><?php endif; ?>
         </div>
 
         <!-- DOCUMENTO -->
@@ -728,6 +731,13 @@ function lineSubtotal(array $it): float
             <span style="left:436pt;width:109pt;text-align:right">Total</span>
           </div>
 
+          <?php if ($pageIndex > 0): ?>
+            <div class="carry-in f8 b cg">
+              <div class="t r" style="left:300pt;width:129pt;top:0">Transportado:</div>
+              <div class="t r" style="left:436pt;width:109pt;top:0"><?= e($money($carriedIn)) ?></div>
+            </div>
+          <?php endif; ?>
+
           <?php foreach ($pageItems as $it):
             $base = (float)$it['unit_price'] * (float)$it['quantity'];
             $discount = $base * ((float)$it['discount'] / 100);
@@ -745,10 +755,9 @@ function lineSubtotal(array $it): float
           <?php endforeach; ?>
 
           <?php if (!$isLast): ?>
-            <div class="carry-wrap f8 i cg">
-              <div class="t r" style="left:300pt;width:129pt;top:2pt">Subtotal da página:</div>
-              <div class="t r" style="left:436pt;width:109pt;top:2pt"><?= e($money($pageSubtotal)) ?></div>
-              <div class="t r" style="left:45pt;width:505pt;top:14pt">A transportar…</div>
+            <div class="carry-wrap f8 b cg">
+              <div class="t r" style="left:300pt;width:129pt;top:2pt">A transportar:</div>
+              <div class="t r" style="left:436pt;width:109pt;top:2pt"><?= e($money($carried)) ?></div>
             </div>
           <?php endif; ?>
 
@@ -771,6 +780,10 @@ function lineSubtotal(array $it): float
 
         <!-- direita -->
         <?php if (!$isLast): ?>
+          <?php if ($pageIndex > 0): ?>
+            <?= drawText(365, $sy - 2, 'Transportado:', 'f85 cg') ?>
+            <?= drawText(450, $sy - 2, e($money($carriedIn)), 'f85 cg r', 100) ?>
+          <?php endif; ?>
           <?= drawText(365, $sy + 14, 'Subtotal da página:', 'f85 cg') ?>
           <?= drawText(450, $sy + 14, e($money($pageSubtotal)), 'f85 cg r', 100) ?>
           <?= HL(365, 545, $sy + 72, 1, '#555') ?>
