@@ -20,9 +20,9 @@ function contact_acquire_nif_lock(PDO $pdo, string $lockName): bool
     return (int) $stmt->fetchColumn() === 1;
 }
 
-function contact_nif_address_exists(PDO $pdo, int $companyId, string $contributor, string $address, ?int $excludeId = null): bool
+function contact_nif_address_id(PDO $pdo, int $companyId, string $contributor, string $address, ?int $excludeId = null): ?int
 {
-    $sql = 'SELECT 1 FROM contact
+    $sql = 'SELECT id FROM contact
             WHERE company_id = :company_id
               AND UPPER(TRIM(contributor)) = :contributor
               AND UPPER(TRIM(address)) = :address';
@@ -39,7 +39,13 @@ function contact_nif_address_exists(PDO $pdo, int $companyId, string $contributo
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    return $stmt->fetchColumn() !== false;
+    $id = $stmt->fetchColumn();
+    return $id === false ? null : (int) $id;
+}
+
+function contact_nif_address_exists(PDO $pdo, int $companyId, string $contributor, string $address, ?int $excludeId = null): bool
+{
+    return contact_nif_address_id($pdo, $companyId, $contributor, $address, $excludeId) !== null;
 }
 
 function contact_release_nif_lock(PDO $pdo, string $lockName): void

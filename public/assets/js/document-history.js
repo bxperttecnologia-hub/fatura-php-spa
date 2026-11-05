@@ -121,6 +121,17 @@
   }
 
   function setSelected(record) {
+    if (record.type === "proforma") {
+      const query = new URLSearchParams({ id: String(record.id) });
+      const route = `/proformas/view?${query}`;
+      if (typeof window.navigateSPA === "function") {
+        window.navigateSPA(route);
+      } else {
+        window.location.assign(route);
+      }
+      return;
+    }
+
     selectedDocument = {
       ...record,
       isRoot: rootDocument?.type === record.type

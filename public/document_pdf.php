@@ -88,18 +88,22 @@ if (preg_match('~^(invoices|proformas|receipts|debit-notes|delivery-notes|credit
         case 'receipts':
             document_pdf_owned('SELECT 1 FROM receipts r JOIN invoices i ON i.id = r.invoice_id WHERE r.id = ? AND i.company_id = ?', $id);
             document_pdf_run(__DIR__ . '/invoices/recibo_pdf.php', ['id' => $id]);
+            break;
 
         case 'debit-notes':
             document_pdf_owned('SELECT 1 FROM debit_notes WHERE id = ? AND company_id = ?', $id);
             document_pdf_run(__DIR__ . '/invoices/debit_note_pdf.php', ['id' => $id]);
+            break;
 
         case 'delivery-notes':
             document_pdf_owned('SELECT 1 FROM delivery_notes WHERE id = ? AND company_id = ?', $id);
             document_pdf_run(__DIR__ . '/invoices/delivery_note_pdf.php', ['id' => $id]);
+            break;
 
         case 'payroll':
             document_pdf_owned('SELECT 1 FROM payroll p JOIN employees e ON e.id = p.employee_id WHERE p.id = ? AND e.company_id = ?', $id);
             document_pdf_run(__DIR__ . '/rh/pdf/recibo.php', ['id' => $id]);
+            break;
 
         case 'credit-notes':
             document_pdf_owned('SELECT 1 FROM credit_notes WHERE id = ? AND company_id = ?', $id);

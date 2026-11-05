@@ -61,9 +61,10 @@ O art. 36.º do Decreto Presidencial n.º 71/25 remete as especificações do si
 
 - Facturas, facturas-recibo e proformas guardam snapshots independentes do IVA: tipo, taxa, base, montante, descrição, confirmação, total bruto e valor líquido.
 - A configuração é versionada por empresa e período de vigência. A activação exige que o administrador registe uma referência de validação legal; sem regra activa, o backend rejeita o imposto seleccionado.
-- A taxa inicial de IPU (15%) é apenas um valor de configuração solicitado, não uma afirmação de taxa legal universal. A taxa, base e vigência têm de ser validadas antes da activação.
+- Não há taxas legais predefinidas no formulário/API: taxas e bases só provêm de uma configuração versionada cuja referência legal deve ser validada antes da activação. As regras materiais de IPU e retenção continuam pendentes de validação fiscal.
 - A selecção só é aceite para linhas de serviço classificadas no catálogo e após confirmação do enquadramento pelo utilizador. A classificação e o tipo efectivo do artigo são recarregados do banco no backend; vendas de mercadorias não qualificam para IPU.
 - O motor central calcula IVA separadamente, aplica a base configurada por tipo de imposto, arredonda a cêntimos com `PHP_ROUND_HALF_UP` e impede a duplicação da retenção na fonte documental com retenções por artigo.
 - Proformas apresentam os valores como estimativas e não executam retenção, pagamento ou comunicação AGT. A conversão revalida a configuração na data da factura e recalcula os totais.
 - Os snapshots preservam os valores históricos dos documentos; uma alteração administrativa de taxa cria nova vigência e não reescreve documentos existentes.
+- O PDF do recibo usa os montantes de retenção/imposto guardados na factura e o valor efectivamente pago no recibo; não calcula uma taxa presumida. A imputação da retenção entre recibos de pagamentos parciais permanece pendente de validação legal.
 - `tests/document_tax_withholding_test.php` cobre os cálculos centrais, bases, IVA, descontos, elegibilidade, configuração inactiva, arredondamento e dedução duplicada. Fluxos com MySQL e renderização de PDF ainda devem ser validados numa base isolada.

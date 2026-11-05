@@ -118,6 +118,7 @@ $isLocal = $isLocal ?? false;
 
             <div class="modal-body bg-light">
                 <form id="contactForm" novalidate>
+                    <input type="hidden" name="_idempotent_create" value="1">
                     <input type="hidden" name="company_id" value="<?= (int) ($_SESSION['user']['company_id'] ?? 0) ?>">
                     <input type="hidden" name="observations" id="observations" value="">
                     <input type="hidden" name="due_date" id="due_date" value="0">

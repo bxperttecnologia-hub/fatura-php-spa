@@ -174,11 +174,6 @@ $(document).ready(function () {
     // formData precisa ser recriado a cada submit, senão acumula dados de envios anteriores
     const formData = {};
 
-    const imageSrc = $("#profileImage").attr("src");
-    const imageName = imageSrc ? imageSrc.split("/").pop() : "";
-
-    formData["image"] = imageName;
-
     // form.elements pode não ter .forEach garantido em todos os browsers/contextos;
     // Array.from() converte para array de verdade
     Array.from(form.elements).forEach((field) => {
@@ -204,9 +199,13 @@ $(document).ready(function () {
     });
 
     $.ajax({
-      url: "perfil/ajax/update_profile.php",
-      type: "POST",
-      data: formData, // objeto simples: deixa o jQuery serializar (não use processData:false/contentType:false aqui)
+      url: "/api/profile",
+      type: "PATCH",
+      contentType: "application/json",
+      headers: {
+        "X-CSRF-Token": window.APP?.csrf || "",
+      },
+      data: JSON.stringify(formData),
       dataType: "json",
       success: function (response) {
         if (response.status === "success") {
@@ -229,11 +228,13 @@ $(document).ready(function () {
         }
       },
       error: function (xhr) {
+        const response = xhr.responseJSON || {};
         Swal.fire({
           icon: "error",
           title: "Erro!",
           text:
-            (xhr.responseJSON && xhr.responseJSON.message) ||
+            response.message ||
+            response.error ||
             "Erro inesperado. Tente novamente.",
         });
       },

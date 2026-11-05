@@ -18,6 +18,7 @@ try {
     $r->add('POST',   'auth/login',     [AuthController::class, 'login'], true);
     $r->add('POST',   'auth/logout',    [AuthController::class, 'logout'], true);
     $r->add('GET',    'auth/me',        [AuthController::class, 'me']);
+    $r->add('PATCH',  'profile',        [ProfileApiController::class, 'update']);
     $r->add('GET',    'documents/config', [DocumentApiController::class, 'config']);
     $r->add('GET',    'clientes',       [ClienteController::class, 'index']);
     $r->add('POST',   'clientes',       [ClienteController::class, 'store']);

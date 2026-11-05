@@ -29,7 +29,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $_POST['created_at'] = date('Y-m-d H:i:s');
 
     // Campos que nunca devem vir do formulário
-    unset($_POST['id'], $_POST['updated_at'], $_POST['undefined']);
+    $idempotentCreate = ($_POST['_idempotent_create'] ?? '') === '1';
+    unset($_POST['id'], $_POST['updated_at'], $_POST['undefined'], $_POST['_idempotent_create']);
 
     // Os nomes dos campos entram na query (entre crases). Só aceitamos
     // nomes de coluna "normais" para impedir SQL injection pelo nome do campo.
@@ -75,9 +76,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (!$lockAcquired) {
             http_response_code(503);
             echo json_encode(["status" => "error", "message" => "Não foi possível validar o NIF agora. Tente novamente."]);
-        } elseif (contact_nif_address_exists($pdo, (int) $sessionCompanyId, (string) $_POST['contributor'], (string) $_POST['address'])) {
-            http_response_code(409);
-            echo json_encode(["status" => "error", "code" => "duplicate_nif_address", "message" => "Já existe um contacto com este NIF e endereço na sua empresa."]);
+        } elseif (($existingContactId = contact_nif_address_id($pdo, (int) $sessionCompanyId, (string) $_POST['contributor'], (string) $_POST['address'])) !== null) {
+            if ($idempotentCreate) {
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Este contacto já estava cadastrado.",
+                    "id" => $existingContactId,
+                ]);
+            } else {
+                http_response_code(409);
+                echo json_encode(["status" => "error", "code" => "duplicate_nif_address", "message" => "Já existe um contacto com este NIF e endereço na sua empresa."]);
+            }
         } else {
             $stmt = $pdo->prepare($query);
             $stmt->execute($values);
@@ -91,7 +100,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         echo json_encode(["status" => "error", "message" => "Erro ao salvar contato: " . $e->getMessage()]);
     } finally {
         if ($lockAcquired) {
-            contact_release_nif_lock($pdo, $lockName);
+            try {
+                contact_release_nif_lock($pdo, $lockName);
+            } catch (PDOException $e) {
+                error_log('Falha ao libertar bloqueio de NIF após gravar contacto: ' . $e->getMessage());
+            }
         }
     }
 }
