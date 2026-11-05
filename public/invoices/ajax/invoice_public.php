@@ -185,7 +185,9 @@ function wrapCount(string $text, float $width, float $size): int
 // altura (pt) de uma linha da tabela: mínimo 17, cresce com descrições longas
 function itemHeight(array $it): float
 {
-  return max(17.0, wrapCount(itemLabel($it), COL['desc'][1], 8) * 8 * LH + 7);
+  // largura um pouco menor que a coluna: o Dompdf quebra a linha mais cedo do que esta medição,
+  // e uma linha a mais não estimada sobrepunha-se à seguinte.
+  return max(17.0, wrapCount(itemLabel($it), COL['desc'][1] * 0.9, 8) * 8 * LH + 7);
 }
 
 // quebra os itens em páginas (máx. ITEMS_PER_PAGE e limite vertical) — igual ao PDF
@@ -613,11 +615,13 @@ function lineSubtotal(array $it): float
       transform: translateY(-.09em);
     }
 
+    /* Altura de cada linha vem do servidor (itemHeight), igual à usada na paginação.
+       min-height + padding com border-box dava 17pt no navegador mas 24pt no Dompdf,
+       e as últimas linhas de cada página ficavam por cima dos totais. */
     .irow {
       position: relative;
       display: block;
-      min-height: 17pt;
-      padding-bottom: 7pt;
+      overflow: visible;
       font-size: 8pt;
       color: #666;
     }
@@ -750,7 +754,7 @@ function lineSubtotal(array $it): float
             $discount = $base * ((float)$it['discount'] / 100);
             $effectiveRate = (float)bx_document_effective_tax_rate($it['tax'], (string)($inv['vat_regime'] ?? ''));
             $total = $base - $discount + (($base - $discount) * ($effectiveRate / 100)); ?>
-            <div class="irow">
+            <div class="irow" style="height:<?= number_format(itemHeight($it), 2, '.', '') ?>pt">
               <span class="c code" style="left:50pt;width:70pt"><?= e($it['code']) ?></span>
               <div class="desc"><?= e(itemLabel($it)) ?></div>
               <span class="c" style="left:243pt;width:80pt;text-align:right"><?= e($money($it['unit_price'])) ?></span>

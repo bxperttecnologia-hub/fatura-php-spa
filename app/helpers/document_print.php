@@ -40,6 +40,14 @@ function bx_vat_regime_label(?string $regime): string
 function bx_goods_services_text(?string $custom): string
 {
     $custom = trim((string) $custom);
+    // Valores do formulário da empresa (select "Bens e serviços"), não texto livre.
+    $codes = [
+        'servicos' => 'Serviços prestados na data do documento.',
+        'produtos' => 'Bens disponibilizados na data do documento.',
+    ];
+    if (isset($codes[mb_strtolower($custom)])) {
+        return $codes[mb_strtolower($custom)];
+    }
     return $custom !== '' ? $custom : 'Bens/serviços disponibilizados na data do documento.';
 }
 
