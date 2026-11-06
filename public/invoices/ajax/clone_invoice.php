@@ -104,12 +104,18 @@ try {
             final_total,
             converted_total,
             paid_total,
-            document_type
+            document_type,
+            tax_withholding_type,
+            tax_withholding_rate,
+            tax_withholding_base,
+            tax_withholding_amount,
+            tax_withholding_description,
+            tax_withholding_confirmed
         )
         VALUES (
             ?,?,?,?,?,?,?,?,?,?,
             ?,?,?,?,?,?,?,?,?,?,
-            ?
+            ?,?,?,?,?,?,?
         )
     ");
 
@@ -153,7 +159,15 @@ try {
 
         0, // nova factura sem pagamentos
 
-        'FT'
+        'FT',
+
+        // Retenção documental: igual à original (recalculada ao gravar o rascunho)
+        $invoice['tax_withholding_type'] ?? 'none',
+        $invoice['tax_withholding_rate'] ?? 0,
+        $invoice['tax_withholding_base'] ?? 0,
+        $invoice['tax_withholding_amount'] ?? 0,
+        $invoice['tax_withholding_description'] ?? null,
+        (int)($invoice['tax_withholding_confirmed'] ?? 0)
     ]);
 
     $newInvoiceId = (int)$pdo->lastInsertId();
@@ -169,9 +183,10 @@ try {
             quantity,
             unit_price,
             tax,
-            discount
+            discount,
+            retention_rate
         )
-        VALUES (?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?)
     ");
 
     foreach ($items as $item) {
@@ -182,7 +197,8 @@ try {
             $item['quantity'],
             $item['unit_price'],
             $item['tax'],
-            $item['discount']
+            $item['discount'],
+            $item['retention_rate'] ?? 0
         ]);
     }
 

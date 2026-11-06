@@ -175,7 +175,9 @@ try {
             di.unit_price,
             di.tax,
             di.discount,
-            di.retention_rate
+            di.retention_rate,
+            it.item_type,
+            it.tax_classification
         FROM {$itemsTable} di
         INNER JOIN items it
             ON it.id = di.item_id

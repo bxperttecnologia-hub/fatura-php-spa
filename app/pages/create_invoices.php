@@ -1377,7 +1377,9 @@ $invTheme      = 'dark';
                 unit_price: draftFieldValue(row.querySelector(".field_price")) || 0,
                 tax: draftFieldValue(row.querySelector(".field_tax")) || 0,
                 discount: draftFieldValue(row.querySelector(".field_desc")) || 0,
-                retention: draftFieldValue(row.querySelector(".field_retention")) || 0
+                retention: draftFieldValue(row.querySelector(".field_retention")) || 0,
+                item_type: row.dataset.itemType || "",
+                tax_classification: row.dataset.taxClassification || ""
             });
         });
 
@@ -1424,7 +1426,9 @@ $invTheme      = 'dark';
                 unit_price: draftNumber(item.unit_price, 0),
                 tax: draftNumber(item.tax, 0),
                 discount: draftNumber(item.discount, 0),
-                retention: draftNumber(item.retention, 0)
+                retention: draftNumber(item.retention, 0),
+                item_type: item.item_type || undefined,
+                tax_classification: item.tax_classification || undefined
             });
         });
     }
@@ -1528,4 +1532,4 @@ $invTheme      = 'dark';
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_invoices/create_invoices.js?v=3.6" data-spa-repeat></script>
+<script src="create_invoices/create_invoices.js?v=3.7" data-spa-repeat></script>

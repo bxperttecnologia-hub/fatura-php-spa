@@ -155,7 +155,9 @@ try {
             pi.quantity,
             pi.unit_price,
             pi.tax,
-            pi.discount
+            pi.discount,
+            it.item_type,
+            it.tax_classification
 
         FROM proforma_items pi
 

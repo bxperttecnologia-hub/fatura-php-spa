@@ -739,6 +739,28 @@ $(document).ready(function () {
   // =====================================================================
 
   // Serviço = item_type 'service' (ou código SERV…), igual à regra de addItemRow()
+  // Linhas repostas (rascunho do browser, edição, clone) podem vir sem tipo/classificação
+  // do artigo; sem eles a retenção documental não encontra serviços elegíveis.
+  // O catálogo (BD) é a mesma fonte que o servidor usa ao gravar.
+  function syncRowsWithCatalog() {
+    let changed = false;
+    document.querySelectorAll("#items_list .item-list").forEach((row) => {
+      const item = catalogItems[row.dataset.id];
+      if (!item) return;
+      const type = isServiceItem(item) ? "service" : String(item.item_type_raw || "product");
+      const classification = String(item.tax_classification || "standard");
+      if (row.dataset.itemType !== type || row.dataset.taxClassification !== classification) {
+        row.dataset.itemType = type;
+        row.dataset.taxClassification = classification;
+        changed = true;
+      }
+    });
+    if (changed) {
+      updateInvoiceSummary();
+      if (typeof saveDraft === "function") saveDraft();
+    }
+  }
+
   function isServiceItem(item) {
     return (
       (item?.item_type_raw || item?.item_type) === "service" ||
@@ -820,6 +842,7 @@ $(document).ready(function () {
         renderItemOptions();
 
         window.catalogItems = catalogItems;
+        syncRowsWithCatalog();
         window.dispatchEvent(
           new CustomEvent("items:catalog-ready", {
             detail: { items: Object.values(catalogItems) },
@@ -2021,6 +2044,7 @@ $(document).ready(function () {
               discount: item.discount,
               tax_classification: item.tax_classification,
               item_type: item.item_type,
+              retention: item.retention_rate,
             });
           });
         }
