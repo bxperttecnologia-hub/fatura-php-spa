@@ -21,6 +21,11 @@ define('DB_PORT', bx_config('DB_PORT', '3306'));
 define('DB_NAME', bx_config('DB_NAME'));
 define('DB_USER', bx_config('DB_USER'));
 define('DB_PASS', bx_config('DB_PASS'));
+// sql_mode da ligação do BX. A app foi feita para o modo do XAMPP (sem STRICT_TRANS_TABLES);
+// num servidor em modo estrito, INSERTs que omitem colunas NOT NULL sem DEFAULT falhavam
+// (ex.: registo -> "Field 'identification_type' doesn't have a default value").
+// Só afecta as ligações do BX, não o servidor MySQL. Vazio = usa o modo do servidor.
+define('DB_SQL_MODE', bx_config('DB_SQL_MODE', 'NO_ZERO_IN_DATE,NO_ZERO_DATE,NO_ENGINE_SUBSTITUTION'));
 
 // Faturação eletrónica AGT (agt-facturacao-api)
 define('APP_TIMEZONE', bx_config('APP_TIMEZONE', 'Africa/Luanda'));

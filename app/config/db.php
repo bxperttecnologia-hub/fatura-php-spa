@@ -17,6 +17,9 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_TIMEOUT => 5,
     ];
+    if (defined('DB_SQL_MODE') && DB_SQL_MODE !== '') {
+        $options[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET SESSION sql_mode = '" . str_replace("'", '', DB_SQL_MODE) . "'";
+    }
 
     $pdo = new PDO(
         "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4",
