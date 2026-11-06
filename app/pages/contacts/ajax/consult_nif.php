@@ -215,8 +215,9 @@ function agt_http_request($url, array $headers, $caBundle = null)
         $ch = curl_init($url);
         $opts = [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_TIMEOUT        => 15,
+            // A AGT (sifp) por vezes demora mais no handshake TLS: 8 s dava "SSL connection timeout"
+            CURLOPT_CONNECTTIMEOUT => 20,
+            CURLOPT_TIMEOUT        => 25,
             CURLOPT_HTTPHEADER     => $headers,
         ];
         if (defined('CURLSSLOPT_NATIVE_CA') && defined('CURLOPT_SSL_OPTIONS')) {
@@ -237,7 +238,7 @@ function agt_http_request($url, array $headers, $caBundle = null)
         $http = [
             'method'        => 'GET',
             'header'        => implode("\r\n", $headers),
-            'timeout'       => 15,
+            'timeout'       => 25,
             'ignore_errors' => true, // devolve o corpo mesmo com HTTP 4xx/5xx
         ];
         $ssl = [
@@ -282,12 +283,23 @@ if ($caBundle && (!is_file($caBundle) || !is_readable($caBundle))) {
 }
 
 list($raw, $httpCode, $httpErr) = agt_http_request($url, $headers, $caBundle ?: null);
+// Falha de ligação (timeout, ligação fechada no TLS): a AGT é intermitente, tenta mais uma vez.
+// Só quando não houve resposta HTTP — uma resposta da AGT (401, 404, 500...) não se repete.
+if ($raw === false && $httpCode === 0) {
+    error_log('[AGT consultarNIF] Ligação falhou (' . $httpErr . '); nova tentativa.');
+    sleep(1);
+    list($raw, $httpCode, $httpErr) = agt_http_request($url, $headers, $caBundle ?: null);
+}
 
 if ($raw === false) {
     error_log('[AGT consultarNIF] Ligação: ' . $httpErr);
     $message = 'Não foi possível contactar a AGT.';
-    if (stripos($httpErr, 'certificate') !== false || stripos($httpErr, 'SSL') !== false) {
+    // Só é problema de certificado quando a validação falha; timeout ou ligação fechada
+    // ("unexpected eof") quer dizer que o serviço da AGT não respondeu.
+    if (preg_match('/certificate|issuer|self[- ]signed|CA file|CAfile|verify/i', $httpErr)) {
         $message .= ' Verifique a cadeia de certificados TLS; pode definir AGT_CA_BUNDLE no .env com o caminho para o certificado CA confiável.';
+    } else {
+        $message .= ' O serviço da AGT não respondeu; tente novamente dentro de alguns minutos.';
     }
     agt_respond(['status' => 'error', 'message' => $message . ($dev && $httpErr ? ' [' . $httpErr . ']' : '')], 502);
 }
