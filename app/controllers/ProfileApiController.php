@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../helpers/env.php';
 
 final class ProfileApiController
 {
@@ -52,18 +53,18 @@ final class ProfileApiController
             throw new HttpException(503, 'A extensão cURL do PHP é necessária para atualizar o perfil.');
         }
 
-        $sharedSecret = trim((string)getenv('DOCUMENT_API_TOKEN_SECRET'));
+        $sharedSecret = trim((string)bx_env('DOCUMENT_API_TOKEN_SECRET'));
         if ($sharedSecret === '') {
-            $sharedSecret = defined('DB_PASS') ? (string)DB_PASS : trim((string)getenv('DB_PASS'));
+            $sharedSecret = defined('DB_PASS') ? (string)DB_PASS : trim((string)bx_env('DB_PASS'));
         }
         if ($sharedSecret === '') {
-            $sharedSecret = trim((string)getenv('DB_PASSWORD'));
+            $sharedSecret = trim((string)bx_env('DB_PASSWORD'));
         }
         if ($sharedSecret === '') {
             throw new HttpException(503, 'A integração segura com a API não está configurada.');
         }
 
-        $apiBaseUrl = trim((string)getenv('DOCUMENT_API_BASE_URL'));
+        $apiBaseUrl = trim((string)bx_env('DOCUMENT_API_BASE_URL'));
         if ($apiBaseUrl === '') {
             $apiBaseUrl = defined('APP_ENV') && APP_ENV === 'production'
                 ? 'https://api-sandibox.bxpert.co.ao'

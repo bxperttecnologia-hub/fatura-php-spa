@@ -6,6 +6,11 @@ require_once __DIR__ . '/env.php';
 if (!function_exists('ai_api_base_url')) {
     function ai_api_base_url(): string
     {
+        // Destino definido no .env (AI_API_BASE_URL, sem /api no fim)
+        $fromEnv = trim((string) bx_env('AI_API_BASE_URL'));
+        if ($fromEnv !== '') {
+            return rtrim($fromEnv, '/');
+        }
         if (defined('AI_API_BASE_URL') && AI_API_BASE_URL !== '') {
             return (string) AI_API_BASE_URL;
         }

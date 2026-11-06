@@ -17,15 +17,12 @@ next-app/
 # CONFIGURAÇÕES COM CREDENCIAIS
 # =========================================================
 
-# Configuração principal
-app/config/config.php
+# app/config/config.php é versionado: não tem dados do ambiente (lê tudo do .env)
 
 # Configurações sensíveis
 config/config.php
 config/appypay.php
 
-# Qualquer config.php dentro de app/config/
-**/app/config/config.php
 
 # =========================================================
 # VARIÁVEIS DE AMBIENTE
@@ -93,6 +90,9 @@ desktop.ini
 *.tmp
 *.temp
 *.bak
+*.bak.*
+*.bak-*
+*.origkey.bak
 *.swp
 *.swo
 
@@ -137,3 +137,11 @@ backups/
 
 # Chaves RSA locais (nunca versionar)
 app/keys/
+
+# Chaves do contribuinte / testes locais (nunca versionar)
+private_key.txt
+public_key.txt
+
+# Uploads dos utilizadores (ficam no servidor, não no Git)
+public/assets/img/companies/company-logo-*
+public/assets/img/profiles/profile_*

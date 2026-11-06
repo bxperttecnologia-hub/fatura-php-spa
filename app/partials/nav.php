@@ -1056,14 +1056,7 @@ $csrfToken = Csrf::token(); // um único token CSRF para toda a app
             }
 
             try {
-                const apiBaseUrl = (() => {
-                    const hostname = window.location.hostname;
-                    const isProd = hostname === 'api-crm.bxpert.co.ao' || hostname === 'www.api-crm.bxpert.co.ao';
-                    if (isProd) {
-                        return 'https://api-sandibox.bxpert.co.ao';
-                    }
-                    return 'http://localhost:3000';
-                })();
+                const apiBaseUrl = ((window.BX_ENDPOINTS && window.BX_ENDPOINTS.ai) || window.location.origin);
 
                 const rawInsights = await fetchJSON(`${apiBaseUrl}/api/alert-logs?company_id=${encodeURIComponent(companyId)}&entity_type=invoice`);
 

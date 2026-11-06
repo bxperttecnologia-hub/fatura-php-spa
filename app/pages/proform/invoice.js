@@ -211,9 +211,7 @@ $(function () {
     }
 
     const hostname = window.location.hostname;
-    const apiBaseUrl = hostname === "api-crm.bxpert.co.ao" || hostname === "www.api-crm.bxpert.co.ao"
-      ? "https://api-crm.bxpert.co.ao"
-      : "http://localhost:3004";
+    const apiBaseUrl = ((window.BX_ENDPOINTS && window.BX_ENDPOINTS.documents) || window.location.origin);
 
     const payload = {
       ...currentInvoice,

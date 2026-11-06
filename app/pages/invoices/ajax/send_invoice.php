@@ -90,9 +90,9 @@ try{
 
 //---------------------------------------------------------------
 // 4) ENVIA COM PHPMailer
-$smtpUsername = trim((string)getenv('SMTP_USERNAME'));
-$smtpPassword = (string)getenv('SMTP_PASSWORD');
-$smtpFromName = trim((string)getenv('SMTP_FROM_NAME')) ?: 'BXpert';
+$smtpUsername = trim((string)bx_env('SMTP_USERNAME'));
+$smtpPassword = (string)bx_env('SMTP_PASSWORD');
+$smtpFromName = trim((string)bx_env('SMTP_FROM_NAME')) ?: 'BXpert';
 if ($smtpUsername === '' || $smtpPassword === '' || !filter_var($smtpUsername, FILTER_VALIDATE_EMAIL)) {
   if ($pdfPath && is_file($pdfPath)) {
     unlink($pdfPath);
@@ -106,12 +106,13 @@ try{
   $mail = new PHPMailer(true);
 
   $mail->isSMTP();
-  $mail->Host       = 'smtp.hostinger.com';
+  $smtpPort = (int)(bx_env('SMTP_PORT') ?: 465);
+  $mail->Host       = trim((string)bx_env('SMTP_HOST')) ?: 'smtp.hostinger.com';
   $mail->SMTPAuth   = true;
   $mail->Username   = $smtpUsername;
   $mail->Password   = $smtpPassword;
-  $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-  $mail->Port       = 465;
+  $mail->SMTPSecure = $smtpPort === 465 ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
+  $mail->Port       = $smtpPort;
 
   $mail->setFrom($smtpUsername, $smtpFromName);
   foreach ($to as $address) {

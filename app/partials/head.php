@@ -24,6 +24,15 @@ $isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESS
       window.__spaAbs = abs;
     })();
   </script>
+  <?php
+  // APIs externas (IA / documentos): os endereços vêm do .env (AI_API_BASE_URL, DOCUMENT_API_BASE_URL)
+  require_once __DIR__ . '/../helpers/ai_api.php';
+  require_once __DIR__ . '/../helpers/company_logo.php';
+  $bxEndpoints = ['ai' => '', 'documents' => ''];
+  try { $bxEndpoints['ai'] = ai_api_base_url(); } catch (\Throwable $e) {}
+  try { $bxEndpoints['documents'] = company_logo_api_base_url(); } catch (\Throwable $e) {}
+  ?>
+  <script>window.BX_ENDPOINTS = <?= json_encode($bxEndpoints, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;</script>
 
   <link rel="icon" href="/assets/img/logo/BXpert.ico" type="image/x-icon">
   <link rel="apple-touch-icon" href="/assets/img/logo/BXpert.png">

@@ -1,6 +1,7 @@
 <html>
 <?php
 require_once '../app/views/layout_creation.php';
+require_once ROOT . '/app/helpers/ai_api.php';
 
 // --- Sessão / defaults ---
 $companyId    = (int)($_SESSION['user']['company_id'] ?? 0);
@@ -542,7 +543,7 @@ $intelligenceAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], tru
             'use strict';
 
             // URL base da API Node (IA Agent). Ajuste host/porta se mudar em produção.
-            const AI_API_BASE = 'http://localhost:3000/api' || 'https://api-sandibox.bxpert.co.ao/api';
+            const AI_API_BASE = <?= json_encode(ai_api_base_url() . '/api', JSON_UNESCAPED_SLASHES) ?>; // AI_API_BASE_URL no .env
 
             const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'

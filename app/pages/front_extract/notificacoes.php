@@ -1,5 +1,6 @@
 <?php
 require_once '../app/views/layout_creation.php';
+require_once ROOT . '/app/helpers/ai_api.php';
 ?>
 
 <style>
@@ -733,9 +734,7 @@ require_once '../app/views/layout_creation.php';
         const collectionPendingCount = document.getElementById('collectionPendingCount');
         const collectionRulesSummary = document.getElementById('collectionRulesSummary');
         const companyId = <?= json_encode((int)($_SESSION['user']['company_id'] ?? 0)) ?>;
-        const apiBaseUrl = ['api-sandibox.bxpert.co.ao', 'www.api-sandibox.bxpert.co.ao'].includes(window.location.hostname)
-            ? 'https://api-sandibox.bxpert.co.ao'
-            : 'http://localhost:3000';
+        const apiBaseUrl = <?= json_encode(ai_api_base_url(), JSON_UNESCAPED_SLASHES) ?>; // AI_API_BASE_URL no .env
 
         const state = {
             notifications: [],

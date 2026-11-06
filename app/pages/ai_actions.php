@@ -1,5 +1,6 @@
 <?php
 require_once '../app/views/layout_creation.php';
+require_once ROOT . '/app/helpers/ai_api.php';
 require_once '../app/helpers/subscription.php';
 
 $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
@@ -484,11 +485,7 @@ $expertPlan = in_array($planCode, ['XPERT', 'ENTERPRISE'], true);
         const refreshBtn = document.getElementById('refreshAlertsBtn');
         const jumpToNextBtn = document.getElementById('jumpToNextBtn');
 
-        const API_BASE = (() => {
-            const hostname = window.location.hostname;
-            const isProd = hostname === 'api-crm.bxpert.co.ao' || hostname === 'www.api-crm.bxpert.co.ao';
-            return isProd ? 'https://api-crm.bxpert.co.ao' : 'http://localhost:3000';
-        })();
+        const API_BASE = <?= json_encode(ai_api_base_url(), JSON_UNESCAPED_SLASHES) ?>; // AI_API_BASE_URL no .env
 
         const AI_ENDPOINT = `${API_BASE}/api/alert-logs`;
 

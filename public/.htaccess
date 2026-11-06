@@ -1,4 +1,15 @@
 Options -Indexes
+
+# Ficheiros que nunca devem ser servidos (ocultos, backups, dumps, chaves, notas)
+<FilesMatch "(^\.|\.(bak|sql|log|md|ini|sh|lock|pem|key|txt|dist|orig|yml|yaml|env)$|\.bak[.\-])">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
 # Rotas da SPA como /contacts, /items, /stock, /login coincidem com nomes de pastas de endpoints:
 # sem isto o Apache redireciona /login -> /login/ antes de a reescrita correr.
 DirectorySlash Off

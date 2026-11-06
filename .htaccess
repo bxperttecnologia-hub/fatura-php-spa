@@ -1,8 +1,12 @@
+# A pasta do site no servidor (aaPanel: Site > Running directory) deve ser /public.
+# Se o domínio apontar para aqui por engano, nada fora de public/ é servido
+# (.env, app/, vendor/, chaves...).
+Options -Indexes
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
 RewriteEngine On
-
-# API: /api/clientes/5 -> api.php?r=clientes/5
-RewriteRule ^api/(.*)$ api.php?r=$1 [L,QSA]
-
-# Tudo o que não for ficheiro real devolve o shell
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^ index.php [L]
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(.*)$ public/$1 [L]

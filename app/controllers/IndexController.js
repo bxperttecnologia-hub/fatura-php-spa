@@ -47,7 +47,6 @@ export const indexSpecs = [
     diagnostic: true,
   }),
   entry('notifications_actions', 'POST'),
-  entry('test_stock', 'GET', { access: 'admin', diagnostic: true }),
 ];
 
 export class IndexController {

@@ -570,9 +570,7 @@ $(document).ready(function () {
     return invoices;
   }
 
-  const collectionApiBase = ["api-sandibox.bxpert.co.ao", "www.api-sandibox.bxpert.co.ao"].includes(window.location.hostname)
-    ? "https://api-sandibox.bxpert.co.ao"
-    : "http://localhost:3000";
+  const collectionApiBase = ((window.BX_ENDPOINTS && window.BX_ENDPOINTS.ai) || window.location.origin);
 
   function getSelectedInvoiceIds() {
     return [...selectedIds].map(Number).filter(Boolean);
@@ -702,9 +700,7 @@ $(document).ready(function () {
     );
   }
 
-  const intelligenceApiBase = ["api-sandibox.bxpert.co.ao", "www.api-sandibox.bxpert.co.ao"].includes(window.location.hostname)
-    ? "https://api-sandibox.bxpert.co.ao"
-    : "http://localhost:3000";
+  const intelligenceApiBase = ((window.BX_ENDPOINTS && window.BX_ENDPOINTS.ai) || window.location.origin);
 
   async function loadCollectionSummary() {
     const summary = document.getElementById("invoiceCollectionSummary");

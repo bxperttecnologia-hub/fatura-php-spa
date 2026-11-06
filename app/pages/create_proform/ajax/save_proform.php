@@ -19,7 +19,7 @@ if (
 
 // 🔥 DEBUG (remove em produção)
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '0');
 
 // Recebe dados
 $proformData = $_POST['proform'] ?? [];

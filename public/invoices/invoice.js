@@ -1653,10 +1653,7 @@
       ).trim();
       const hostname = window.location.hostname;
       const apiBaseUrl =
-        hostname === "api-crm.bxpert.co.ao" ||
-        hostname === "www.api-crm.bxpert.co.ao"
-          ? "https://api-crm.bxpert.co.ao"
-          : "http://localhost:3004";
+        ((window.BX_ENDPOINTS && window.BX_ENDPOINTS.documents) || window.location.origin);
       const logoUrl = /^data:image\//i.test(logoSource)
         ? logoSource
         : /^https?:\/\//i.test(logoSource)

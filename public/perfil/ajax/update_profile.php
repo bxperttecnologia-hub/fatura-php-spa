@@ -7,7 +7,7 @@ declare(strict_types=1);
 // Nunca deixe isso acessível em produção sem proteção extra (ex.: checar $_SESSION['user']['adm']).
 $DEBUG = isset($_GET['debug']) && $_GET['debug'] === '1';
 if ($DEBUG) {
-    ini_set('display_errors', '1');
+    ini_set('display_errors', '0');
     error_reporting(E_ALL);
 }
 // ===================================================================
