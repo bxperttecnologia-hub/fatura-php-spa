@@ -530,7 +530,7 @@
             <span><i data-lucide="settings"></i> <span>Definições</span></span>
         </a>
 
-        <a href="help.php" target="_blank" class="nav-item" data-tooltip="Ajuda">
+        <a href="/help" class="nav-item" data-spa data-tooltip="Ajuda">
             <span><i data-lucide="help-circle"></i> <span>Ajuda</span></span>
         </a>
 
