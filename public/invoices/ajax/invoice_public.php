@@ -4,9 +4,9 @@
  *
  *  Todas as posições estão em pontos (pt) e são as MESMAS do PDF:
  *  - logo na caixa 105x55 · empresa (x45,y100) · cliente (x435,y100)
- *  - "Original" y245 · título y263 · linha y288 · linhas de dados y298/316/334
+ *  - "Original" y220 · título y238 · linha y263 · linhas de dados y273/291/309
  *  - tabela: itens em colunas fixas, máx. 10 por página, "Subtotal da página" + "A transportar…"
- *  - totais fixos em y620 (Dados fiscais e bancários | Sumário)
+ *  - totais fixos em y595 (Dados fiscais e bancários | Sumário)
  *  - rodapé: QR, texto AGT, "Powered by BXPERT" e "Página n de N"
  */
 require_once '../../../vendor/autoload.php';
@@ -23,8 +23,8 @@ require_once __DIR__ . '/../../../app/helpers/document_print.php';
 define('AGT_CERTIFICATE', bx_software_certificate());   // do .env (AGT_SOFTWARE_CERTIFICATE)
 const CARRY_IN_H      = 14;    // linha "Transportado" no topo da tabela das páginas 2+
 const ITEMS_PER_PAGE  = 10;
-const ITEMS_BOTTOM    = 588;   // limite vertical (pt) das linhas: deixa 26pt p/ "Subtotal da página" + "A transportar…" antes dos totais (y620)
-const TOTALS_Y        = 620;   // y (pt) do bloco de totais
+const ITEMS_BOTTOM    = 563;   // limite vertical (pt) das linhas: deixa 26pt p/ "Subtotal da página" + "A transportar…" antes dos totais (y595)
+const TOTALS_Y        = 595;   // y (pt) do bloco de totais
 const LH              = 1.156; // altura de linha da Helvetica (pdfkit): 1,156 x tamanho
 // ?copies=1..3 (pedido pelo PDF); a pré-visualização no browser mostra só o Original.
 $copies = array_slice(['Original', 'Duplicado', 'Triplicado'], 0, max(1, min(3, (int)($_GET['copies'] ?? 1))));
@@ -353,9 +353,9 @@ $observationText = trim((string)($inv['observation'] ?? ''));
 $observationShown = $observationText !== '' ? $observationText : '-';
 
 // Paginação: a 1.ª linha de itens começa onde a tabela realmente começa:
-// 334 (observações) + altura das observações + 15 (espaço) + 36 (cabeçalho da tabela)
+// 309 (observações) + altura das observações + 15 (espaço) + 36 (cabeçalho da tabela)
 $obsHeight = wrapCount($observationShown, 405, 9) * 9 * LH;
-$firstRowY = 334 + max(12.0, $obsHeight) + 15 + 36;
+$firstRowY = 309 + max(12.0, $obsHeight) + 15 + 36;
 $pages = paginateItems($items, $firstRowY);
 $pageCount = count($pages);
 
@@ -563,7 +563,7 @@ function lineSubtotal(array $it): float
     .flow {
       position: absolute;
       left: 0;
-      top: 334pt;
+      top: 309pt;
       width: 595.28pt;
     }
 
@@ -718,19 +718,25 @@ function lineSubtotal(array $it): float
         </div>
 
         <!-- DOCUMENTO -->
-        <?= drawText(45, 245, e($copyLabel), 'f10 cg') ?>
-        <?= drawText(45, 263, e($docTitle), 'f12 b c0') ?>
-        <?= HL(45, 550, 288, 1.5, '#8C8C8C') ?>
+        <?= drawText(45, 220, e($copyLabel), 'f10 cg') ?>
+        <?= drawText(45, 238, e($docTitle), 'f12 b c0') ?>
+        <?= HL(45, 550, 263, 1.5, '#8C8C8C') ?>
 
-        <?= drawText(45, 298, 'Cliente:', 'f9 cg') ?>
-        <?= drawText(145, 298, e($clientName), 'f9 b c4', 200) ?>
-        <?= drawText(365, 298, 'Data de emissão:', 'f9 cg') ?>
-        <?= drawText(455, 298, e($issueBr), 'f9 cg') ?>
+        <?= drawText(45, 273, 'Cliente:', 'f9 cg') ?>
+        <?php
+        // Nome completo numa só linha antes de "Data de emissão" (x365): nomes longos
+        // usam letra mais pequena em vez de passarem por cima da data.
+        $clientNameWidth = textWidth((string)$clientName, 9) * 1.08;   // negrito ≈ 8% mais largo
+        $clientNameSize = $clientNameWidth > 210 ? max(6.0, floor(9 * 210 / $clientNameWidth * 10) / 10) : 9;
+        ?>
+        <?= drawText(145, 273 + (9 - $clientNameSize) * 0.8, '<span style="font-size:' . $clientNameSize . 'pt;white-space:nowrap">' . e($clientName) . '</span>', 'f9 b c4', 215) ?>
+        <?= drawText(365, 273, 'Data de emissão:', 'f9 cg') ?>
+        <?= drawText(455, 273, e($issueBr), 'f9 cg') ?>
 
-        <?= drawText(45, 316, 'Contribuinte:', 'f9 cg') ?>
-        <?= drawText(145, 316, e($clientNif), 'f9 cg') ?>
-        <?= drawText(365, 316, 'Vencimento:', 'f9 cg') ?>
-        <?= drawText(455, 316, e($dueBr), 'f9 cg') ?>
+        <?= drawText(45, 291, 'Contribuinte:', 'f9 cg') ?>
+        <?= drawText(145, 291, e($clientNif), 'f9 cg') ?>
+        <?= drawText(365, 291, 'Vencimento:', 'f9 cg') ?>
+        <?= drawText(455, 291, e($dueBr), 'f9 cg') ?>
 
         <!-- OBSERVAÇÕES + TABELA (em fluxo: se as observações crescerem, a tabela desce) -->
         <div class="flow">

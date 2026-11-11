@@ -112,13 +112,13 @@ function bx_pdf_footer(\Dompdf\Dompdf $dompdf, ?string $qrSrc = null): void
  * Cabeçalho igual ao da fatura (invoice_public.php), desenhado em todas as páginas de um
  * documento Dompdf (recibo, nota de crédito, nota de débito, nota de entrega).
  * Mesmas coordenadas (pt) da fatura: logo na caixa 105x55 em (45,35), empresa em (45,100),
- * cliente em (435,100), via em y245, título em y263 e linha em y288.
+ * cliente em (435,100), via em y220, título em y238 e linha em y263.
  * O conteúdo do documento deve começar abaixo de BX_PDF_HEADER_BOTTOM (@page margin-top).
  *
  * $h: logo (data URI ou caminho), company_name, company_address, company_lines[] (Tel, E-mail,
  *     Contribuinte…), client_name, client_lines[] (morada, Tel…), copy_label, title.
  */
-const BX_PDF_HEADER_BOTTOM = 300;   // pt: a tabela/corpo do documento começa aqui
+const BX_PDF_HEADER_BOTTOM = 275;   // pt: a tabela/corpo do documento começa aqui
 
 function bx_pdf_header(\Dompdf\Dompdf $dompdf, array $h): void
 {
@@ -227,9 +227,9 @@ function bx_pdf_header(\Dompdf\Dompdf $dompdf, array $h): void
         }
 
         // VIA, TÍTULO E LINHA
-        $canvas->text(45, 245, $copyLabel, $regular, 10, $grey);
-        $canvas->text(45, 263, $title, $bold, 12, $black);
-        $canvas->line(45, 288, 550, 288, [0x8C / 255, 0x8C / 255, 0x8C / 255], 1.5);
+        $canvas->text(45, 220, $copyLabel, $regular, 10, $grey);
+        $canvas->text(45, 238, $title, $bold, 12, $black);
+        $canvas->line(45, 263, 550, 263, [0x8C / 255, 0x8C / 255, 0x8C / 255], 1.5);
     });
 }
 
