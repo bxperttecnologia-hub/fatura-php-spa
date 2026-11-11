@@ -816,6 +816,9 @@ $(document).ready(function () {
     });
   });
 
+  // Editar: usa o modal próprio da página (#editItemModal → edit_item.php).
+  // Antes abria o #itemModal global (adicionar item às faturas), que não tem os campos
+  // quantidade/min_stock/taxVat: o JS parava com erro e o botão não fazia nada.
   $page.on("click.itemsPage", "#itemsTable .edit-btn", function () {
     const rawData = $(this).data("row");
     if (!rawData) {
@@ -831,55 +834,36 @@ $(document).ready(function () {
       return;
     }
 
-    const form = document.getElementById("itemForm");
-    if (!form) return;
+    const editModalEl = document.getElementById("editItemModal");
+    const form = document.getElementById("editItemForm");
+    if (!editModalEl || !form) return;
 
-    if (!form.product_id) {
-      const hidden = document.createElement("input");
-      hidden.type = "hidden";
-      hidden.name = "product_id";
-      form.appendChild(hidden);
-    }
-    form.product_id.value = row.id ?? "";
+    form.reset();
+    const set = (name, value) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (field) field.value = value ?? "";
+    };
 
-    form.codigo.value = row.code ?? "";
-    form.name.value = row.name ?? "";
-    form.descricao.value = row.description ?? "";
+    set("id", row.id);
+    set("codigo", row.code);
+    const codeDisplay = form.querySelector("#codigo_display");
+    if (codeDisplay) codeDisplay.value = row.code ?? "";
+    set("name", row.name);
+    set("descricao", row.description);
+    set("item_type", row.item_type || "product");
+    set("subcategory", row.subcategory);
+    set("unit_measure", row.unit_measure || "unit");
+    set("unit_price", row.unit_price ?? 0);
+    const priceDisplay = form.querySelector("[data-price-display]");
+    if (priceDisplay) priceDisplay.value = displayPrice(row.unit_price ?? 0);
+    set("tax", row.tax ?? 0);
+    set("cost_price", row.cost_price ?? 0);
+    set("sale_price", row.sale_price ?? 0);
+    set("pvp", row.pvp ?? 0);
 
-    $("[name='item_type']", form).val(row.item_type ?? "product");
-    $("[name='subcategory']", form).val(row.subcategory ?? "");
-    $("[name='unit_measure']", form).val(row.unit_measure ?? "unit");
-    $("[name='currency']", form).val(row.currency ?? "AOA");
-
-    $("[name='stock_id']", form).val(row.stock_id ?? "");
-
-    form.quantidade.value = row.quantity ?? 0;
-    form.min_stock.value = row.min_quantity ?? 1;
-
-    form.querySelector("[data-price-value]").value = row.unit_price ?? 0;
-    form.querySelector("[data-price-display]").value = displayPrice(row.unit_price ?? 0);
-    form.cost_price.value = row.cost_price ?? 0;
-    form.sale_price.value = row.sale_price ?? 0;
-    form.pvp.value = row.pvp ?? 0;
-
-    form.taxVat.value = row.tax ?? "";
-    $("[name='retention']", form).val(row.retention ?? 0);
-
-    form.id_company.value = row.company_id ?? "";
-
-    const modal = new bootstrap.Modal(modalEl, {
-      backdrop: true,
-      keyboard: true,
-    });
-    modalTitle.innerHTML = "Editar Produto/Serviço";
-    modal.show();
-
-    const isProduct = row.item_type === "product";
-    setTimeout(() => {
-      !isProduct
-        ? $("#depot").removeClass("active")
-        : $("#depot").addClass("active");
-    }, 200);
+    // tooltips da tabela ficariam presos por cima do modal
+    $(".tooltip").remove();
+    bootstrap.Modal.getOrCreateInstance(editModalEl).show();
   });
 
   function resetItemForm() {
@@ -917,7 +901,10 @@ $(document).ready(function () {
 
   $page.on("click.itemsPage", "#saveEdit", function () {
     const form = $("#editItemForm");
+    const formEl = form.get(0);
+    if (formEl && !formEl.reportValidity()) return;
     let formData = form.serialize();
+    const $btn = $(this).prop("disabled", true);
 
     $.ajax({
       url: "/items/ajax/edit_item.php",
@@ -944,8 +931,12 @@ $(document).ready(function () {
         }
       },
 
-      error: function () {
-        Swal.fire("Erro!", "Erro na requisição!", "error");
+      error: function (xhr) {
+        const msg = (xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error)) || "Erro na requisição!";
+        Swal.fire("Erro!", msg, "error");
+      },
+      complete: function () {
+        $btn.prop("disabled", false);
       },
     });
   });
