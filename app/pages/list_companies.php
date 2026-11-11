@@ -493,7 +493,13 @@ require_once '../app/views/layout_creation.php';
             });
             $(document).on("click", ".btn-manage", function() {
                 let companyId = $(this).data("id");
-                window.location.href = `manage_users.php?company_id=${companyId}`;
+                // rota da SPA (o antigo manage_users.php dava 404)
+                const usersUrl = `/users?company_id=${encodeURIComponent(companyId)}`;
+                if (typeof window.navigateSPA === "function") {
+                    window.navigateSPA(usersUrl);
+                } else {
+                    window.location.href = usersUrl;
+                }
             });
 
             $(document).on("click", ".btn-renew", function() {
