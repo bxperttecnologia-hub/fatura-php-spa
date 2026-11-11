@@ -536,7 +536,9 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
 
   $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
   $userId = (int)($_SESSION['user']['id'] ?? 0);
-  subscription_payment_require_manager($pdo, $userId, $companyId);
+  // Qualquer utilizador da empresa pode pagar a subscrição (gerar referência / Multicaixa Express):
+  // assim o pagamento não fica à espera do proprietário.
+  subscription_payment_require_member($pdo, $userId, $companyId);
 
   $method = strtoupper(trim((string)($post['method'] ?? '')));
   if (!in_array($method, ['REF', 'GPO'], true)) {
@@ -769,7 +771,9 @@ function subscription_payment_sync_orders(PDO $pdo): never
 
   $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
   $userId = (int)($_SESSION['user']['id'] ?? 0);
-  subscription_payment_require_manager($pdo, $userId, $companyId);
+  // Qualquer utilizador da empresa pode pagar a subscrição (gerar referência / Multicaixa Express):
+  // assim o pagamento não fica à espera do proprietário.
+  subscription_payment_require_member($pdo, $userId, $companyId);
 
   $stmt = $pdo->prepare(
     "SELECT id FROM subscription_orders
@@ -795,7 +799,9 @@ function subscription_payment_handle_unknown_reconciliation(PDO $pdo, array $pos
   subscription_payment_check_csrf();
   $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
   $userId = (int)($_SESSION['user']['id'] ?? 0);
-  subscription_payment_require_manager($pdo, $userId, $companyId);
+  // Qualquer utilizador da empresa pode pagar a subscrição (gerar referência / Multicaixa Express):
+  // assim o pagamento não fica à espera do proprietário.
+  subscription_payment_require_member($pdo, $userId, $companyId);
 
   $orderId = filter_var($post['order_id'] ?? null, FILTER_VALIDATE_INT);
   $chargeId = trim((string)($post['charge_id'] ?? ''));
