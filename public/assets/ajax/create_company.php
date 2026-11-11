@@ -121,7 +121,7 @@ try {
 
     $membership = $pdo->prepare(
         "INSERT INTO company_has_user (company_id, user_id, role, created_at)
-         VALUES (?, ?, '3', ?)"
+         VALUES (?, ?, 'owner', ?)"
     );
     $membership->execute([$companyId, $userId, $createdAt]);
 

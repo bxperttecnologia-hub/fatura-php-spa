@@ -111,7 +111,7 @@ try {
         )->execute([$name, $nif, $phoneDdi, $phone, $now, $planStartedAt, $planExpiresAt]);
         $companyId = (int) $pdo->lastInsertId();
 
-        $pdo->prepare('INSERT INTO company_has_user (company_id, user_id, role, created_at) VALUES (?, ?, 3, ?)')->execute([$companyId, $userId, $now]);
+        $pdo->prepare('INSERT INTO company_has_user (company_id, user_id, role, created_at) VALUES (?, ?, \'owner\', ?)')->execute([$companyId, $userId, $now]);
     }
     $pdo->commit();
 

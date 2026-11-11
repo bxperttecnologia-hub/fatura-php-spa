@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Associar usuário à empresa
         $stmt = $pdo->prepare("INSERT INTO company_has_user (company_id, user_id, role, created_at) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$company_id, $user_id, 3, $created_at]);
+        $stmt->execute([$company_id, $user_id, 'owner', $created_at]); // quem regista a empresa é o proprietário (o 3 gravava 'employee')
 
         $pdo->commit();
 
