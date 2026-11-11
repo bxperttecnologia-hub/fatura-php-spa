@@ -98,12 +98,16 @@ function itemLabel(array $it): string
 
 // "Rua X, Edifício Y, Piso 9" -> cada parte numa <span> que nunca parte a meio:
 // o navegador só quebra a linha nas vírgulas (igual ao wrapByComma do PDF)
-function wrapByCommaHtml(string $value): string
+function wrapByCommaHtml(string $value, float $maxWidth = 110.0): string
 {
   $parts = array_values(array_filter(array_map('trim', explode(',', $value)), 'strlen'));
   $out = [];
   foreach ($parts as $i => $part) {
-    $out[] = '<span class="nb">' . e($part) . ($i < count($parts) - 1 ? ',' : '') . '</span>';
+    $text = $part . ($i < count($parts) - 1 ? ',' : '');
+    // só fica numa linha inteira se couber no bloco; um troço mais comprido quebra normalmente
+    // (antes "Ingombotas Maculusso - Luanda Angola" saía para lá da margem direita)
+    $class = textWidth($text, 9) <= $maxWidth ? 'nb' : 'wr';
+    $out[] = '<span class="' . $class . '">' . e($text) . '</span>';
   }
   return implode(' ', $out);
 }
@@ -427,7 +431,7 @@ $dueBr = $inv['issue_date']
   ? dateBr((new DateTime($inv['issue_date']))->modify("+{$dueDays} days")->format('Y-m-d'))
   : '-';
 
-$companyAddress = implode(', ', array_filter([$inv['company_address'], $inv['company_city'], $inv['company_country']]));
+$companyAddress = bx_join_address([$inv['company_address'], $inv['company_city'], $inv['company_country']]);
 $clientAddress  = bx_join_address([$inv['client_address'], $inv['client_city'], $inv['client_country']]);
 $clientName     = trim((string)$inv['client_name']) ?: '-';   // nome completo (antes só o 1.º e o último nome)
 $clientNif      = $inv['client_contributor'] ?: '-';
@@ -799,7 +803,7 @@ function lineSubtotal(array $it): float
         <!-- EMPRESA -->
         <div class="blk company">
           <div class="px f12 b c0" style="text-transform:uppercase"><?= e($inv['company_name'] ?: '-') ?></div>
-          <div class="px f9 cg addr"><?= $companyAddress !== '' ? wrapByCommaHtml($companyAddress) : '-' ?></div>
+          <div class="px f9 cg addr"><?= $companyAddress !== '' ? wrapByCommaHtml($companyAddress, 188.0) : '-' ?></div>
           <div class="px f9 cg">Tel: <?= e($inv['company_phone'] ?: '-') ?></div>
           <div class="px f9 cg">E-mail: <?= e($inv['company_email'] ?: '-') ?></div>
           <div class="px f9 cg">Contribuinte: <?= e($inv['registration_number'] ?: '-') ?></div>
