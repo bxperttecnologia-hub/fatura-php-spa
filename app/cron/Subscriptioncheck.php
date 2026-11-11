@@ -57,6 +57,19 @@ class SubscriptionCheck
     /** Marca como 'expired' subscrições e planos de empresa cujo prazo já passou. */
     private function transitionExpiredSubscriptions(): void
     {
+        // Planos inferiores já pagos ("por activar") começam quando o plano actual termina.
+        require_once __DIR__ . '/../helpers/subscription.php';
+        $due = $this->pdo->query("
+            SELECT DISTINCT o.company_id
+            FROM subscription_orders o
+            JOIN companies c ON c.id = o.company_id
+            WHERE o.status = 'paid' AND o.operation = 'downgrade' AND o.activated_at IS NULL
+              AND c.plan_expires_at IS NOT NULL AND c.plan_expires_at < CURDATE()
+        ");
+        foreach ($due->fetchAll(\PDO::FETCH_COLUMN) as $companyId) {
+            \subscription_activate_scheduled_plan($this->pdo, (int)$companyId);
+        }
+
         $expired = $this->pdo->query("
             SELECT id, company_id FROM subscriptions
             WHERE status = 'active' AND end_date <= NOW()

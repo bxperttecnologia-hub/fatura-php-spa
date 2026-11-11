@@ -79,7 +79,85 @@ function subscription_get_company(PDO $pdo, int $company_id): array
   $stmt = $pdo->prepare("SELECT id, plan_code, plan_started_at, plan_expires_at, plan_status, is_active FROM companies WHERE id = ? LIMIT 1");
   $stmt->execute([$company_id]);
   $c = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (
+    $c && !empty($c['plan_expires_at'])
+    && (string)$c['plan_expires_at'] < date('Y-m-d')
+    && subscription_activate_scheduled_plan($pdo, $company_id)
+  ) {
+    $stmt->execute([$company_id]);
+    $c = $stmt->fetch(PDO::FETCH_ASSOC);
+  }
   return $c ?: [];
+}
+
+/**
+ * Planos pagos que ficaram "por activar" (mudança para um plano inferior): começam quando o
+ * plano actual acaba. Activa o mais antigo se o plano actual já terminou.
+ * Devolve true se activou algum plano.
+ */
+function subscription_activate_scheduled_plan(PDO $pdo, int $company_id): bool
+{
+  if ($company_id <= 0 || $pdo->inTransaction()) {
+    return false;
+  }
+  try {
+    $pdo->beginTransaction();
+    $companyStmt = $pdo->prepare('SELECT plan_expires_at FROM companies WHERE id = ? FOR UPDATE');
+    $companyStmt->execute([$company_id]);
+    $expires = $companyStmt->fetchColumn();
+    $today = date('Y-m-d');
+    if ($expires === false || ($expires !== null && (string)$expires >= $today)) {
+      $pdo->commit();
+      return false;
+    }
+
+    $orderStmt = $pdo->prepare(
+      "SELECT id, plan_code, period_months FROM subscription_orders
+       WHERE company_id = ? AND status = 'paid' AND operation = 'downgrade' AND activated_at IS NULL
+       ORDER BY paid_at ASC, id ASC LIMIT 1 FOR UPDATE"
+    );
+    $orderStmt->execute([$company_id]);
+    $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+    $plans = subscription_plans();
+    if (!$order || !isset($plans[$order['plan_code']])) {
+      $pdo->commit();
+      return false;
+    }
+
+    $months = max(1, (int)$order['period_months']);
+    $newExpiry = date('Y-m-d', strtotime($today . " +{$months} months"));
+    $pdo->prepare(
+      "UPDATE companies
+       SET plan_code = ?, plan_started_at = ?, plan_expires_at = ?, plan_status = 'active', is_active = 1
+       WHERE id = ?"
+    )->execute([$order['plan_code'], $today, $newExpiry, $company_id]);
+    $pdo->prepare('UPDATE subscription_orders SET activated_at = NOW() WHERE id = ?')
+      ->execute([(int)$order['id']]);
+    $pdo->commit();
+    return true;
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
+    error_log('[subscription] Could not activate scheduled plan for company ' . $company_id . ': ' . $e->getMessage());
+    return false;
+  }
+}
+
+/** Planos pagos à espera de activação (por ordem de activação). */
+function subscription_scheduled_plans(PDO $pdo, int $company_id): array
+{
+  try {
+    $stmt = $pdo->prepare(
+      "SELECT id, plan_code, period_months, amount, paid_at FROM subscription_orders
+       WHERE company_id = ? AND status = 'paid' AND operation = 'downgrade' AND activated_at IS NULL
+       ORDER BY paid_at ASC, id ASC"
+    );
+    $stmt->execute([$company_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  } catch (Throwable $e) {
+    return [];
+  }
 }
 
 /**

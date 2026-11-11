@@ -31,6 +31,20 @@ $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 $planRanks = array_flip(array_keys($plans));
 $currentRank = $planRanks[$planCode] ?? 0;
 
+// Planos inferiores já pagos que esperam o fim do plano actual ("por activar"),
+// com a data em que cada um começa (um a seguir ao outro).
+$scheduled = subscription_scheduled_plans($pdo, $company_id);
+$nextStartTs = !empty($c['plan_expires_at'])
+  ? max(strtotime(date('Y-m-d')), strtotime($c['plan_expires_at'] . ' +1 day'))
+  : strtotime(date('Y-m-d'));
+foreach ($scheduled as &$sp) {
+  $sp['starts_at'] = date('Y-m-d', $nextStartTs);
+  $nextStartTs = strtotime($sp['starts_at'] . ' +' . max(1, (int)$sp['period_months']) . ' months');
+  $sp['ends_at'] = date('Y-m-d', $nextStartTs);
+}
+unset($sp);
+$nextStartLabel = date('d/m/Y', $nextStartTs);
+
 // Token CSRF exigido pelos endpoints de pagamento (cabeçalho X-CSRF-Token).
 if (empty($_SESSION['csrf'])) {
   $_SESSION['csrf'] = bin2hex(random_bytes(32));
@@ -362,6 +376,30 @@ if (empty($_SESSION['csrf'])) {
 
         </div>
 
+        <?php if ($scheduled): ?>
+          <!-- PLANOS POR ATIVAR -->
+          <hr class="my-4">
+          <h5 class="mb-1 h-title"><i class="bi bi-hourglass-split"></i> Planos por ativar</h5>
+          <small class="text-muted d-block mb-3">Já pagos. Cada um começa automaticamente quando terminar o anterior.</small>
+          <div class="row g-3">
+            <?php foreach ($scheduled as $sp): $spPlan = $plans[$sp['plan_code']] ?? ['name' => $sp['plan_code']]; ?>
+              <div class="col-md-4">
+                <div class="border rounded-4 p-3 h-100">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <h6 class="fw-bold mb-1"><?= htmlspecialchars($spPlan['name']) ?></h6>
+                    <span class="badge bg-info text-dark">Por ativar</span>
+                  </div>
+                  <div class="small text-muted">
+                    Início: <strong><?= date('d/m/Y', strtotime($sp['starts_at'])) ?></strong><br>
+                    Vencimento: <strong><?= date('d/m/Y', strtotime($sp['ends_at'])) ?></strong><br>
+                    Pago: <?= number_format((float)$sp['amount'], 2, ',', '.') ?> Kz
+                  </div>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+
         <!-- HISTÓRICO -->
         <hr class="my-4">
 
@@ -442,11 +480,17 @@ if (empty($_SESSION['csrf'])) {
                   <?php if ($code === $planCode): ?>
                     <button class="btn btn-outline-secondary btn-sm" disabled>Plano atual</button>
                   <?php elseif (($planRanks[$code] ?? 0) < $currentRank): ?>
-                    <button class="btn btn-outline-secondary btn-sm" disabled title="Só é possível mudar para um plano superior">Indisponível</button>
+                    <button class="btn btn-outline-primary btn-sm btnChoosePlan" data-code="<?= $code ?>" data-starts="<?= $nextStartLabel ?>">
+                      Selecionar
+                    </button>
+                    <small class="text-muted d-block mt-2" style="font-size:.75rem">
+                      Plano inferior: fica <b>por ativar</b> e começa a <?= $nextStartLabel ?>, quando terminar o plano atual.
+                    </small>
                   <?php else: ?>
                     <button class="btn btn-primary btn-sm btnChoosePlan" data-code="<?= $code ?>">
                       Selecionar
                     </button>
+                    <small class="text-muted d-block mt-2" style="font-size:.75rem">Começa assim que o pagamento for confirmado.</small>
                   <?php endif; ?>
                 </div>
               </div>
@@ -470,6 +514,7 @@ if (empty($_SESSION['csrf'])) {
             Plano: <strong id="payPlanLabel"><?= htmlspecialchars($plan['name']) ?></strong>
             — <strong id="payAmountLabel"><?= number_format($plan['price'], 2, ',', '.') ?> Kz</strong>
           </p>
+          <div class="alert alert-info py-2 small" id="payScheduledNote" style="display:none"></div>
 
           <label class="form-label">Escolha o método de pagamento</label>
           <div class="d-grid gap-2 mb-3" id="payMethodList">
@@ -580,7 +625,10 @@ if (empty($_SESSION['csrf'])) {
 
       let stLabel = st;
       let badge = 'secondary';
-      if (st === 'paid') {
+      if (st === 'paid' && Number(r.awaiting_activation) === 1) {
+        stLabel = 'Pago · por ativar';
+        badge = 'info text-dark';
+      } else if (st === 'paid') {
         stLabel = 'Pago';
         badge = 'success';
       } else if (st === 'pending') {
@@ -692,7 +740,7 @@ if (empty($_SESSION['csrf'])) {
       .done(resp => {
         if (resp && resp.success && (resp.paid || 0) > 0 && !paidNotified) {
           paidNotified = true;
-          Swal.fire('Pagamento confirmado', 'O pagamento foi confirmado e a subscrição foi actualizada.', 'success')
+          Swal.fire('Pagamento confirmado', 'O pagamento foi confirmado. A subscrição foi actualizada (um plano inferior fica em "Planos por ativar").', 'success')
             .then(() => location.reload());
         }
       });
@@ -736,8 +784,11 @@ if (empty($_SESSION['csrf'])) {
     return $('input[name="payMethod"]:checked').val() || 'GPO';
   }
 
-  function openPayModal(planCode, planName, price) {
+  function openPayModal(planCode, planName, price, startsAt) {
     SELECTED_PLAN_CODE = planCode;
+    $('#payScheduledNote')
+      .html(startsAt ? 'Este plano é inferior ao atual: depois de pago fica <b>por ativar</b> e começa a <b>' + esc(startsAt) + '</b>, quando terminar o plano atual.' : '')
+      .toggle(!!startsAt);
     $('#payPlanLabel').text(planName);
     $('#payAmountLabel').text(fmtKz(price));
     $('input[name="payMethod"][value="GPO"]').prop('checked', true).trigger('change');
@@ -760,12 +811,13 @@ if (empty($_SESSION['csrf'])) {
     const code = $(this).data('code');
     const name = $card.find('h6').text();
     const price = parseFloat($card.find('[data-price]').data('price'));
+    const startsAt = $(this).data('starts') || '';
 
     const plansEl = document.getElementById('modalPlans');
     const plansInst = plansEl ? bootstrap.Modal.getInstance(plansEl) : null;
     if (plansInst) plansInst.hide();
 
-    setTimeout(() => openPayModal(code, name, price), 300);
+    setTimeout(() => openPayModal(code, name, price, startsAt), 300);
   });
 
   function showChargeResult(resp) {

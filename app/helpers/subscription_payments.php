@@ -79,16 +79,15 @@ function subscription_payment_quote(array $plans, string $currentPlanCode, strin
     throw new InvalidArgumentException('Preço inválido.');
   }
 
+  // Plano superior: começa logo. Plano inferior: fica "por activar" e só começa quando o
+  // plano actual terminar (não se perdem os dias já pagos).
   $currentRank = array_search($currentPlanCode, array_keys($plans), true);
   $targetRank = array_search($planCode, array_keys($plans), true);
-  if ($targetRank < $currentRank) {
-    throw new InvalidArgumentException('Só é possível renovar o plano actual ou actualizar para um plano superior.');
-  }
 
   return [
     'current_plan_code' => $currentPlanCode,
     'plan_code' => $planCode,
-    'operation' => $planCode === $currentPlanCode ? 'renewal' : 'upgrade',
+    'operation' => $planCode === $currentPlanCode ? 'renewal' : ($targetRank > $currentRank ? 'upgrade' : 'downgrade'),
     'amount' => $amount,
     'period_months' => 3,
   ];
@@ -334,9 +333,26 @@ function subscription_payment_apply_order(PDO $pdo, int $orderId, string $gatewa
     if (
       ($operation === 'renewal' && $planCode !== $currentPlanCode)
       || ($operation === 'upgrade' && $targetRank <= $currentRank)
-      || !in_array($operation, ['renewal', 'upgrade'], true)
+      || !in_array($operation, ['renewal', 'upgrade', 'downgrade'], true)
     ) {
       throw new RuntimeException('O plano da empresa mudou desde a criação do pedido; o pagamento não pode alterar a subscrição.');
+    }
+
+    if ($operation === 'downgrade') {
+      // Pago, mas "por activar": subscription_activate_scheduled_plan() aplica-o quando o
+      // plano actual terminar.
+      $updateOrder = $pdo->prepare(
+        "UPDATE subscription_orders
+         SET status = 'paid', gateway_status = ?, gateway_response_raw = ?, paid_at = ?, activated_at = NULL
+         WHERE id = ? AND status = 'pending'"
+      );
+      $updateOrder->execute([$gatewayStatus, $gatewayRaw, gmdate('Y-m-d H:i:s'), $orderId]);
+      if ($updateOrder->rowCount() !== 1) {
+        throw new RuntimeException('O pedido foi alterado durante a confirmação.');
+      }
+      $pdo->commit();
+      subscription_activate_scheduled_plan($pdo, (int)$order['company_id']);
+      return ['applied' => true, 'already_paid' => false, 'scheduled' => true];
     }
 
     $dates = subscription_payment_expiration($company, $planCode);
@@ -346,10 +362,10 @@ function subscription_payment_apply_order(PDO $pdo, int $orderId, string $gatewa
 
     $updateOrder = $pdo->prepare(
       "UPDATE subscription_orders
-       SET status = 'paid', gateway_status = ?, gateway_response_raw = ?, paid_at = ?
+       SET status = 'paid', gateway_status = ?, gateway_response_raw = ?, paid_at = ?, activated_at = ?
        WHERE id = ? AND status = 'pending'"
     );
-    $updateOrder->execute([$gatewayStatus, $gatewayRaw, $paidAt, $orderId]);
+    $updateOrder->execute([$gatewayStatus, $gatewayRaw, $paidAt, $paidAt, $orderId]);
     if ($updateOrder->rowCount() !== 1) {
       throw new RuntimeException('O pedido foi alterado durante a confirmação.');
     }
@@ -955,6 +971,8 @@ function subscription_payment_list_orders(PDO $pdo, array $query): never
   $stmt = $pdo->prepare(
     "SELECT id, plan_code, operation, period_months, amount, status, gateway, payment_method,
            merchant_transaction_id, gateway_status, payment_ref, created_at, paid_at,
+           CASE WHEN status = 'paid' AND operation = 'downgrade' AND activated_at IS NULL
+                THEN 1 ELSE 0 END AS awaiting_activation,
            CASE WHEN status = 'pending' AND gateway_status = 'unknown' AND gateway_charge_id IS NULL
                 THEN 1 ELSE 0 END AS can_reconcile,
            CASE WHEN status = 'pending' THEN 1 ELSE 0 END AS can_cancel
