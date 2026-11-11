@@ -548,6 +548,35 @@ function subscription_payment_reconcile_unknown_order(PDO $pdo, int $orderId, in
   }
 }
 
+/** Corrige texto UTF-8 lido duas vezes como Latin-1 ("TelemÃ³vel" → "Telemóvel"), como vem do processador. */
+function subscription_payment_fix_mojibake(string $text): string
+{
+  if (!preg_match('/Ã[\x{0080}-\x{00BF}]/u', $text)) {
+    return $text;
+  }
+  $fixed = mb_convert_encoding($text, 'ISO-8859-1', 'UTF-8');
+  return mb_check_encoding($fixed, 'UTF-8') ? $fixed : $text;
+}
+
+/**
+ * Mensagem para o utilizador quando a AppyPay recusa a cobrança: a mensagem geral e, se existir,
+ * o motivo concreto do processador (ex.: "Número de Telemóvel não Activo no MCX Express").
+ */
+function subscription_payment_gateway_error_message(array $responseStatus): string
+{
+  $general = trim(subscription_payment_fix_mojibake((string)($responseStatus['message'] ?? '')));
+  $details = $responseStatus['sourceDetails'] ?? null;
+  $detail = is_array($details) ? trim(subscription_payment_fix_mojibake((string)($details['message'] ?? ''))) : '';
+  $detail = trim((string)preg_replace('/^Recusado pelo Processador\.\s*/u', '', $detail));
+  $detail = trim((string)preg_replace('/\s*Necess[áa]rio contactar a [áa]rea de suporte\.?$/u', '', $detail));
+
+  $message = $general !== '' ? $general : 'A AppyPay não aceitou esta cobrança. Confirme os dados e tente novamente.';
+  if ($detail !== '' && mb_stripos($message, $detail) === false) {
+    $message .= ' Motivo: ' . rtrim($detail, '.') . '.';
+  }
+  return $message;
+}
+
 function subscription_payment_create_charge(PDO $pdo, array $post): never
 {
   subscription_payment_check_csrf();
@@ -710,7 +739,10 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
          WHERE id = ? AND status = 'pending'"
       );
       $update->execute([$gatewayStatus ?: 'failed', (string)($response['raw'] ?? ''), $orderId]);
-      subscription_payment_out(['success' => false, 'message' => 'A AppyPay não aceitou esta cobrança. Confirme os dados e tente novamente.'], 502);
+      subscription_payment_out([
+        'success' => false,
+        'message' => subscription_payment_gateway_error_message(is_array($responseStatus) ? $responseStatus : []),
+      ], 502);
     }
 
     if ($successful !== true || $chargeId === '') {
