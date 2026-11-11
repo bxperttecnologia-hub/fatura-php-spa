@@ -598,6 +598,7 @@ if (empty($_SESSION['csrf'])) {
       else if (['failed', 'failure'].includes(gwL)) gwLabel = 'Falhou';
       else if (['canceled', 'cancelled'].includes(gwL)) gwLabel = 'Cancelado';
       else if (gwL === 'unknown') gwLabel = 'A verificar';
+      else if (gwL === 'canceled_by_user') gwLabel = 'Cancelado pelo utilizador';
 
       const gwTxt = (gw && gw !== '-') ? ` <span class="text-muted">(${esc(gwLabel)})</span>` : '';
 
@@ -616,6 +617,9 @@ if (empty($_SESSION['csrf'])) {
       const reconcileBtn = Number(r.can_reconcile) === 1 ?
         `<div><button class="btn btn-link btn-sm p-0 btnReconcile" data-order="${Number(r.id)}">Associar ID</button></div>` :
         '';
+      const cancelBtn = Number(r.can_cancel) === 1 ?
+        `<div><button class="btn btn-link btn-sm p-0 text-danger btnCancelOrder" data-order="${Number(r.id)}">Cancelar</button></div>` :
+        '';
 
       html += `
       <tr>
@@ -624,7 +628,7 @@ if (empty($_SESSION['csrf'])) {
         <td>${esc(r.payment_method || '-')}</td>
         <td>${refTxt}</td>
         <td>${Number(r.amount || 0).toFixed(2)} AOA</td>
-        <td><span class="badge bg-${badge}">${esc(stLabel)}</span>${gwTxt}${reconcileBtn}</td>
+        <td><span class="badge bg-${badge}">${esc(stLabel)}</span>${gwTxt}${reconcileBtn}${cancelBtn}</td>
         <td style="font-family:monospace; font-size:0.85rem;">${esc(r.merchant_transaction_id || '-')}</td>
         <td>${esc(formatDt(r.created_at))}</td>
         <td>${esc(formatDt(r.paid_at))}</td>
@@ -830,6 +834,28 @@ if (empty($_SESSION['csrf'])) {
   });
 
   // Associar ID de cobrança a um pedido "unknown"
+  $(document).on('click', '.btnCancelOrder', function() {
+    const orderId = Number($(this).data('order'));
+    Swal.fire({
+      icon: 'warning',
+      title: 'Cancelar este pagamento?',
+      text: 'A referência deixa de ser usada e pode gerar uma nova. Se ela for paga na mesma, o pagamento é aceite e a subscrição é actualizada.',
+      showCancelButton: true,
+      confirmButtonText: 'Sim, cancelar',
+      cancelButtonText: 'Voltar',
+      confirmButtonColor: '#d33'
+    }).then(res => {
+      if (!res.isConfirmed) return;
+      $.post('subscription/ajax/cancel_order.php', { order_id: orderId }, null, 'json')
+        .done(r => {
+          Swal.fire(r.success ? 'Cancelado' : 'Atenção', r.message || '', r.success ? 'success' : 'warning')
+            .then(() => (r.paid ? location.reload() : loadOrders()));
+        })
+        .fail(xhr => Swal.fire('Erro', ajaxMessage(xhr, 'Não foi possível cancelar o pagamento.'), 'error')
+          .then(() => loadOrders()));
+    });
+  });
+
   $(document).on('click', '.btnReconcile', function() {
     const orderId = $(this).data('order');
     Swal.fire({

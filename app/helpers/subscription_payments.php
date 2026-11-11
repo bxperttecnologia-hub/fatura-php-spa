@@ -5,6 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/subscription.php';
 require_once __DIR__ . '/appypay.php';
 
+const SUBSCRIPTION_CANCELED_BY_USER = 'canceled_by_user';
+
 function subscription_payment_out(array $payload, int $status = 200): never
 {
   http_response_code($status);
@@ -386,12 +388,28 @@ function subscription_payment_reconcile_order(PDO $pdo, int $orderId): array
     );
     $stmt->execute([$orderId]);
     $order = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$order || $order['status'] !== 'pending' || empty($order['gateway_charge_id'])) {
+    $canceledByUser = $order
+      && $order['status'] === 'canceled'
+      && $order['gateway_status'] === SUBSCRIPTION_CANCELED_BY_USER;
+    if (!$order || ($order['status'] !== 'pending' && !$canceledByUser) || empty($order['gateway_charge_id'])) {
       return ['checked' => false, 'applied' => false, 'status' => $order['status'] ?? 'not_found'];
     }
 
     $response = appypay_get_charge((string)$order['gateway_charge_id']);
     $verified = subscription_payment_verify_remote_charge($response, $order);
+
+    if ($canceledByUser) {
+      // Referência cancelada no BX, mas o cliente pagou-a na mesma: o dinheiro entrou,
+      // por isso o pedido volta a pendente e a subscrição é aplicada normalmente.
+      if (!$verified['confirmed']) {
+        return ['checked' => true, 'applied' => false, 'status' => 'canceled'];
+      }
+      $pdo->prepare(
+        "UPDATE subscription_orders SET status = 'pending'
+         WHERE id = ? AND status = 'canceled' AND gateway_status = ?"
+      )->execute([$orderId, SUBSCRIPTION_CANCELED_BY_USER]);
+      error_log('[subscription_payment] Order ' . $orderId . ' was canceled by the user but has been paid; applying it.');
+    }
     $gatewayStatus = $verified['status'] !== '' ? $verified['status'] : 'unknown';
     if ((int)($response['code'] ?? 0) === 404) {
       $gatewayStatus = 'not_found';
@@ -777,11 +795,12 @@ function subscription_payment_sync_orders(PDO $pdo): never
 
   $stmt = $pdo->prepare(
     "SELECT id FROM subscription_orders
-     WHERE company_id = ? AND status = 'pending' AND gateway = 'APPYPAY'
-       AND gateway_charge_id IS NOT NULL
+     WHERE company_id = ? AND gateway = 'APPYPAY' AND gateway_charge_id IS NOT NULL
+       AND (status = 'pending'
+            OR (status = 'canceled' AND gateway_status = ? AND created_at >= NOW() - INTERVAL 10 DAY))
      ORDER BY id ASC LIMIT 10"
   );
-  $stmt->execute([$companyId]);
+  $stmt->execute([$companyId, SUBSCRIPTION_CANCELED_BY_USER]);
   $orders = $stmt->fetchAll(PDO::FETCH_COLUMN);
   $checked = 0;
   $paid = 0;
@@ -830,6 +849,60 @@ function subscription_payment_handle_unknown_reconciliation(PDO $pdo, array $pos
   ]);
 }
 
+/**
+ * Cancela uma referência / pedido pendente (ex.: gerado por engano), para se poder gerar outro.
+ * Antes confirma na AppyPay que ainda não foi pago. Se a referência for paga depois do
+ * cancelamento, subscription_payment_reconcile_order aplica o pagamento na mesma.
+ */
+function subscription_payment_cancel_order(PDO $pdo, array $post): never
+{
+  subscription_payment_check_csrf();
+  $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
+  $userId = (int)($_SESSION['user']['id'] ?? 0);
+  subscription_payment_require_member($pdo, $userId, $companyId);
+
+  $orderId = filter_var($post['order_id'] ?? null, FILTER_VALIDATE_INT);
+  if (!$orderId) {
+    subscription_payment_out(['success' => false, 'message' => 'Pedido inválido.'], 422);
+  }
+
+  $stmt = $pdo->prepare('SELECT id, status, gateway_charge_id FROM subscription_orders WHERE id = ? AND company_id = ? LIMIT 1');
+  $stmt->execute([(int)$orderId, $companyId]);
+  $order = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$order) {
+    subscription_payment_out(['success' => false, 'message' => 'Pedido não encontrado.'], 404);
+  }
+  if ($order['status'] !== 'pending') {
+    subscription_payment_out(['success' => false, 'message' => 'Só é possível cancelar pagamentos pendentes.'], 409);
+  }
+
+  // Confirma primeiro na AppyPay: se já foi pago, aplica a subscrição em vez de cancelar.
+  if (!empty($order['gateway_charge_id'])) {
+    $check = subscription_payment_reconcile_order($pdo, (int)$orderId);
+    if (!empty($check['applied']) || !empty($check['already_paid'])) {
+      subscription_payment_out([
+        'success' => false,
+        'paid' => true,
+        'message' => 'Este pagamento já foi feito e a subscrição foi actualizada. Não pode ser cancelado.',
+      ], 409);
+    }
+    if (($check['status'] ?? '') === 'syncing') {
+      subscription_payment_out(['success' => false, 'message' => 'O pagamento está a ser verificado. Tente daqui a pouco.'], 409);
+    }
+  }
+
+  $cancel = $pdo->prepare(
+    "UPDATE subscription_orders SET status = 'canceled', gateway_status = ?
+     WHERE id = ? AND company_id = ? AND status = 'pending'"
+  );
+  $cancel->execute([SUBSCRIPTION_CANCELED_BY_USER, (int)$orderId, $companyId]);
+  if ($cancel->rowCount() !== 1) {
+    subscription_payment_out(['success' => false, 'message' => 'O pedido já não está pendente. Actualize a página.'], 409);
+  }
+
+  subscription_payment_out(['success' => true, 'message' => 'Pagamento cancelado. Já pode gerar uma nova referência.']);
+}
+
 function subscription_payment_list_orders(PDO $pdo, array $query): never
 {
   if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -851,7 +924,8 @@ function subscription_payment_list_orders(PDO $pdo, array $query): never
     "SELECT id, plan_code, operation, period_months, amount, status, gateway, payment_method,
            merchant_transaction_id, gateway_status, payment_ref, created_at, paid_at,
            CASE WHEN status = 'pending' AND gateway_status = 'unknown' AND gateway_charge_id IS NULL
-                THEN 1 ELSE 0 END AS can_reconcile
+                THEN 1 ELSE 0 END AS can_reconcile,
+           CASE WHEN status = 'pending' THEN 1 ELSE 0 END AS can_cancel
      FROM subscription_orders
      WHERE company_id = ?
      ORDER BY created_at DESC, id DESC
