@@ -44,13 +44,13 @@ $copies = ['Original']; // para ver as duas cópias: ['Original', 'Duplicado']
 
 // Colunas da tabela (x, largura) — iguais às do PDF
 const COL = [
-  'code'     => [50, 70],
-  'desc'     => [125, 115],
-  'price'    => [243, 80],
-  'qty'      => [327, 28],
-  'tax'      => [358, 38],
-  'discount' => [399, 32],
-  'total'    => [436, 109],
+  'code'     => [50, 55],
+  'desc'     => [108, 145],
+  'price'    => [258, 75],
+  'qty'      => [337, 28],
+  'tax'      => [368, 38],
+  'discount' => [409, 32],
+  'total'    => [446, 99],
 ];
 
 // ---------- utils ----------
@@ -285,7 +285,11 @@ function itemHeight(array $it): float
 {
   // largura um pouco menor que a coluna: o Dompdf quebra a linha mais cedo do que esta medição,
   // e uma linha a mais não estimada sobrepunha-se à seguinte.
-  return max(17.0, wrapCount(itemLabel($it), COL['desc'][1] * 0.9, 8) * 8 * LH + 7);
+  $lines = max(
+    wrapCount(itemLabel($it), COL['desc'][1] * 0.9, 8),
+    wrapCount((string)($it['code'] ?? ''), COL['code'][1] * 0.9, 8)   // códigos antigos longos quebram
+  );
+  return max(17.0, $lines * 8 * LH + 7);
 }
 
 // quebra os itens em páginas (máx. ITEMS_PER_PAGE e limite vertical) — igual ao PDF
@@ -425,7 +429,7 @@ $dueBr = $inv['issue_date']
 
 $companyAddress = implode(', ', array_filter([$inv['company_address'], $inv['company_city'], $inv['company_country']]));
 $clientAddress  = bx_join_address([$inv['client_address'], $inv['client_city'], $inv['client_country']]);
-$clientName     = firstAndLastName($inv['client_name']);
+$clientName     = trim((string)$inv['client_name']) ?: '-';   // nome completo (antes só o 1.º e o último nome)
 $clientNif      = $inv['client_contributor'] ?: '-';
 $clientPhone    = trim((string)($inv['client_phone'] ?? ''));
 
@@ -727,8 +731,8 @@ function lineSubtotal(array $it): float
     }
 
     .irow .desc {
-      margin-left: 125pt;
-      width: calc(115pt - .278em);
+      margin-left: 108pt;
+      width: calc(145pt - .278em);
       overflow-wrap: anywhere;
       transform: translateY(-.09em);
     }
@@ -833,19 +837,19 @@ function lineSubtotal(array $it): float
           </div>
 
           <div class="th">
-            <span style="left:50pt;width:70pt">Código</span>
-            <span style="left:125pt;width:115pt">Descrição</span>
-            <span style="left:243pt;width:80pt;text-align:right">Preço Uni.</span>
-            <span style="left:327pt;width:28pt;text-align:center">Qtd.</span>
-            <span style="left:358pt;width:38pt;text-align:center">Taxa/IVA</span>
-            <span style="left:399pt;width:32pt;text-align:center">Desc.</span>
-            <span style="left:436pt;width:109pt;text-align:right">Total</span>
+            <span style="left:50pt;width:55pt">Código</span>
+            <span style="left:108pt;width:145pt">Descrição</span>
+            <span style="left:258pt;width:75pt;text-align:right">Preço Uni.</span>
+            <span style="left:337pt;width:28pt;text-align:center">Qtd.</span>
+            <span style="left:368pt;width:38pt;text-align:center">Taxa/IVA</span>
+            <span style="left:409pt;width:32pt;text-align:center">Desc.</span>
+            <span style="left:446pt;width:99pt;text-align:right">Total</span>
           </div>
 
           <?php if ($pageIndex > 0): ?>
             <div class="carry-in f8 b cg">
-              <div class="t r" style="left:300pt;width:129pt;top:0">Transportado:</div>
-              <div class="t r" style="left:436pt;width:109pt;top:0"><?= e($money($carriedIn)) ?></div>
+              <div class="t r" style="left:300pt;width:139pt;top:0">Transportado:</div>
+              <div class="t r" style="left:446pt;width:99pt;top:0"><?= e($money($carriedIn)) ?></div>
             </div>
           <?php endif; ?>
 
@@ -855,20 +859,20 @@ function lineSubtotal(array $it): float
             $effectiveRate = (float)bx_document_effective_tax_rate($it['tax'], (string)($inv['vat_regime'] ?? ''));
             $total = $base - $discount + (($base - $discount) * ($effectiveRate / 100)); ?>
             <div class="irow" style="height:<?= number_format(itemHeight($it), 2, '.', '') ?>pt">
-              <span class="c code" style="left:50pt;width:70pt"><?= e($it['code']) ?></span>
+              <span class="c code" style="left:50pt;width:55pt"><?= e($it['code']) ?></span>
               <div class="desc"><?= e(itemLabel($it)) ?></div>
-              <span class="c" style="left:243pt;width:80pt;text-align:right"><?= e($money($it['unit_price'])) ?></span>
-              <span class="c" style="left:327pt;width:28pt;text-align:center"><?= e(plainNumber($it['quantity'])) ?></span>
-              <span class="c" style="left:358pt;width:38pt;text-align:center"><?= e(plainNumber($effectiveRate)) ?>%</span>
-              <span class="c" style="left:399pt;width:32pt;text-align:center"><?= e(plainNumber($it['discount'])) ?>%</span>
-              <span class="c" style="left:436pt;width:109pt;text-align:right"><?= e($money($total)) ?></span>
+              <span class="c" style="left:258pt;width:75pt;text-align:right"><?= e($money($it['unit_price'])) ?></span>
+              <span class="c" style="left:337pt;width:28pt;text-align:center"><?= e(plainNumber($it['quantity'])) ?></span>
+              <span class="c" style="left:368pt;width:38pt;text-align:center"><?= e(plainNumber($effectiveRate)) ?>%</span>
+              <span class="c" style="left:409pt;width:32pt;text-align:center"><?= e(plainNumber($it['discount'])) ?>%</span>
+              <span class="c" style="left:446pt;width:99pt;text-align:right"><?= e($money($total)) ?></span>
             </div>
           <?php endforeach; ?>
 
           <?php if (!$isLast): ?>
             <div class="carry-wrap f8 b cg">
-              <div class="t r" style="left:300pt;width:129pt;top:2pt">A transportar:</div>
-              <div class="t r" style="left:436pt;width:109pt;top:2pt"><?= e($money($carried)) ?></div>
+              <div class="t r" style="left:300pt;width:139pt;top:2pt">A transportar:</div>
+              <div class="t r" style="left:446pt;width:99pt;top:2pt"><?= e($money($carried)) ?></div>
             </div>
           <?php endif; ?>
 

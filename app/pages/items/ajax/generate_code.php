@@ -34,70 +34,53 @@ try {
     $typePrefix = $typeMap[$item_type] ?? 'ITM';
 
     // =========================================
-    // BASE PREFIX (SEM DEPENDÊNCIAS OBRIGATÓRIAS)
+    // CÓDIGO CURTO: "SRV-0014" (antes "15-SRV-000013")
+    // O código só tem de ser único dentro da empresa (índice unique_company_code),
+    // por isso o ID da empresa já não entra no código. Produto de um stock: "PROD01-0001".
+    // A numeração continua a partir dos códigos antigos do mesmo tipo.
     // =========================================
+    $stockPart = '';
     if ($typePrefix === 'PROD' && $stock_id > 0) {
-
-        $stmt = $pdo->prepare("
-            SELECT id 
-            FROM stocks 
-            WHERE id = :id 
-            AND company_id = :company_id
-        ");
-
-        $stmt->execute([
-            ':id' => $stock_id,
-            ':company_id' => $company_id
-        ]);
-
+        $stmt = $pdo->prepare("SELECT id FROM stocks WHERE id = :id AND company_id = :company_id");
+        $stmt->execute([':id' => $stock_id, ':company_id' => $company_id]);
         if ($stmt->fetch()) {
-            $baseCode = 'STK' . str_pad($stock_id, 2, '0', STR_PAD_LEFT) . '-' . $typePrefix;
-        } else {
-            $baseCode = $company_id . '-' . $typePrefix;
+            $stockPart = str_pad((string) $stock_id, 2, '0', STR_PAD_LEFT);
         }
-    } else {
-        $baseCode = $company_id . '-' . $typePrefix;
     }
 
-    $prefixLike = $baseCode . '-%';
+    $baseCode = $typePrefix . $stockPart;                       // novo: SRV / PROD01
+    $legacyBase = $stockPart !== ''
+        ? 'STK' . $stockPart . '-' . $typePrefix                // antigo: STK01-PROD
+        : $company_id . '-' . $typePrefix;                      // antigo: 15-SRV
 
-    // =========================================
-    // BUSCAR ÚLTIMO CÓDIGO (SEGURO)
-    // =========================================
     $stmt = $pdo->prepare("
         SELECT code
         FROM items
         WHERE company_id = :company_id
-        AND code LIKE :prefix
-        ORDER BY id DESC
-        LIMIT 1
+          AND (code LIKE :new_prefix OR code LIKE :legacy_prefix)
     ");
-
     $stmt->execute([
-        ':company_id' => $company_id,
-        ':prefix' => $prefixLike
+        ':company_id'    => $company_id,
+        ':new_prefix'    => $baseCode . '-%',
+        ':legacy_prefix' => $legacyBase . '-%',
     ]);
 
-    $last = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    // =========================================
-    // SEQUÊNCIA SEGURA
-    // =========================================
-    $nextNumber = 1;
-
-    if (!empty($last['code'])) {
-        $parts = explode('-', $last['code']);
-        $lastNumber = (int) end($parts);
-
-        $nextNumber = $lastNumber + 1;
+    $pattern = '/^(?:' . preg_quote($baseCode, '/') . '|' . preg_quote($legacyBase, '/') . ')-(\d+)$/i';
+    $existing = [];
+    $lastNumber = 0;
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $code) {
+        $existing[strtoupper((string) $code)] = true;
+        if (preg_match($pattern, (string) $code, $m)) {
+            $lastNumber = max($lastNumber, (int) $m[1]);
+        }
     }
 
-    $sequence = str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
-
-    // =========================================
-    // CÓDIGO FINAL
-    // =========================================
-    $generated_code = $baseCode . '-' . $sequence;
+    $nextNumber = $lastNumber + 1;
+    do {
+        $sequence = str_pad((string) $nextNumber, 4, '0', STR_PAD_LEFT);
+        $generated_code = $baseCode . '-' . $sequence;
+        $nextNumber++;
+    } while (isset($existing[strtoupper($generated_code)]));
 
     echo json_encode([
         'success' => true,
@@ -113,6 +96,6 @@ try {
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
-        'generated_code' => $company_id . '-ITM-000001'
+        'generated_code' => 'ITM-0001'
     ]);
 }

@@ -57,7 +57,20 @@ function bx_join_address(array $parts): string
     $clean = [];
     foreach ($parts as $part) {
         $part = trim((string) $part, " \t\n\r\0\x0B,-");
-        if ($part !== '' && !in_array(mb_strtolower($part), array_map('mb_strtolower', $clean), true)) {
+        if ($part === '') {
+            continue;
+        }
+        // Não repete cidade/país que já vêm escritos na morada
+        // (ex.: "Edifício Goya, Luanda Angola" + país "Angola" → "Angola" só uma vez).
+        $pattern = '/(?<![\p{L}\p{N}])' . preg_quote($part, '/') . '(?![\p{L}\p{N}])/iu';
+        $repeated = false;
+        foreach ($clean as $kept) {
+            if (preg_match($pattern, $kept)) {
+                $repeated = true;
+                break;
+            }
+        }
+        if (!$repeated) {
             $clean[] = $part;
         }
     }
