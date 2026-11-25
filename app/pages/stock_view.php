@@ -193,7 +193,7 @@ if (!$stockId) {
     .btn,
     .btn-group,
     #saveStatus,
-    a[href="stock.php"] {
+    a[href="/stock"] {
       display: none !important;
     }
 
@@ -264,7 +264,7 @@ if (!$stockId) {
 
     <div class="container py-4 mt-5">
       <div>
-        <a style="color:#cecece; font-weight:200;top:-1rem;position:relative; cursor:pointer" class="mb-2" href="stock.php">
+        <a style="color:#cecece; font-weight:200;top:-1rem;position:relative; cursor:pointer" class="mb-2" href="/stock" data-spa>
           <span class="material-icons-round">
             reply
           </span> <span>Voltar</span></a>

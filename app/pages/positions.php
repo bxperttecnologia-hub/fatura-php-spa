@@ -162,6 +162,7 @@ require_once '../app/views/layout_creation.php';
                         <select name="department_id" class="form-control" id="selectPositionDepartment">
                             <option value="">— Sem departamento —</option>
                         </select>
+                        <input type="text" name="department_other" id="positionDepartmentOther" class="form-control mt-2 d-none" maxlength="150" placeholder="Indique o departamento" autocomplete="off">
                     </div>
                     <div class="mb-3">
                         <label>Salário Sugerido</label>
@@ -178,20 +179,20 @@ require_once '../app/views/layout_creation.php';
                     </div>
 
                     <div class="mb-3">
-                        <label>Subsídio de férias</label>
-                        <select name="vacation_subsidy_pct" class="form-control">
-                            <option value="0">0%</option>
-                            <option value="50">50%</option>
-                            <option value="100">100%</option>
-                        </select>
+                        <label for="pos_vacation_subsidy_pct">Subsídio de férias (% do salário base)</label>
+                        <div class="input-group">
+                            <input type="number" name="vacation_subsidy_pct" id="pos_vacation_subsidy_pct" class="form-control" min="0" max="100" step="0.01" value="50" inputmode="decimal" data-no-money required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text">Escreva qualquer valor entre 0 e 100 (ex.: 50, 75 ou 100).</div>
                     </div>
                     <div class="mb-3">
-                        <label>Subsídio de 13º</label>
-                        <select name="thirteenth_subsidy_pct" class="form-control">
-                            <option value="0">0%</option>
-                            <option value="50">50%</option>
-                            <option value="100">100%</option>
-                        </select>
+                        <label for="pos_thirteenth_subsidy_pct">Subsídio de 13º (% do salário base)</label>
+                        <div class="input-group">
+                            <input type="number" name="thirteenth_subsidy_pct" id="pos_thirteenth_subsidy_pct" class="form-control" min="0" max="100" step="0.01" value="50" inputmode="decimal" data-no-money required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text">Escreva qualquer valor entre 0 e 100 (ex.: 50, 75 ou 100).</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -212,6 +213,20 @@ require_once '../app/views/layout_creation.php';
             (resp.data || []).forEach(dep => {
                 select.append(`<option value="${dep.id}">${dep.name}</option>`);
             });
+            select.append('<option value="__other__">Outros</option>');
+        });
+
+        // Opção "Outros": mostra um campo para escrever o departamento (é criado ao guardar)
+        function togglePositionDepartmentOther() {
+            const isOther = $('#selectPositionDepartment').val() === '__other__';
+            $('#positionDepartmentOther').toggleClass('d-none', !isOther).prop('required', isOther);
+            if (!isOther) $('#positionDepartmentOther').val('');
+            else $('#positionDepartmentOther').trigger('focus');
+        }
+        $('#selectPositionDepartment').on('change', togglePositionDepartmentOther);
+        $('#modalPosition').on('show.bs.modal', function() {
+            // ao abrir (novo ou edição) o campo parte escondido; a edição repõe o valor logo a seguir
+            $('#positionDepartmentOther').addClass('d-none').prop('required', false).val('');
         });
 
         const escapeHtml = value => {
@@ -231,8 +246,8 @@ require_once '../app/views/layout_creation.php';
                 { data: 'suggested_salary', render: formatCurrency, sortValue: row => Number(row.suggested_salary || 0) },
                 { data: 'food_allowance', render: formatCurrency, sortValue: row => Number(row.food_allowance || 0) },
                 { data: 'transport_allowance', render: formatCurrency, sortValue: row => Number(row.transport_allowance || 0) },
-                { data: 'vacation_subsidy_pct', render: value => `${parseInt(value || 0)}%`, sortValue: row => Number(row.vacation_subsidy_pct || 0) },
-                { data: 'thirteenth_subsidy_pct', render: value => `${parseInt(value || 0)}%`, sortValue: row => Number(row.thirteenth_subsidy_pct || 0) },
+                { data: 'vacation_subsidy_pct', render: value => `${Number(value || 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })}%`, sortValue: row => Number(row.vacation_subsidy_pct || 0) },
+                { data: 'thirteenth_subsidy_pct', render: value => `${Number(value || 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })}%`, sortValue: row => Number(row.thirteenth_subsidy_pct || 0) },
                 {
                     data: null,
                     sortable: false,
@@ -276,8 +291,8 @@ require_once '../app/views/layout_creation.php';
             $('#formPosition input[name=suggested_salary]').val(btn.data('salary'));
             $('#formPosition input[name=food_allowance]').val(btn.data('food_allowance'));
             $('#formPosition input[name=transport_allowance]').val(btn.data('transport_allowance'));
-            $('#formPosition select[name=vacation_subsidy_pct]').val(btn.data('vacation_subsidy_pct'));
-            $('#formPosition select[name=thirteenth_subsidy_pct]').val(btn.data('thirteenth_subsidy_pct'));
+            $('#formPosition [name=vacation_subsidy_pct]').val(Number(btn.data('vacation_subsidy_pct')));
+            $('#formPosition [name=thirteenth_subsidy_pct]').val(Number(btn.data('thirteenth_subsidy_pct')));
             $('#formPosition select[name=department_id]').val(btn.data('department_id') || '');
 
             $('#formPosition').append(`<input type="hidden" name="id" value="${btn.data('id')}" id="editPositionId">`);

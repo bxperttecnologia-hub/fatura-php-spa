@@ -125,6 +125,12 @@ $invTheme      = 'dark';
         color: #172033;
     }
 
+    /* Mesmos botões do topo, repetidos no fim do documento */
+    .inv-bottom-actions {
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
     /* ---------- Botões ---------- */
 
     .inv-btn {
@@ -1299,6 +1305,17 @@ $invTheme      = 'dark';
                 </div>
             </div><!-- /inv-card -->
 
+            <!-- ============ ACÇÕES NO FIM (iguais às do topo) ============ -->
+            <div class="inv-top-actions inv-bottom-actions">
+                <button type="button" id="cancelInvoiceBtnBottom" class="inv-btn inv-btn-secondary" data-href="<?= $listUrl ?>">
+                    <?= t('Cancelar') ?>
+                </button>
+                <button type="button" id="saveInvoiceBtnBottom" class="inv-btn inv-btn-primary">
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    <span class="btn-label"><?= t('Emitir Proforma') ?></span>
+                </button>
+            </div>
+
         </form>
     </div>
 </main>
@@ -1478,4 +1495,4 @@ $invTheme      = 'dark';
 </script>
 
 <!-- v=2.5: moeda e formatação inicializadas no escopo do script SPA -->
-<script src="create_proform/create_proform.js?v=3.7" data-spa-repeat></script>
+<script src="create_proform/create_proform.js?v=3.9" data-spa-repeat></script>

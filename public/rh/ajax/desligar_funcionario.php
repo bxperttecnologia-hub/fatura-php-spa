@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Fase 2, item 5 — Ação "Desligar funcionário".
  *

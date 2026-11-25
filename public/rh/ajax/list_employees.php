@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Se este endpoint devolver uma resposta JSON inválida, a causa mais comum
  * é a Fase 1/Fase 2 ainda não terem sido
@@ -31,7 +31,7 @@ if (!$company_id) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT e.id, e.name, e.bi, e.email, e.phone_ddi, e.phone, e.position, e.position_id, e.department_id, d.name AS department_name, e.manager_id, m.name AS manager_name, e.salary_base AS salary, e.status, e.document_type, e.birth_date, e.marital_status, e.academic_level, e.contract_type, e.contract_end_date, e.admission_date, e.end_date, e.termination_type, e.termination_amount, e.termination_notes, e.iban, e.photo_url, e.doc1_url, e.doc2_url,
+    $stmt = $pdo->prepare("SELECT e.id, e.name, e.bi, e.email, e.phone_ddi, e.phone, e.position, e.position_id, e.department_id, d.name AS department_name, e.manager_id, m.name AS manager_name, e.salary_base AS salary, e.status, e.document_type, e.birth_date, e.marital_status, e.academic_level, e.contract_type, e.contract_end_date, e.admission_date, e.end_date, e.termination_type, e.termination_amount, e.termination_notes, e.iban, e.nif, e.inss_number, e.bank_name, e.gender, e.address, e.vacation_carry_days, e.portal_token IS NOT NULL AS has_portal, e.photo_url, e.doc1_url, e.doc2_url,
         (SELECT COALESCE(SUM(p.net_salary), 0) FROM payroll p WHERE p.employee_id = e.id AND p.company_id = e.company_id AND p.status = 'Pago' AND YEAR(STR_TO_DATE(CONCAT(p.reference_month, '-01'), '%Y-%m-%d')) = YEAR(CURDATE())) AS total_pago_ano
     FROM employees e
     LEFT JOIN departments d ON d.id = e.department_id

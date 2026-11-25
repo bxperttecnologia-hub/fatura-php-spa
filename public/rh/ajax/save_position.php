@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 require_once '../../../app/config/db.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -14,10 +15,32 @@ $name = trim($_POST['name'] ?? '');
 $suggested_salary = $_POST['suggested_salary'] ?? 0;
 $food_allowance = $_POST['food_allowance'] ?? 0;
 $transport_allowance = $_POST['transport_allowance'] ?? 0;
-$vacation_subsidy_pct = (int)($_POST['vacation_subsidy_pct'] ?? 0);
-$thirteenth_subsidy_pct = (int)($_POST['thirteenth_subsidy_pct'] ?? 0);
-$department_id = !empty($_POST['department_id']) ? (int)$_POST['department_id'] : null;
+// Percentagem livre (0–100, até 2 casas decimais); aceita vírgula ou ponto.
+$pct = static fn($v) => round(max(0, min(100, (float)str_replace(',', '.', (string)$v))), 2);
+$vacation_subsidy_pct = $pct($_POST['vacation_subsidy_pct'] ?? 0);
+$thirteenth_subsidy_pct = $pct($_POST['thirteenth_subsidy_pct'] ?? 0);
+$rawDepartment = $_POST['department_id'] ?? '';
+$department_id = ($rawDepartment !== '__other__' && !empty($rawDepartment)) ? (int)$rawDepartment : null;
 $id = $_POST['id'] ?? null;
+
+// Opção "Outros": cria (ou reutiliza, pelo nome) o departamento indicado.
+if ($rawDepartment === '__other__') {
+    $departmentOther = mb_substr(trim((string)($_POST['department_other'] ?? '')), 0, 150);
+    if ($departmentOther === '') {
+        http_response_code(400);
+        echo 'Indique o nome do departamento.';
+        exit;
+    }
+    $stmtDep = $pdo->prepare('SELECT id FROM departments WHERE company_id = ? AND TRIM(name) = TRIM(?) LIMIT 1');
+    $stmtDep->execute([$company_id, $departmentOther]);
+    $foundDepartment = $stmtDep->fetchColumn();
+    if ($foundDepartment) {
+        $department_id = (int)$foundDepartment;
+    } else {
+        $pdo->prepare('INSERT INTO departments (company_id, name) VALUES (?, ?)')->execute([$company_id, $departmentOther]);
+        $department_id = (int)$pdo->lastInsertId();
+    }
+}
 
 if ($name === '') {
     http_response_code(400);

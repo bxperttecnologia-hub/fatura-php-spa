@@ -8,6 +8,8 @@
   function isMoneyInput(input) {
     // Só campos de texto/número: checkboxes e radios cujo rótulo diga "Crédito" (ex.: Nota de Crédito) perdiam o valor.
     if (!(input instanceof HTMLInputElement) || !input.matches(selector) || input.disabled) return false;
+    // Percentagens (ex.: subsídio de férias 50%) não são dinheiro, mesmo que o rótulo diga "Subsídio".
+    if (input.hasAttribute('data-no-money') || /(?:^|[_\-])(?:pct|percent|percentagem)$/i.test(input.name || '')) return false;
     if (input.hasAttribute('data-money-input') || input.hasAttribute('data-price-display')) return true;
 
     const attributes = [

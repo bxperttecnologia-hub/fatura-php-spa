@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Fase 4 — Cria automaticamente uma `evaluation` pendente para cada
  * funcionário ATIVO de um departamento (ou de todos, se department_id

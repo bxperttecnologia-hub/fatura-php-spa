@@ -22,8 +22,12 @@ browser ──HTTPS──> Nginx (app.dominio) ──> PHP-FPM  fatura-php-spa/p
 ## 2. Base de dados
 
 1. No aaPanel: *Databases → Add*. Criar a BD e um utilizador próprio com palavra-passe forte (não usar `root`).
-2. Importar um **dump da BD local já migrada** (`mysqldump db_fatura_test`). Não correr as migrações no
-   servidor: a BD não tem `SequelizeMeta`, porque as migrações foram aplicadas à mão.
+2. Importar um **dump da BD local já migrada** (`mysqldump db_fatura_test`). As migrações legadas foram
+   aplicadas à mão e não existe um histórico automático para elas; não as execute em bloco no servidor.
+   Em cada instalação/atualização ERP, valide primeiro o destino da migração incremental das tentativas:
+   `php bin/migrate_subscription_license_sync_attempts.php --dry-run`. Depois de confirmar o nome da base
+   apresentado e ter backup aprovado, execute `php bin/migrate_subscription_license_sync_attempts.php --apply`.
+   O comando usa o `.env` da aplicação e cria apenas `subscription_license_sync_attempts`, sem alterar tabelas existentes.
 3. A API AGT usa a sua própria BD (`DB_NAME` no `.env` da API). Importar também essa.
 
 ## 3. Código

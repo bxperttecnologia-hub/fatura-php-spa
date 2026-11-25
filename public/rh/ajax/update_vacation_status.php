@@ -1,46 +1,23 @@
 <?php
-require_once '../../../app/config/db.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+/** Aprova / rejeita / repõe como pendente um período de férias ou licença. POST id, status */
+require_once __DIR__ . '/../lib/rh_guard.php';
+require_once __DIR__ . '/../lib/vacation_lib.php';
+
+$id = (int)($_POST['id'] ?? 0);
+$status = (string)($_POST['status'] ?? '');
+if (!$id || !in_array($status, ['Aprovado', 'Pendente', 'Rejeitado'], true)) {
+    rh_json(['success' => false, 'message' => 'Dados insuficientes para actualizar o estado.'], 422);
 }
-
-header('Content-Type: application/json');
-
-if (!isset($_SESSION['user']['company_id'])) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Sessão expirada ou inválida. Por favor, faça login novamente.']);
-    exit;
+$stmt = $pdo->prepare('SELECT * FROM vacations WHERE id = ? AND company_id = ?');
+$stmt->execute([$id, $company_id]);
+$v = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$v) {
+    rh_json(['success' => false, 'message' => 'Período não encontrado.'], 404);
 }
-
-$company_id = $_SESSION['user']['company_id'];
-
-$response = ['success' => false, 'message' => 'Ocorreu um erro.'];
-
-try {
-    $id = $_POST['id'] ?? null;
-    $status = $_POST['status'] ?? null;
-
-    if (!$id || !$status) {
-        throw new Exception('Dados insuficientes para atualizar o status.');
-    }
-
-    $allowed_statuses = ['Aprovado', 'Pendente', 'Rejeitado'];
-    if (!in_array($status, $allowed_statuses)) {
-        throw new Exception('Status inválido.');
-    }
-
-    $stmt = $pdo->prepare("UPDATE vacations SET status = ? WHERE id = ? AND company_id = ?");
-    $stmt->execute([$status, $id, $company_id]);
-
-    if ($stmt->rowCount() > 0) {
-        $response['success'] = true;
-        $response['message'] = 'Status atualizado com sucesso!';
-    } else {
-        throw new Exception('Não foi possível atualizar o status.');
-    }
-} catch (Exception $e) {
-    http_response_code(400);
-    $response['message'] = $e->getMessage();
+if ($status === 'Aprovado' && rh_vacation_overlaps($pdo, $company_id, (int)$v['employee_id'], $v['start_date'], $v['end_date'], $id)) {
+    rh_json(['success' => false, 'message' => 'Não é possível aprovar: sobrepõe-se a outro período do mesmo funcionário.'], 422);
 }
-
-echo json_encode($response);
+$pdo->prepare('UPDATE vacations SET status = ?, decided_at = ?, decided_by = ?, working_days = COALESCE(working_days, ?) WHERE id = ? AND company_id = ?')
+    ->execute([$status, $status === 'Pendente' ? null : date('Y-m-d H:i:s'), $status === 'Pendente' ? null : ($rh_user_id ?: null),
+               rh_working_days($pdo, $company_id, $v['start_date'], $v['end_date']), $id, $company_id]);
+rh_json(['success' => true, 'message' => ['Aprovado' => 'Período aprovado.', 'Rejeitado' => 'Período rejeitado.', 'Pendente' => 'Período reposto como pendente.'][$status]]);

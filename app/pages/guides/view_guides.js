@@ -1,131 +1,153 @@
-const get = new URLSearchParams(window.location.search).get("id");
-const guideId = get ? get.substring(get.lastIndexOf("/") + 1) : null;
+const params = new URLSearchParams(window.location.search);
+const guideId = params.get('id');
+let guideDocumentStatus = '';
+let guideTransportStatus = '';
 
-if (!guideId) {
-  alert("Guia não encontrada!");
+function postGuideAction(action, extra = {}) {
+    return $.ajax({
+        url: '/guides/ajax/document_action.php',
+        method: 'POST',
+        data: Object.assign({ id: guideId, action }, extra),
+        dataType: 'json'
+    });
 }
 
-// Carrega o HTML da guia
-$('#guide-container').load(`guides/ajax/guide_public.php?id=${guideId}`);
-
-// Carrega dados para autofill do e-mail
-let currentGuide = null;
-function loadCurrentGuide(){
-  return $.getJSON(`guides/ajax/get_guide.php?id=${guideId}`)
-    .then(res => {
-      if(res && res.success){
-        currentGuide = res.data;
-      }
-      return currentGuide;
-    })
-    .catch(() => null);
+function statusClass(status) {
+    status = String(status || '').toLowerCase();
+    if (status.includes('entregue')) return 'is-delivered';
+    if (status.includes('transito') || status.includes('parcial')) return 'is-transit';
+    if (status.includes('cancel')) return 'is-cancelled';
+    return '';
 }
 
-// Quill (modal de envio)
-let quill = null;
-function ensureQuill(){
-  if(quill) return quill;
-  if(!window.Quill) return null;
-
-  quill = new Quill('#editor-container', {
-    theme : 'snow',
-    modules:{ toolbar:'#editor-toolbar' }
-  });
-
-  return quill;
+function statusLabel(status) {
+    const labels = {
+        rascunho: 'Rascunho',
+        emitido: 'Emitido',
+        em_preparacao: 'Em preparação',
+        em_transito: 'Em trânsito',
+        entrega_parcial: 'Entrega parcial',
+        entregue: 'Entregue',
+        cancelado: 'Cancelado'
+    };
+    return labels[status] || String(status || '-').replaceAll('_', ' ');
 }
 
-function formatMoneyPt(value){
-  const v = Number(value || 0);
-  return v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function renderGuideStatus(documentStatus, transportStatus) {
+    guideDocumentStatus = String(documentStatus || '').toLowerCase();
+    guideTransportStatus = String(transportStatus || '').toLowerCase();
+    const displayedStatus = ['em_transito', 'entrega_parcial', 'entregue', 'cancelado'].includes(guideTransportStatus)
+        ? guideTransportStatus
+        : guideDocumentStatus || guideTransportStatus || 'rascunho';
+
+    $('#guideStatus')
+        .text(statusLabel(displayedStatus))
+        .removeClass('is-transit is-delivered is-cancelled')
+        .addClass(statusClass(displayedStatus));
+    $('#btnEmitGuide').prop('disabled', guideDocumentStatus === 'emitido' || guideDocumentStatus === 'cancelado');
+    $('#btnDepartGuide').prop('disabled', guideDocumentStatus !== 'emitido' || guideTransportStatus === 'em_transito');
 }
 
-function fmtDateBr(iso){
-  if(!iso) return '';
-  try{
-    const [y,m,d] = String(iso).split('-');
-    if(y && m && d) return `${d}/${m}/${y}`;
-  }catch(e){}
-  return iso;
+function showActionError(xhr, fallback) {
+    const response = xhr.responseJSON || {};
+    Swal.fire('Erro', response.error || response.message || fallback, 'error');
 }
 
-$('#modalSendGuide').on('show.bs.modal', async function(){
-  await loadCurrentGuide();
-  ensureQuill();
+$(document).ready(function () {
+    if (!guideId) {
+        $('#guide-container').html('<div class="p-4 text-danger">Guia não encontrada.</div>');
+        return;
+    }
 
-  if(!currentGuide){
-    return;
-  }
+    $('#preloader').removeClass('d-none');
+    $('#guide-container').load(`/guides/ajax/guide_public.php?id=${encodeURIComponent(guideId)}`, function (response, status) {
+        $('#preloader').addClass('d-none');
+        if (status !== 'success') $('#guide-container').html('<div class="p-4 text-danger">Não foi possível carregar a guia.</div>');
+    });
 
-  // hidden id
-  $('#email_guide_id').val(currentGuide.id);
+    $.getJSON('/guides/ajax/get_guide.php', { id: guideId })
+        .done(response => {
+            const guide = response.data;
+            const number = `${guide.series || ''} ${guide.number || guide.id}`.trim();
+            $('#guideNumber').text(number);
+            $('#guideClient').text(guide.client_name || '-');
+            renderGuideStatus(guide.status, guide.transport_status);
+            $('#email_guide_id').val(guide.id);
+            $('input[name="to"]').val(guide.client_email || '');
+            $('input[name="subject"]').val(`Guia de transporte ${number}`);
+            $('textarea[name="body"]').val(`Segue anexa a guia de transporte ${number}.`);
+        });
 
-  const codigo = `${currentGuide.series}/${currentGuide.id}`;
-  const company = currentGuide.company_name || '';
-  const client = currentGuide.client_name || '';
-  const symbol = currentGuide.money_symbol || (currentGuide.currency || '');
-  const total = formatMoneyPt(currentGuide.final_total);
-  const docDate = fmtDateBr(currentGuide.document_date);
+    $('#generateGuidePdf').on('click', function () {
+        if (!window.html2pdf) {
+            Swal.fire('Erro', 'O gerador de PDF não está disponível.', 'error');
+            return;
+        }
+        window.html2pdf().set({
+            margin: [5, 5, 5, 5],
+            filename: `Guia_${guideId}.pdf`,
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(document.getElementById('guide-container')).save();
+    });
 
-  // Subject
-  $('input[name="subject"]').val(`Guia #${codigo} – ${company}`);
+    $('#btnEmitGuide').on('click', function () {
+        $(this).prop('disabled', true);
+        postGuideAction('emit')
+            .done(response => {
+                if (!response.success) {
+                    $(this).prop('disabled', false);
+                    Swal.fire('Erro', response.error || 'Não foi possível emitir.', 'error');
+                    return;
+                }
+                renderGuideStatus(response.status, guideTransportStatus);
+                Swal.fire('Guia emitida', 'A guia foi emitida com sucesso.', 'success');
+            })
+            .fail(xhr => {
+                $(this).prop('disabled', false);
+                showActionError(xhr, 'Não foi possível emitir a guia.');
+            });
+    });
+    $('#btnDepartGuide').on('click', function () {
+        $(this).prop('disabled', true);
+        postGuideAction('depart')
+            .done(response => {
+                if (!response.success) {
+                    $(this).prop('disabled', false);
+                    Swal.fire('Erro', response.error || 'Não foi possível iniciar o transporte.', 'error');
+                    return;
+                }
+                renderGuideStatus(guideDocumentStatus, response.status);
+                Swal.fire('Transporte iniciado', 'A guia está em trânsito.', 'success');
+            })
+            .fail(xhr => {
+                $(this).prop('disabled', false);
+                showActionError(xhr, 'Não foi possível iniciar o transporte.');
+            });
+    });
+    $('#btnDeliverGuide').on('click', () => {
+        const receiverName = window.prompt('Nome de quem recebe:', '');
+        if (receiverName === null) return;
+        postGuideAction('deliver', { receiver_name: receiverName, receiver_document: window.prompt('Documento de identificação:', '') || '' })
+            .done(response => {
+                if (!response.success) {
+                    Swal.fire('Erro', response.error || 'Não foi possível registar a entrega.', 'error');
+                    return;
+                }
+                renderGuideStatus(guideDocumentStatus, response.status);
+                Swal.fire('Entrega registada', 'A entrega foi registada com sucesso.', 'success');
+            })
+            .fail(xhr => showActionError(xhr, 'Não foi possível registar a entrega.'));
+    });
 
-  // Body template (similar ao da fatura)
-  const template = `
-<p>Prezado(a) <strong>${client}</strong>,</p>
-
-<p>Segue em anexo a <strong>guia nº ${codigo}</strong>,
-no valor de <strong>${symbol} ${total}</strong>${docDate ? `, emitida em ${docDate}` : ''}.</p>
-
-<p>Qualquer dúvida estou à disposição.</p>
-
-<p>Atenciosamente,<br>
-&nbsp;</p>`;
-
-  if(quill){
-    quill.setContents(quill.clipboard.convert(template));
-    $('#body-hidden').val(quill.root.innerHTML);
-  } else {
-    // fallback sem Quill (se CDN falhar)
-    const editor = document.getElementById('editor-container');
-    if(editor) editor.innerHTML = template;
-    $('#body-hidden').val(template);
-  }
-
-  // Sugere o email do cliente se existir e campo estiver vazio
-  const $to = $('input[name="to"]');
-  if(!$to.val() && currentGuide.client_email){
-    $to.val(currentGuide.client_email);
-  }
-});
-
-// Submit do envio
-$('#formSendGuide').on('submit', function(e){
-  e.preventDefault();
-
-  if(this.checkValidity() === false){
-    this.classList.add('was-validated');
-    return;
-  }
-
-  const q = ensureQuill();
-  if(q){
-    $('#body-hidden').val(q.root.innerHTML);
-  }
-
-  $.post('guides/ajax/send_guide.php', {
-    to: $(this).find('[name="to"]').val(),
-    cc: $(this).find('[name="cc"]').val(),
-    subject: $(this).find('[name="subject"]').val(),
-    body: $('#body-hidden').val(),
-    attach: $('#chkAnexarGuide').is(':checked') ? 1 : 0,
-    guide_id: $('#email_guide_id').val()
-  })
-  .done(() => {
-    bootstrap.Modal.getInstance(document.getElementById('modalSendGuide')).hide();
-    alert('E-mail enviado com sucesso!');
-  })
-  .fail(xhr => {
-    alert('Erro: ' + (xhr.responseText || 'Tente novamente.'));
-  });
+    $('#formSendGuide').on('submit', function (event) {
+        event.preventDefault();
+        if (!this.checkValidity()) {
+            this.classList.add('was-validated');
+            return;
+        }
+        $.post('/guides/ajax/send_guide.php', $(this).serialize())
+            .done(() => Swal.fire('Enviado', 'Guia enviada por e-mail.', 'success'))
+            .fail(xhr => Swal.fire('Erro', xhr.responseJSON?.error || 'Não foi possível enviar.', 'error'));
+    });
 });

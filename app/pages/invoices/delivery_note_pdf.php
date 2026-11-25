@@ -10,7 +10,7 @@ use Dompdf\Options;
 $dnId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$dnId) {
-  die('Nota de entrega não encontrada.');
+  die('Guia de transporte não encontrada.');
 }
 
 /* ---------------- QUERY ---------------- */
@@ -50,7 +50,7 @@ $st->execute(['id' => $dnId]);
 $d = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$d) {
-  die('Nota de entrega não encontrada.');
+  die('Guia de transporte não encontrada.');
 }
 
 $st = $pdo->prepare("
@@ -176,7 +176,7 @@ $html = '
       ' . h($d['company_phone']) . ' ' . h($d['company_email']) . '
     </td>
     <td>
-      <div class="title">NOTA DE ENTREGA</div>
+      <div class="title">GUIA DE TRANSPORTE</div>
       <div style="text-align:right;margin-top:6px">
         <strong>N.º ' . $number . '</strong><br>
         Data: ' . h($issue) . '<br>

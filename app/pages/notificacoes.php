@@ -672,7 +672,7 @@ require_once ROOT . '/app/helpers/ai_api.php';
             <button type="button" class="btn btn-light" id="runCollectionBtn">
                 <i class="bi bi-send-check me-1"></i> Executar cobrança
             </button>
-            <a class="btn btn-outline-light" href="list_invoices.php?collection=1">
+            <a class="btn btn-outline-light" href="/invoices?collection=1" data-spa>
                 <i class="bi bi-layout-text-sidebar-reverse me-1"></i> Abrir central
             </a>
         </section>

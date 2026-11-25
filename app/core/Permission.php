@@ -12,7 +12,7 @@ class Permission
         'invoices' => 'Faturas',
         'proformas' => 'Proformas',
         'stock' => 'Stock',
-        'guides' => 'Guias',
+        'guides' => 'Guias de transporte',
         'subscription' => 'Subscrição',
         'companies' => 'Empresas e definições',
         'users' => 'Utilizadores',
@@ -39,6 +39,7 @@ class Permission
         '/stock' => 'stock',
         '/stock/view' => 'stock',
         '/guides' => 'guides',
+        '/guides/create' => 'guides',
         '/guides/list' => 'guides',
         '/guides/view' => 'guides',
         '/subscription' => 'subscription',
@@ -62,6 +63,8 @@ class Permission
         '/ponto' => 'rh',
         '/vacations' => 'rh',
         '/avaliacoes' => 'rh',
+        '/adiantamentos' => 'rh',
+        '/rh-definicoes' => 'rh',
     ];
 
     public static function modules(): array
@@ -104,6 +107,8 @@ class Permission
         $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
         if (in_array(strtolower(basename($script)), [
             'appypay.php',
+            'crm.php',
+            'crm-orders.php',
             'credit_note_public.php',
             'guide_public.php',
             'invoice_public.php',

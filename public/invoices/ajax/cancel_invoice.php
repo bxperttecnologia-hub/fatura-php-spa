@@ -10,12 +10,12 @@ try {
 
     $pdo->beginTransaction();
 
-    // Bloquear se já existirem notas de entrega ligadas a esta factura
+    // Bloquear se já existirem guias de transporte ligadas a esta factura
     $dn = $pdo->prepare("SELECT COUNT(*) FROM delivery_notes WHERE invoice_id = ?");
     $dn->execute([$invoiceId]);
 
     if ((int)$dn->fetchColumn() > 0) {
-        throw new Exception('Esta factura tem notas de entrega emitidas e não pode ser reaberta.');
+        throw new Exception('Esta factura tem guias de transporte emitidas e não pode ser reaberta.');
     }
 
     // Bloquear se já existirem notas de débito ligadas a esta factura

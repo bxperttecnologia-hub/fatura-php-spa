@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Recebe: name, id (opcional), criteria (JSON array de {label, weight}, id opcional por critério).
  * Substitui sempre TODO o conjunto de critérios do modelo pelo enviado

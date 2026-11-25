@@ -1,5 +1,8 @@
 <?php
 require_once '../app/views/layout_creation.php';
+$settingsUser = Auth::user();
+$settingsCompanyId = Permission::requestCompanyId($settingsUser);
+$settingsCanUsers = $settingsUser && Permission::canManageUsers($pdo, (int)$settingsUser['id'], $settingsCompanyId);
 ?>
 
 <style>
@@ -112,6 +115,13 @@ require_once '../app/views/layout_creation.php';
         color: #fff;
     }
 
+    .settings-shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; width: 100%; margin-bottom: 28px; }
+    .settings-shortcut { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #fff; border: 1px solid #e5e9f0; border-radius: 14px; color: #1e293b; text-decoration: none; transition: .2s; }
+    .settings-shortcut:hover { border-color: #93c5fd; box-shadow: 0 6px 18px rgba(15, 23, 42, .08); transform: translateY(-1px); color: #1e293b; }
+    .settings-shortcut > i { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; background: #eef2ff; color: #2563eb; font-size: 1.2rem; flex-shrink: 0; }
+    .settings-shortcut strong { display: block; font-size: .95rem; }
+    .settings-shortcut small { display: block; color: #64748b; font-size: .8rem; }
+    .settings-shortcut .bi-chevron-right { margin-left: auto; color: #94a3b8; }
     .company-management-header {
         display: flex;
         align-items: center;
@@ -127,8 +137,16 @@ require_once '../app/views/layout_creation.php';
     <main>
         <div class="container">
             <div id="companies" class="row">
+                <div class="w-100 mb-2"><h2 class="mb-3">Definições</h2></div>
+                <div class="settings-shortcuts">
+                    <a href="/agt" class="settings-shortcut" data-spa><i class="bi bi-shield-check"></i><span><strong>Faturação AGT</strong><small>Certificados, séries e envio à AGT</small></span><i class="bi bi-chevron-right"></i></a>
+                    <?php if ($settingsCanUsers): ?>
+                    <a href="/users?company_id=<?= (int)$settingsCompanyId ?>" class="settings-shortcut" data-spa><i class="bi bi-people"></i><span><strong>Utilizadores</strong><small>Acessos e permissões da empresa</small></span><i class="bi bi-chevron-right"></i></a>
+                    <?php endif; ?>
+                    <a href="/rh-definicoes" class="settings-shortcut submenu-rh" data-spa><i class="bi bi-person-gear"></i><span><strong>Definições de RH</strong><small>INSS, IRT, horário, férias e feriados</small></span><i class="bi bi-chevron-right"></i></a>
+                </div>
                 <div class="company-management-header">
-                    <h2 class="mb-0">Gestão de Empresas</h2>
+                    <h2 class="mb-0 h4">Gestão de Empresas</h2>
                     <div class="d-flex flex-wrap gap-2 ms-auto">
                         <button type="button" class="btn btn-primary" id="btnAddCompany" data-bs-toggle="modal" data-bs-target="#addCompanyModal" disabled>
                             <i class="bi bi-plus-lg me-1"></i> Adicionar empresa
@@ -504,7 +522,7 @@ require_once '../app/views/layout_creation.php';
 
             $(document).on("click", ".btn-renew", function() {
                 let companyId = $(this).data("id");
-                window.location.href = `subscription.php?company_id=${companyId}`;
+                window.location.href = `/subscription?company_id=${companyId}`;
             });
         });
     </script>

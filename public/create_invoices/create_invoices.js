@@ -568,7 +568,7 @@ $(document).ready(function () {
   }
 
   function setEditMode() {
-    $("#saveInvoiceBtn .btn-label").text("Guardar Alterações");
+    $("#saveInvoiceBtn .btn-label, #saveInvoiceBtnBottom .btn-label").text("Guardar Alterações");
     $("#inv_crumb_current").text("Editar Documento");
   }
 
@@ -581,7 +581,7 @@ $(document).ready(function () {
     }
   });
 
-  $("#cancelInvoiceBtn").on("click", function () {
+  $("#cancelInvoiceBtn, #cancelInvoiceBtnBottom").on("click", function () {
     const listUrl = $(this).data("href") || "/invoices";
     const editId = new URLSearchParams(window.location.search).get("edit_id");
     const returnTo = new URLSearchParams(window.location.search).get("return_to");
@@ -1388,13 +1388,11 @@ $(document).ready(function () {
       const effectiveTaxRate = effectiveRate(taxNum);
       const ivaValue = (lineSubtotal * effectiveTaxRate) / 100;
       const selectedType = String($("#tax_withholding_type").val() || "none");
-      // Entram na base os serviços, excepto os classificados para o outro imposto.
-      const otherClassification = selectedType === "ipu_rent"
-        ? "withholding_service"
-        : selectedType === "withholding_6_5"
-          ? "rental_income"
-          : "";
-      if (otherClassification && classification !== otherClassification && itemType === "service") {
+      // Entram na base os serviços, excepto os classificados para o outro imposto
+      // (igual ao servidor: bx_document_tax_line_is_eligible — IPU exclui serviços de
+      // retenção; todos os outros impostos excluem rendas).
+      const otherClassification = selectedType === "ipu_rent" ? "withholding_service" : "rental_income";
+      if (selectedType !== "none" && classification !== otherClassification && itemType === "service") {
         eligibleTaxBase += lineSubtotal;
         eligibleTaxVat += ivaValue;
         eligibleLineCount++;
@@ -1752,7 +1750,7 @@ $(document).ready(function () {
       });
   }
 
-  $("#saveInvoiceBtn").on("click", function (event) {
+  $("#saveInvoiceBtn, #saveInvoiceBtnBottom").on("click", function (event) {
     event.preventDefault();
 
     const draft = getStoredDraft();
@@ -1892,7 +1890,7 @@ $(document).ready(function () {
     // =========================
     // AJAX
     // =========================
-    const $saveBtn = $("#saveInvoiceBtn").prop("disabled", true);
+    const $saveBtn = $("#saveInvoiceBtn, #saveInvoiceBtnBottom").prop("disabled", true);
     const saveBtnHtml = $saveBtn.html();
     const isUpdate = invoiceId != null;
     $saveBtn.html('<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> A guardar…');

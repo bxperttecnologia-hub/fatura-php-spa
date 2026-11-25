@@ -44,7 +44,7 @@ $layoutFix = "
 ";
 
 // Remove links de CSS antigos do HTML capturado para evitar erros
-$html = str_replace('<link rel="stylesheet" href="guides/guides_public.css">', '', $html);
+$html = str_replace('<link rel="stylesheet" href="/guides/guides_public.css?v=4">', '', $html);
 
 // Monta o HTML final com todos os estilos inline
 $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' . ($bootstrapCss ?: '') . '</style><style>' . $customCss . '</style><style>' . $layoutFix . '</style></head><body>' . $html . '</body></html>';

@@ -1,245 +1,229 @@
-body, html {
-    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
-    font-size: 12.5px;
-    background-color: #f7f9fc;
-    color: #212529;
+.guide-document,
+.guide-document * {
+    box-sizing: border-box;
+}
+
+.guide-document {
+    width: 100%;
+    min-height: 297mm;
     margin: 0;
-    padding: 0;
+    padding: 38px 45px 60px;
+    background: #fff;
+    color: #252a32;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    line-height: 1.28;
 }
 
-.invoice-page {
-    background: white;
-    max-width: 100%;
-    width: 100% !important;
-    margin: 30px auto;
-    margin-top: 0!important;
-    margin-bottom: 0!important;
-    border-radius: 10px;
-    padding: 24px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.06);
-    position: relative;
-}
-
-/* Cabeçalho */
-.inv-header {
-    border-bottom: 2px solid #dee2e6;
-    margin-bottom: 20px;
-}
-
-.inv-left h6,
-.inv-right h6 {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #1a1a1a;
-}
-
-.inv-left p,
-.inv-right p,
-.inv-left small,
-.inv-right small {
-    font-size: 0.85rem;
-    color: #555;
-}
-
-/* Meta */
-.inv-meta .title-line {
-    font-size: 1.0rem;
-    font-weight: 600;
-    color: #0d6efd;
-    margin-bottom: 8px;
-    display: block;
-    border-bottom: 1px solid #dee2e6;
-    padding-bottom: 4px;
-}
-
-.meta-row {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.meta-mini, .meta-obs {
-    flex: 1;
-    background: #f1f3f5;
-    border-radius: 8px;
-    padding: 10px 14px;
-}
-
-.meta-mini .head,
-.meta-obs .head {
-    font-size: 0.75rem;
-    color: #6c757d;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-}
-
-.meta-mini .vals,
-.meta-obs .vals {
-    font-size: 0.875rem;
-    font-weight: 500;
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 5px;
-}
-
-/* Itens */
-.items-grid {
-    margin-top: 18px;
-}
-
-.items-head {
-    background: #0d6efd;
-    color: white;
-    border-radius: 8px 8px 0 0;
-    font-weight: bold;
-}
-
-.items-row {
+.guide-document-header {
     display: grid;
-    grid-template-columns: 1fr 3fr 1fr 1fr 1fr 1fr 1fr;
-    padding: 8px 10px;
-    border-bottom: 1px solid #dee2e6;
-    background-color: white;
+    grid-template-columns: 63% 37%;
+    min-height: 245px;
+    position: static;
+    width: auto;
 }
 
-.items-head {
-    background-color: #0d6efd;
-    color: white;
+.guide-issuer,
+.guide-recipient {
+    min-width: 0;
 }
 
-.items-row:nth-child(even):not(.items-head) {
-    background: #f8f9fa;
+.guide-logo {
+    display: flex;
+    align-items: flex-start;
+    height: 72px;
 }
 
-.items-row span {
-    padding: 2px 4px;
-    word-break: break-word;
+.guide-logo img {
+    display: block;
+    max-width: 74px;
+    max-height: 70px;
+    object-fit: contain;
 }
 
-.right {
+.guide-issuer-details,
+.guide-recipient {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.guide-issuer-details {
+    gap: 1px;
+}
+
+.guide-issuer-details strong,
+.guide-recipient strong {
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.guide-recipient {
+    padding-top: 82px;
+}
+
+.guide-document-title {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    margin: 37px 0 13px;
+    padding: 0 16px;
+    border-radius: 5px;
+    background: #203f66;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.guide-document-meta {
+    display: grid;
+    gap: 5px;
+    margin-bottom: 18px;
+}
+
+.guide-document-meta > div {
+    display: grid;
+    grid-template-columns: 166px minmax(0, 1fr);
+    gap: 0;
+    min-height: 15px;
+}
+
+.guide-document-meta strong {
+    color: #34445c;
+    font-weight: 700;
+}
+
+.guide-items {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11px;
+}
+
+.guide-items th {
+    height: 31px;
+    padding: 0 7px;
+    background: #e8edf4;
+    color: #34445c;
+    font-weight: 700;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.guide-items th:first-child {
+    border-radius: 5px 0 0 5px;
+}
+
+.guide-items th:last-child {
+    border-radius: 0 5px 5px 0;
     text-align: right;
 }
 
-.center {
+.guide-items th:first-child,
+.guide-items td:first-child {
+    width: 13.5%;
+}
+
+.guide-items th:nth-child(2),
+.guide-items td:nth-child(2) {
+    width: 77.5%;
+}
+
+.guide-items th:last-child,
+.guide-items td:last-child {
+    width: 9%;
+}
+
+.guide-items td {
+    height: 41px;
+    padding: 7px;
+    border-bottom: 1px solid #e8edf4;
+    vertical-align: middle;
+}
+
+.guide-items td:last-child {
+    text-align: right;
+}
+
+.guide-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 110px;
+    margin-top: 26px;
+}
+
+.guide-signatures > div {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 110px;
+    padding-top: 64px;
+    border-radius: 5px;
+    background: #f5f7f9;
+    color: #34445c;
     text-align: center;
 }
 
-/* Totals */
-.totals-wrap {
-    margin-top: 22px;
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
+.guide-signatures > div::before {
+    position: absolute;
+    top: 55px;
+    right: 0;
+    left: 0;
+    border-top: 2px solid #c8d3e2;
+    content: "";
 }
 
-/* Assinaturas (Dompdf: evitar flex; usar table) */
-.signatures {
-    margin-top: 12px; /* menor pra reduzir risco de quebrar página */
-    background-color: #fff !important;
-    padding: 8px 0 0 0; /* cobre qualquer fundo vazando e mantém altura baixa */
-    clear: both;
-    overflow: hidden;
-}
-
-.signatures-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    background-color: #fff !important;
-}
-
-.signatures-table tr {
-    background-color: #fff !important;
-}
-
-.signatures-table td {
-    width: 50%;
-    text-align: center;
-    vertical-align: bottom;
-    padding: 0 12px;
-    background-color: #fff !important;
-}
-
-.signature-space {
-    height: 38px; /* espaço para assinar acima da linha */
-}
-
-.signature-blank {
-    display: inline-block;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 1rem;
-    letter-spacing: 0.5px;
-    color: #212529;
-    line-height: 1;
-    margin-bottom: 6px;
-    white-space: nowrap;
-}
-
-.signature-label {
-    font-size: 0.85rem;
-    color: #6c757d;
-}
-
-.tax-grid,
-.sum-grid {
-    flex: 1;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 12px;
-    background: #fff;
-    min-width: 280px;
-}
-
-.tax-head,
-.sum-head {
-    font-weight: bold;
-    font-size: 1rem;
-    border-bottom: 1px solid #dee2e6;
-    margin-bottom: 10px;
-    padding-bottom: 4px;
-}
-
-.tax-row,
-.sum-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 0.9rem;
-}
-
-.sum-row.sep {
-    border-top: 1px dashed #ced4da;
-    margin: 8px 0;
-}
-
-.sum-row.bold {
+.guide-signatures strong {
+    font-size: 11px;
     font-weight: 700;
 }
 
-/* Impressão */
+.guide-signatures span {
+    margin-top: 3px;
+    color: #7b8ba3;
+    font-size: 10px;
+}
+
+@media (max-width: 600px) {
+    .guide-document {
+        min-height: 0;
+        padding: 24px 20px;
+    }
+
+    .guide-document-header {
+        grid-template-columns: 63% 37%;
+        min-height: 210px;
+        gap: 12px;
+    }
+
+    .guide-recipient {
+        padding-top: 82px;
+    }
+
+    .guide-document-title {
+        margin-top: 20px;
+        font-size: 13px;
+    }
+
+    .guide-document-meta > div {
+        grid-template-columns: 130px minmax(0, 1fr);
+    }
+
+    .guide-signatures {
+        gap: 20px;
+    }
+}
+
 @media print {
-    body {
-        background: white;
-    }
-
-    .invoice-page {
-        box-shadow: none;
-        border: none;
-        margin: 0;
-        padding: 0;
-        width: 100%;
-    }
-
-    .meta-mini, .meta-obs, .tax-grid, .sum-grid {
-        background: white !important;
-        color: black !important;
-        border-color: #000 !important;
-    }
-
-    .items-row:nth-child(even):not(.items-head) {
-        background: white !important;
+    .guide-document {
+        min-height: 0;
+        padding: 38px 45px 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }

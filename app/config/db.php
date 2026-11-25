@@ -34,5 +34,27 @@ try {
         }
     }
 } catch (PDOException $e) {
+    if (defined('SUBSCRIPTION_CHARGE_API') && SUBSCRIPTION_CHARGE_API) {
+        $technicalMessage = $e->getMessage();
+        if (defined('DB_PASS') && DB_PASS !== '') {
+            $technicalMessage = str_replace(DB_PASS, '[redacted]', $technicalMessage);
+        }
+        error_log('[subscription_payment] ' . json_encode([
+            'order_id' => null,
+            'charge_id' => null,
+            'error_type' => 'DATABASE_CONNECTION_FAILED',
+            'timestamp' => date(DATE_ATOM),
+            'http_code' => 503,
+            'technical_message' => $technicalMessage,
+        ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Não foi possível criar a cobrança. Tente novamente mais tarde.',
+            'code' => 'DATABASE_UNAVAILABLE',
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
     die("Erro ao conectar ao banco de dados: " . $e->getMessage());
 }

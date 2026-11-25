@@ -437,7 +437,7 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                             </div>
                                         </div>
                                     </div>
-                                    <a href="insights.php" class="btn btn-sm btn-outline-primary flex-shrink-0">Analisar</a>
+                                    <a href="/insights" data-spa class="btn btn-sm btn-outline-primary flex-shrink-0">Analisar</a>
                                 </div>
 
                                 <div id="aiInsightsBody" class="mt-3 d-none">
@@ -713,7 +713,7 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                     <div class="card card-custom top-cards p-3 mb-4">
                                         <div class="d-flex justify-content-between mb-3">
                                             <h6 class="h-title"><i class="bi bi-file-earmark-text"></i> Últimas Facturas</h6>
-                                            <a href="list_invoices.php" class="small text-primary">Ver todas <i class="bi bi-chevron-right"></i></a>
+                                            <a href="/invoices" data-spa class="small text-primary">Ver todas <i class="bi bi-chevron-right"></i></a>
                                         </div>
 
                                         <div class="row g-3">
@@ -895,7 +895,7 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                         <div class="card card-custom p-3">
                                             <div class="d-flex justify-content-between">
                                                 <h6 class="fw-semibold mb-3 h-title"><i class="bi bi-list"></i>Férias Pendentes</h6>
-                                                <a href="vacations.php" class="small text-green">Ver todos <i class="bi bi-chevron-right"></i></a>
+                                                <a href="/vacations" data-spa class="small text-green">Ver todos <i class="bi bi-chevron-right"></i></a>
                                             </div>
 
                                             <div class="col-12" id="rh_pending_vacations_list"></div>
@@ -907,7 +907,7 @@ $dashboardCanStock = subscription_feature_allowed($dashboardPlan, 'stock');
                                         <div class="card card-custom p-3">
                                             <div class="d-flex justify-content-between">
                                                 <h6 class="fw-semibold mb-3 h-title"><i class="bi bi-list"></i>Funcionários com Mais Faltas</h6>
-                                                <a href="ponto.php" class="small text-green">Ver todos <i class="bi bi-chevron-right"></i></a>
+                                                <a href="/ponto" data-spa class="small text-green">Ver todos <i class="bi bi-chevron-right"></i></a>
                                             </div>
                                             <div class="col-12" id="rh_recent_absences_list"></div>
                                         </div>

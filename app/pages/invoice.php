@@ -552,9 +552,9 @@ try {
                     Nota de débito
                 </button>
 
-                <button type="button" class="dropdown-item d-none" id="btnNotaEntrega" aria-label="Emitir nota de entrega">
+                <button type="button" class="dropdown-item d-none" id="btnNotaEntrega" aria-label="Emitir guia de transporte">
                     <i class="bi bi-truck" aria-hidden="true"></i>
-                    Nota de entrega
+                    Guia de transporte
                 </button>
 
                 <button type="button" class="dropdown-item d-none" id="btnEditar" aria-label="Editar factura">

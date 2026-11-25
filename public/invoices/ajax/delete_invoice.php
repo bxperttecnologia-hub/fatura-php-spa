@@ -54,7 +54,7 @@ try {
         throw new Exception('Factura não encontrada.');
     }
 
-    // Bloquear se já existirem notas de entrega ligadas a esta factura
+    // Bloquear se já existirem guias de transporte ligadas a esta factura
     $stmt = $pdo->prepare("
         SELECT COUNT(*)
         FROM delivery_notes
@@ -64,7 +64,7 @@ try {
     $stmt->execute(['id' => $invoiceId, 'company_id' => $company_id]);
 
     if ((int)$stmt->fetchColumn() > 0) {
-        throw new Exception('Esta factura tem notas de entrega emitidas e não pode ser eliminada ou cancelada.');
+        throw new Exception('Esta factura tem guias de transporte emitidas e não pode ser eliminada ou cancelada.');
     }
 
     // Bloquear se já existirem notas de débito ligadas a esta factura

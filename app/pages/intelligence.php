@@ -409,7 +409,7 @@ $intelligenceAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], tru
                 <h1 class="intel-title">Agent IA e Intelligence não estão disponíveis no seu plano atual</h1>
                 <p class="intel-subtitle">O período de teste de 30 dias não inclui acesso ao Intelligence. Para desbloquear recomendações, alertas e ações automáticas, atualize para um plano XPERT ou ENTERPRISE.</p>
                 <div class="intel-actions">
-                    <a href="subscription.php" class="intel-btn primary text-decoration-none">Ver planos</a>
+                    <a href="/subscription" data-spa class="intel-btn primary text-decoration-none">Ver planos</a>
                 </div>
             </div>
         </section>
@@ -423,7 +423,7 @@ $intelligenceAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], tru
             <p class="intel-subtitle">Resumo executivo conectando saúde financeira, clientes em risco e ações prioritárias de negócio para o dia de hoje.</p>
             <div class="intel-actions">
                 <button class="intel-btn primary" type="button" id="refreshMyDayBtn"><i class="bi bi-arrow-clockwise me-1"></i> Atualizar</button>
-                <a class="intel-btn secondary" href="ai_actions.php"><i class="bi bi-lightning-charge me-1"></i> Ver ações da IA</a>
+                <a class="intel-btn secondary" href="/ai-actions" data-spa><i class="bi bi-lightning-charge me-1"></i> Ver ações da IA</a>
             </div>
         </div>
     </section>

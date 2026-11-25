@@ -11,7 +11,7 @@ use Dompdf\Options;
 $dnId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$dnId) {
-  die('Nota de entrega não encontrada.');
+  die('Guia de transporte não encontrada.');
 }
 
 /* ---------------- QUERY ---------------- */
@@ -51,7 +51,7 @@ $st->execute(['id' => $dnId]);
 $d = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$d) {
-  die('Nota de entrega não encontrada.');
+  die('Guia de transporte não encontrada.');
 }
 
 $st = $pdo->prepare("
@@ -223,7 +223,7 @@ bx_pdf_header($dompdf, [   // cabeçalho igual ao da fatura
   'company_lines' => ['Tel: ' . ($d['company_phone'] ?: '-'), 'E-mail: ' . ($d['company_email'] ?: '-'), 'Contribuinte: ' . ($d['company_nif'] ?: '-')],
   'client_name' => $d['client_name'],
   'client_lines' => array_filter([bx_join_address([$d['client_address']]), $clientPhone !== '' ? 'Tel: ' . $clientPhone : '']),
-  'title' => 'Nota de Entrega n.º ' . $d['serie'] . ' ' . $d['number'],
+  'title' => 'Guia de Transporte n.º ' . $d['serie'] . ' ' . $d['number'],
 ]);
 bx_pdf_footer($dompdf);   // rodapé igual ao da fatura
 

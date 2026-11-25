@@ -33,3 +33,7 @@ define('AGT_API_URL', bx_config('AGT_API_URL', 'http://localhost:4000'));
 define('AGT_API_KEY', bx_config('AGT_API_KEY'));
 define('AGT_KEY_SECRET', bx_config('AGT_KEY_SECRET'));
 define('AGT_ENVIRONMENT', bx_config('AGT_ENVIRONMENT', 'test'));
+define('CRM_LICENSE_SYNC_SECRET', bx_config('CRM_LICENSE_SYNC_SECRET'));
+define('CRM_LICENSE_VALIDATION_URL', bx_config('CRM_LICENSE_VALIDATION_URL'));
+define('CRM_ORDER_SYNC_URL', bx_config('CRM_ORDER_SYNC_URL'));
+define('CRM_ORDER_SYNC_SECRET', bx_config('CRM_ORDER_SYNC_SECRET'));

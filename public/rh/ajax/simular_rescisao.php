@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Fase 2, item 5 — Simula o cálculo de rescisão SEM gravar nada.
  * Usado pelo frontend para mostrar a estimativa antes de confirmar o

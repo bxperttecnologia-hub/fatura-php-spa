@@ -417,7 +417,7 @@ function carregarEstoques() {
                       </div>
 
                       <div class="d-flex gap-1">
-                          <a class="btn btn-sm btn-light text-info" href="stock_view.php?id=${d.id}">
+                          <a class="btn btn-sm btn-light text-info" href="/stock/view?id=${d.id}">
                               <i class="bi bi-eye"></i>
                           </a>
 
@@ -547,7 +547,7 @@ function abrirEstoque(id) {
 
   // Dá um pequeno tempo pra mostrar o loader antes do redirect
   setTimeout(() => {
-    window.location.href = `stock_view.php?id=${id}`;
+    window.location.href = `/stock/view?id=${id}`;
   }, 500);
 }
 

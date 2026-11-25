@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Histórico de avaliações de um funcionário — pensado para ser chamado a
  * partir da ficha do funcionário (employees.php, não incluído neste

@@ -18,16 +18,18 @@
         padding: 0;
     }
 
-    .form-control,
-    .form-select {
+    /* Só dentro deste modal: este ficheiro é carregado em todas as páginas e, sem âmbito,
+       o "padding: 0 12px" tirava o espaço da seta de todos os <select> da aplicação. */
+    #editItemModal .form-control,
+    #editItemModal .form-select {
         border-radius: 12px;
         padding: 0px 12px;
         border: 1px solid #e5e7eb;
         transition: all 0.2s ease;
     }
 
-    .form-control:focus,
-    .form-select:focus {
+    #editItemModal .form-control:focus,
+    #editItemModal .form-select:focus {
         border-color: #007abd;
         box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
     }

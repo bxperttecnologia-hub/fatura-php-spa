@@ -5,9 +5,10 @@ function subscription_plans(): array
 {
   return [
     'BXPERT_BAZA' => [
-      'name' => 'BXPERT BAZA',
-      'price' => 15900,
-      'invoice_limit_month' => 15,
+      'name' => 'BAZA',
+      'price' => 19900,
+      'prices' => [3 => 19900, 6 => 35820, 12 => 67656],
+      'invoice_limit_month' => 20,
       'user_limit' => 2,
       'company_limit' => 1,
       'rh_employee_limit' => 0,
@@ -21,9 +22,10 @@ function subscription_plans(): array
       ],
     ],
     'BXPERT_BASE' => [
-      'name' => 'BXPERT BASE',
-      'price' => 17900,
-      'invoice_limit_month' => 30,
+      'name' => 'BASE',
+      'price' => 26900,
+      'prices' => [3 => 26900, 6 => 48420, 12 => 91464],
+      'invoice_limit_month' => 50,
       'user_limit' => 3,
       'company_limit' => 2,
       'rh_employee_limit' => 5,
@@ -36,8 +38,9 @@ function subscription_plans(): array
     ],
     'XPERT' => [
       'name' => 'XPERT',
-      'price' => 23600,
-      'invoice_limit_month' => 70,
+      'price' => 38900,
+      'prices' => [3 => 38900, 6 => 70020, 12 => 132264],
+      'invoice_limit_month' => 150,
       'user_limit' => 4,
       'company_limit' => 5,
       'rh_employee_limit' => 15,
@@ -49,12 +52,13 @@ function subscription_plans(): array
       ],
     ],
     'ENTERPRISE' => [
-      'name' => 'ENTERPRISE',
-      'price' => 28000,
+      'name' => 'PRIME',
+      'price' => 57900,
+      'prices' => [3 => 57900, 6 => 104220, 12 => 196860],
       'invoice_limit_month' => null, // ilimitado
       'user_limit' => 10,
       'company_limit' => null, // ilimitado
-      'rh_employee_limit' => 70,
+      'rh_employee_limit' => 80,
       'stock_item_limit' => 300,
       'features' => [
         'rh' => true,
@@ -63,6 +67,33 @@ function subscription_plans(): array
       ],
     ],
   ];
+}
+
+function subscription_internal_plan_code(string $planCode): ?string
+{
+  return [
+    'BXPERT_BAZA' => 'BXPERT_BAZA',
+    'BAZA' => 'BXPERT_BAZA',
+    'BXPERT_BASE' => 'BXPERT_BASE',
+    'BASE' => 'BXPERT_BASE',
+    'XPERT' => 'XPERT',
+    'ENTERPRISE' => 'ENTERPRISE',
+    'PRIME' => 'ENTERPRISE',
+  ][$planCode] ?? null;
+}
+
+function subscription_erp_plan_code(string $planCode): ?string
+{
+  $internalCode = subscription_internal_plan_code($planCode);
+  if ($internalCode === null) {
+    return null;
+  }
+  return [
+    'BXPERT_BAZA' => 'BAZA',
+    'BXPERT_BASE' => 'BASE',
+    'XPERT' => 'XPERT',
+    'ENTERPRISE' => 'PRIME',
+  ][$internalCode];
 }
 
 function subscription_owned_company_count(PDO $pdo, int $user_id): int
@@ -79,84 +110,46 @@ function subscription_get_company(PDO $pdo, int $company_id): array
   $stmt = $pdo->prepare("SELECT id, plan_code, plan_started_at, plan_expires_at, plan_status, is_active FROM companies WHERE id = ? LIMIT 1");
   $stmt->execute([$company_id]);
   $c = $stmt->fetch(PDO::FETCH_ASSOC);
-  if (
-    $c && !empty($c['plan_expires_at'])
-    && (string)$c['plan_expires_at'] < date('Y-m-d')
-    && subscription_activate_scheduled_plan($pdo, $company_id)
-  ) {
-    $stmt->execute([$company_id]);
-    $c = $stmt->fetch(PDO::FETCH_ASSOC);
-  }
   return $c ?: [];
 }
 
-/**
- * Planos pagos que ficaram "por activar" (mudança para um plano inferior): começam quando o
- * plano actual acaba. Activa o mais antigo se o plano actual já terminou.
- * Devolve true se activou algum plano.
- */
-function subscription_activate_scheduled_plan(PDO $pdo, int $company_id): bool
-{
-  if ($company_id <= 0 || $pdo->inTransaction()) {
-    return false;
-  }
-  try {
-    $pdo->beginTransaction();
-    $companyStmt = $pdo->prepare('SELECT plan_expires_at FROM companies WHERE id = ? FOR UPDATE');
-    $companyStmt->execute([$company_id]);
-    $expires = $companyStmt->fetchColumn();
-    $today = date('Y-m-d');
-    if ($expires === false || ($expires !== null && (string)$expires >= $today)) {
-      $pdo->commit();
-      return false;
-    }
-
-    $orderStmt = $pdo->prepare(
-      "SELECT id, plan_code, period_months FROM subscription_orders
-       WHERE company_id = ? AND status = 'paid' AND operation = 'downgrade' AND activated_at IS NULL
-       ORDER BY paid_at ASC, id ASC LIMIT 1 FOR UPDATE"
-    );
-    $orderStmt->execute([$company_id]);
-    $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
-    $plans = subscription_plans();
-    if (!$order || !isset($plans[$order['plan_code']])) {
-      $pdo->commit();
-      return false;
-    }
-
-    $months = max(1, (int)$order['period_months']);
-    $newExpiry = date('Y-m-d', strtotime($today . " +{$months} months"));
-    $pdo->prepare(
-      "UPDATE companies
-       SET plan_code = ?, plan_started_at = ?, plan_expires_at = ?, plan_status = 'active', is_active = 1
-       WHERE id = ?"
-    )->execute([$order['plan_code'], $today, $newExpiry, $company_id]);
-    $pdo->prepare('UPDATE subscription_orders SET activated_at = NOW() WHERE id = ?')
-      ->execute([(int)$order['id']]);
-    $pdo->commit();
-    return true;
-  } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-      $pdo->rollBack();
-    }
-    error_log('[subscription] Could not activate scheduled plan for company ' . $company_id . ': ' . $e->getMessage());
-    return false;
-  }
-}
-
-/** Planos pagos à espera de activação (por ordem de activação). */
-function subscription_scheduled_plans(PDO $pdo, int $company_id): array
+/** Pagamentos confirmados que ainda aguardam emissão ou sincronização da licença CRM. */
+function subscription_orders_awaiting_crm(PDO $pdo, int $company_id): array
 {
   try {
     $stmt = $pdo->prepare(
-      "SELECT id, plan_code, period_months, amount, paid_at FROM subscription_orders
-       WHERE company_id = ? AND status = 'paid' AND operation = 'downgrade' AND activated_at IS NULL
-       ORDER BY paid_at ASC, id ASC"
+      "SELECT so.id, so.plan_code, so.period_months, so.amount, so.paid_at, so.subscription_status,
+              (SELECT a.outcome
+               FROM subscription_license_sync_attempts a
+               WHERE a.event_id = (
+                 SELECT e.event_id FROM subscription_license_sync_events e
+                 WHERE e.source_order_id = so.id ORDER BY e.received_at DESC, e.id DESC LIMIT 1
+               )
+               ORDER BY a.attempted_at DESC, a.id DESC LIMIT 1) AS sync_result,
+              (SELECT a.reason
+               FROM subscription_license_sync_attempts a
+               WHERE a.event_id = (
+                 SELECT e.event_id FROM subscription_license_sync_events e
+                 WHERE e.source_order_id = so.id ORDER BY e.received_at DESC, e.id DESC LIMIT 1
+               )
+               ORDER BY a.attempted_at DESC, a.id DESC LIMIT 1) AS sync_reason,
+              (SELECT a.attempted_at
+               FROM subscription_license_sync_attempts a
+               WHERE a.event_id = (
+                 SELECT e.event_id FROM subscription_license_sync_events e
+                 WHERE e.source_order_id = so.id ORDER BY e.received_at DESC, e.id DESC LIMIT 1
+               )
+               ORDER BY a.attempted_at DESC, a.id DESC LIMIT 1) AS last_sync_at
+       FROM subscription_orders so
+       WHERE company_id = ? AND status = 'paid' AND paid_at IS NOT NULL
+         AND subscription_status IN ('pending','awaiting_license','awaiting_sync','license_issued','sync_failed','license_rejected')
+       ORDER BY paid_at ASC, so.id ASC"
     );
     $stmt->execute([$company_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   } catch (Throwable $e) {
-    return [];
+    error_log('[subscription] Could not load CRM license sync status: ' . $e->getMessage());
+    throw $e;
   }
 }
 
@@ -173,11 +166,8 @@ function subscription_get_plan_code(PDO $pdo, int $company_id): string
   }
 
   $company = subscription_get_company($pdo, $company_id);
-  $planCode = $company['plan_code'] ?? 'BXPERT_BAZA';
-
-  $plans = subscription_plans();
-
-  return isset($plans[$planCode]) ? $planCode : 'BXPERT_BAZA';
+  $planCode = subscription_internal_plan_code((string)($company['plan_code'] ?? ''));
+  return $planCode ?? 'BXPERT_BAZA';
 }
 
 /**
@@ -258,6 +248,34 @@ function subscription_assert_active(PDO $pdo, int $company_id): void
     $stmt->execute([$company_id]);
     throw new Exception('Plano expirado. Renove para continuar emitindo documentos.');
   }
+  if (($c['plan_status'] ?? null) !== 'active') {
+    throw new Exception('A subscrição não está activa. Aguarde a validação da licença pelo BXPERT CRM.');
+  }
+
+  try {
+    $stmt = $pdo->prepare(
+      "SELECT 1
+       FROM subscriptions s
+       INNER JOIN subscription_license_links l ON l.subscription_id = s.id
+       WHERE s.company_id = ? AND s.status = 'active'
+         AND s.end_date > UTC_TIMESTAMP()
+         AND l.company_id = s.company_id AND l.license_status = 'active'
+         AND (l.start_date IS NULL OR l.start_date <= UTC_TIMESTAMP())
+         AND (l.expires_at IS NULL OR l.expires_at > UTC_TIMESTAMP())
+         AND l.plan_code = ?
+       LIMIT 1"
+    );
+    $stmt->execute([
+      $company_id,
+      subscription_erp_plan_code((string)($c['plan_code'] ?? '')) ?? '',
+    ]);
+    if (!$stmt->fetchColumn()) {
+      throw new Exception('Não existe uma licença BXPERT CRM sincronizada e válida para esta subscrição.');
+    }
+  } catch (PDOException $e) {
+    error_log('[subscription] Could not validate CRM license for company ' . $company_id . ': ' . $e->getMessage());
+    throw new RuntimeException('Não foi possível validar a licença BXPERT CRM. O acesso foi bloqueado.');
+  }
 }
 
 function subscription_feature_allowed(array $plan, string $feature): bool
@@ -271,7 +289,7 @@ function subscription_require_feature(PDO $pdo, int $company_id, string $feature
   subscription_assert_active($pdo, $company_id);
 
   $c = subscription_get_company($pdo, $company_id);
-  $planCode = $c['plan_code'] ?? 'BXPERT_BAZA';
+  $planCode = subscription_internal_plan_code((string)($c['plan_code'] ?? '')) ?? 'BXPERT_BAZA';
   $plans = subscription_plans();
   $plan = $plans[$planCode] ?? $plans['BXPERT_BAZA'];
 
@@ -282,8 +300,9 @@ function subscription_require_feature(PDO $pdo, int $company_id, string $feature
 
 function subscription_check_limit(PDO $pdo, int $company_id, string $kind): void
 {
+  subscription_assert_active($pdo, $company_id);
   $c = subscription_get_company($pdo, $company_id);
-  $planCode = $c['plan_code'] ?? 'BXPERT_BAZA';
+  $planCode = subscription_internal_plan_code((string)($c['plan_code'] ?? '')) ?? 'BXPERT_BAZA';
   $plans = subscription_plans();
   $plan = $plans[$planCode] ?? $plans['BXPERT_BAZA'];
   $usage = subscription_usage($pdo, $company_id);

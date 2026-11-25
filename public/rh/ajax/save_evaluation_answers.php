@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * O avaliador pontua cada critério (0 a 100, por exemplo — a escala fica
  * ao critério da empresa) e o sistema calcula final_score ponderado pelos

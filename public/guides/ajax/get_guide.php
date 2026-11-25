@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../app/helpers/require_login.php'; // exige sessão iniciada (401/403 em JSON)
-require_once '../../../app/config/db.php';
+require_once __DIR__ . '/../../../../app/helpers/require_login.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $guideId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -14,6 +14,9 @@ $sql = "
 SELECT
   g.id,
   g.series,
+  g.number,
+  g.status,
+  g.transport_status,
   g.document_date,
   g.cargo_date,
   g.final_total,
@@ -31,11 +34,11 @@ FROM guides g
 JOIN contact c      ON c.id = g.contact_id
 JOIN companies comp ON comp.id = c.company_id
 LEFT JOIN currencies cr ON cr.iso_code COLLATE utf8mb4_general_ci = g.currency COLLATE utf8mb4_general_ci
-WHERE g.id = :id
+WHERE g.id = :id AND g.company_id = :company_id
 LIMIT 1";
 
 $stmt = $pdo->prepare($sql);
-$stmt->execute([':id' => $guideId]);
+$stmt->execute([':id' => $guideId, ':company_id' => session_company_id()]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if(!$row){

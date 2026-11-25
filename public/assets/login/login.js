@@ -23,7 +23,7 @@ $(document).ready(function () {
       dataType: "json",
       success: function (response) {
         if (response.success) {
-          window.location.href = "/dashboard";
+          window.location.href = "/";
         } else {
           Swal.fire({
             icon: "error",

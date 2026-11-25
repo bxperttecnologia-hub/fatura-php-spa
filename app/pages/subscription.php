@@ -24,26 +24,15 @@ require_once '../app/views/layout_creation.php';
 
 $c = subscription_get_company($pdo, $company_id);
 $plans = subscription_plans();
-$planCode = $c['plan_code'] ?? 'BXPERT_BAZA';
+$planCode = subscription_internal_plan_code((string)($c['plan_code'] ?? '')) ?? 'BXPERT_BAZA';
 $plan = $plans[$planCode] ?? $plans['BXPERT_BAZA'];
 $usage = subscription_usage($pdo, $company_id);
 $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);
 $planRanks = array_flip(array_keys($plans));
 $currentRank = $planRanks[$planCode] ?? 0;
 
-// Planos inferiores já pagos que esperam o fim do plano actual ("por activar"),
-// com a data em que cada um começa (um a seguir ao outro).
-$scheduled = subscription_scheduled_plans($pdo, $company_id);
-$nextStartTs = !empty($c['plan_expires_at'])
-  ? max(strtotime(date('Y-m-d')), strtotime($c['plan_expires_at'] . ' +1 day'))
-  : strtotime(date('Y-m-d'));
-foreach ($scheduled as &$sp) {
-  $sp['starts_at'] = date('Y-m-d', $nextStartTs);
-  $nextStartTs = strtotime($sp['starts_at'] . ' +' . max(1, (int)$sp['period_months']) . ' months');
-  $sp['ends_at'] = date('Y-m-d', $nextStartTs);
-}
-unset($sp);
-$nextStartLabel = date('d/m/Y', $nextStartTs);
+// Pagamentos confirmados ainda à espera da emissão/sincronização da licença CRM.
+$awaitingCrmOrders = subscription_orders_awaiting_crm($pdo, $company_id);
 
 // Token CSRF exigido pelos endpoints de pagamento (cabeçalho X-CSRF-Token).
 if (empty($_SESSION['csrf'])) {
@@ -376,23 +365,38 @@ if (empty($_SESSION['csrf'])) {
 
         </div>
 
-        <?php if ($scheduled): ?>
-          <!-- PLANOS POR ATIVAR -->
+        <?php if ($awaitingCrmOrders): ?>
+          <!-- PAGAMENTOS À ESPERA DO CRM -->
           <hr class="my-4">
-          <h5 class="mb-1 h-title"><i class="bi bi-hourglass-split"></i> Planos por ativar</h5>
-          <small class="text-muted d-block mb-3">Já pagos. Cada um começa automaticamente quando terminar o anterior.</small>
+          <h5 class="mb-1 h-title"><i class="bi bi-hourglass-split"></i> Pagamentos à espera do CRM</h5>
+          <small class="text-muted d-block mb-3">O plano e a validade só mudam depois de o CRM emitir a licença e o ERP a validar.</small>
           <div class="row g-3">
-            <?php foreach ($scheduled as $sp): $spPlan = $plans[$sp['plan_code']] ?? ['name' => $sp['plan_code']]; ?>
+            <?php foreach ($awaitingCrmOrders as $sp):
+              $orderPlanCode = subscription_internal_plan_code((string)$sp['plan_code']) ?? (string)$sp['plan_code'];
+              $spPlan = $plans[$orderPlanCode] ?? ['name' => $sp['plan_code']];
+              $syncLabels = [
+                'pending' => 'A aguardar validação da licença',
+                'awaiting_license' => 'A aguardar emissão da licença',
+                'awaiting_sync' => 'A aguardar sincronização',
+                'license_issued' => 'Licença emitida · aguarda activação',
+                'sync_failed' => 'Sincronização falhada',
+                'license_rejected' => 'Licença rejeitada',
+              ];
+              $syncLabel = $syncLabels[$sp['subscription_status']] ?? 'Estado desconhecido';
+              $syncBadge = in_array($sp['subscription_status'], ['sync_failed', 'license_rejected'], true)
+                ? 'danger' : 'info text-dark';
+            ?>
               <div class="col-md-4">
                 <div class="border rounded-4 p-3 h-100">
                   <div class="d-flex justify-content-between align-items-start gap-2">
                     <h6 class="fw-bold mb-1"><?= htmlspecialchars($spPlan['name']) ?></h6>
-                    <span class="badge bg-info text-dark">Por ativar</span>
+                    <span class="badge bg-<?= htmlspecialchars($syncBadge) ?>"><?= htmlspecialchars($syncLabel) ?></span>
                   </div>
                   <div class="small text-muted">
-                    Início: <strong><?= date('d/m/Y', strtotime($sp['starts_at'])) ?></strong><br>
-                    Vencimento: <strong><?= date('d/m/Y', strtotime($sp['ends_at'])) ?></strong><br>
+                    Pedido #<?= (int)$sp['id'] ?><br>
                     Pago: <?= number_format((float)$sp['amount'], 2, ',', '.') ?> Kz
+                    <?php if (!empty($sp['last_sync_at'])): ?><br>Última tentativa: <?= htmlspecialchars((string)$sp['last_sync_at']) ?><?php endif; ?>
+                    <?php if (!empty($sp['sync_reason'])): ?><br>Detalhe: <?= htmlspecialchars((string)$sp['sync_reason']) ?><?php endif; ?>
                   </div>
                 </div>
               </div>
@@ -470,7 +474,11 @@ if (empty($_SESSION['csrf'])) {
               <div class="col-md-4">
                 <div class="border rounded-4 p-3 h-100 d-flex flex-column <?= $code === $planCode ? 'border-primary border-2' : '' ?>">
                   <h6 class="fw-bold"><?= htmlspecialchars($p['name']) ?></h6>
-                  <div class="fs-5 fw-bold mb-2" data-price="<?= (float)$p['price'] ?>"><?= number_format((float)$p['price'], 0, ',', '.') ?> Kz</div>
+                  <div class="small fw-semibold mb-2">
+                    <?php foreach ($p['prices'] as $months => $price): ?>
+                      <div><?= (int)$months ?> meses: <?= number_format((float)$price, 0, ',', '.') ?> Kz</div>
+                    <?php endforeach; ?>
+                  </div>
                   <ul class="small text-muted flex-grow-1 ps-3 mb-3">
                     <li>Faturas/mês: <?= $p['invoice_limit_month'] ?? '∞' ?></li>
                     <li>Utilizadores: <?= $p['user_limit'] ?? '∞' ?></li>
@@ -480,17 +488,17 @@ if (empty($_SESSION['csrf'])) {
                   <?php if ($code === $planCode): ?>
                     <button class="btn btn-outline-secondary btn-sm" disabled>Plano atual</button>
                   <?php elseif (($planRanks[$code] ?? 0) < $currentRank): ?>
-                    <button class="btn btn-outline-primary btn-sm btnChoosePlan" data-code="<?= $code ?>" data-starts="<?= $nextStartLabel ?>">
+                    <button class="btn btn-outline-primary btn-sm btnChoosePlan" data-code="<?= $code ?>">
                       Selecionar
                     </button>
                     <small class="text-muted d-block mt-2" style="font-size:.75rem">
-                      Plano inferior: fica <b>por ativar</b> e começa a <?= $nextStartLabel ?>, quando terminar o plano atual.
+                      A renovação preserva os dias restantes; a alteração só se aplica após emissão e validação da licença pelo CRM.
                     </small>
                   <?php else: ?>
                     <button class="btn btn-primary btn-sm btnChoosePlan" data-code="<?= $code ?>">
                       Selecionar
                     </button>
-                    <small class="text-muted d-block mt-2" style="font-size:.75rem">Começa assim que o pagamento for confirmado.</small>
+                    <small class="text-muted d-block mt-2" style="font-size:.75rem">A actualização só ocorre quando o CRM emitir e o ERP validar a licença.</small>
                   <?php endif; ?>
                 </div>
               </div>
@@ -514,8 +522,14 @@ if (empty($_SESSION['csrf'])) {
             Plano: <strong id="payPlanLabel"><?= htmlspecialchars($plan['name']) ?></strong>
             — <strong id="payAmountLabel"><?= number_format($plan['price'], 2, ',', '.') ?> Kz</strong>
           </p>
-          <div class="alert alert-info py-2 small" id="payScheduledNote" style="display:none"></div>
-
+          <div class="mb-3">
+            <label class="form-label" for="payPeriod">Período</label>
+            <select class="form-select" id="payPeriod">
+              <option value="3">Trimestral — 3 meses</option>
+              <option value="6">Semestral — 6 meses</option>
+              <option value="12">Anual — 12 meses</option>
+            </select>
+          </div>
           <label class="form-label">Escolha o método de pagamento</label>
           <div class="d-grid gap-2 mb-3" id="payMethodList">
             <label class="border rounded-3 p-3 d-flex gap-2 align-items-start" style="cursor:pointer">
@@ -557,8 +571,12 @@ if (empty($_SESSION['csrf'])) {
   const CSRF_TOKEN = <?= json_encode((string)$_SESSION['csrf']) ?>;
   const CURRENT_PLAN_CODE = <?= json_encode($planCode) ?>;
   const CURRENT_PLAN_NAME = <?= json_encode($plan['name']) ?>;
-  const CURRENT_PLAN_PRICE = <?= (float)$plan['price'] ?>;
+  const PLAN_PRICES = <?= json_encode(
+    array_map(static fn(array $item): array => $item['prices'], $plans),
+    JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
+  ) ?>;
   let SELECTED_PLAN_CODE = CURRENT_PLAN_CODE;
+  let SELECTED_PERIOD_MONTHS = 3;
 
   $.ajaxSetup({
     headers: {
@@ -622,12 +640,28 @@ if (empty($_SESSION['csrf'])) {
     rows.forEach(r => {
       const st = String(r.status || '-');
       const gw = String(r.gateway_status || '-');
+      const licenseSync = String(r.subscription_status || '');
 
       let stLabel = st;
       let badge = 'secondary';
-      if (st === 'paid' && Number(r.awaiting_activation) === 1) {
-        stLabel = 'Pago · por ativar';
+      if (st === 'paid' && Number(r.awaiting_license) === 1) {
+        stLabel = 'Pago · aguarda licença';
         badge = 'info text-dark';
+      } else if (st === 'paid' && licenseSync === 'awaiting_sync') {
+        stLabel = 'Licença emitida · a aguardar sincronização';
+        badge = 'info text-dark';
+      } else if (st === 'paid' && licenseSync === 'license_issued') {
+        stLabel = 'Licença emitida · aguarda activação';
+        badge = 'info text-dark';
+      } else if (st === 'paid' && licenseSync === 'sync_failed') {
+        stLabel = 'Sincronização falhada';
+        badge = 'danger';
+      } else if (st === 'paid' && licenseSync === 'license_rejected') {
+        stLabel = 'Licença rejeitada';
+        badge = 'danger';
+      } else if (st === 'paid' && licenseSync === 'active') {
+        stLabel = 'Subscrição activa';
+        badge = 'success';
       } else if (st === 'paid') {
         stLabel = 'Pago';
         badge = 'success';
@@ -665,6 +699,15 @@ if (empty($_SESSION['csrf'])) {
       const reconcileBtn = Number(r.can_reconcile) === 1 ?
         `<div><button class="btn btn-link btn-sm p-0 btnReconcile" data-order="${Number(r.id)}">Associar ID</button></div>` :
         '';
+      const crmSync = st === 'paid' && r.crm_order_sync_status
+        ? `<div class="small ${r.crm_order_sync_error ? 'text-danger' : 'text-muted'}">
+             ${r.crm_order_sync_error ? 'Sincronização CRM falhada' : (r.crm_order_sync_status === 'confirmed' ? 'Pedido recebido pelo CRM' : 'A aguardar sincronização CRM')}
+             ${r.crm_order_sync_attempted_at ? `<div>Última tentativa: ${esc(formatDt(r.crm_order_sync_attempted_at))}</div>` : ''}
+             ${r.crm_order_sync_error ? `<div>${esc(r.crm_order_sync_error)}</div>` : ''}
+             ${r.crm_order_sync_status !== 'confirmed' && Number(r.can_retry_crm_sync) === 1
+               ? `<button class="btn btn-link btn-sm p-0 btnRetryCrmSync" data-order="${Number(r.id)}">Reprocessar CRM</button>` : ''}
+           </div>`
+        : '';
       const cancelBtn = Number(r.can_cancel) === 1 ?
         `<div><button class="btn btn-link btn-sm p-0 text-danger btnCancelOrder" data-order="${Number(r.id)}">Cancelar</button></div>` :
         '';
@@ -676,7 +719,7 @@ if (empty($_SESSION['csrf'])) {
         <td>${esc(r.payment_method || '-')}</td>
         <td>${refTxt}</td>
         <td>${Number(r.amount || 0).toFixed(2)} AOA</td>
-        <td><span class="badge bg-${badge}">${esc(stLabel)}</span>${gwTxt}${reconcileBtn}${cancelBtn}</td>
+        <td><span class="badge bg-${badge}">${esc(stLabel)}</span>${gwTxt}${reconcileBtn}${crmSync}${cancelBtn}</td>
         <td style="font-family:monospace; font-size:0.85rem;">${esc(r.merchant_transaction_id || '-')}</td>
         <td>${esc(formatDt(r.created_at))}</td>
         <td>${esc(formatDt(r.paid_at))}</td>
@@ -740,8 +783,8 @@ if (empty($_SESSION['csrf'])) {
       .done(resp => {
         if (resp && resp.success && (resp.paid || 0) > 0 && !paidNotified) {
           paidNotified = true;
-          Swal.fire('Pagamento confirmado', 'O pagamento foi confirmado. A subscrição foi actualizada (um plano inferior fica em "Planos por ativar").', 'success')
-            .then(() => location.reload());
+              Swal.fire('Pagamento confirmado', 'O pagamento foi confirmado. A subscrição aguarda agora a emissão e validação da licença pelo BXPERT CRM.', 'success')
+                .then(() => loadOrders());
         }
       });
   }
@@ -784,18 +827,29 @@ if (empty($_SESSION['csrf'])) {
     return $('input[name="payMethod"]:checked').val() || 'GPO';
   }
 
-  function openPayModal(planCode, planName, price, startsAt) {
-    SELECTED_PLAN_CODE = planCode;
-    $('#payScheduledNote')
-      .html(startsAt ? 'Este plano é inferior ao atual: depois de pago fica <b>por ativar</b> e começa a <b>' + esc(startsAt) + '</b>, quando terminar o plano atual.' : '')
-      .toggle(!!startsAt);
-    $('#payPlanLabel').text(planName);
+  function updatePayAmount() {
+    SELECTED_PERIOD_MONTHS = Number($('#payPeriod').val());
+    const price = PLAN_PRICES[SELECTED_PLAN_CODE]?.[SELECTED_PERIOD_MONTHS];
+    if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
+      $('#btnConfirmPay').prop('disabled', true);
+      return;
+    }
+    $('#btnConfirmPay').prop('disabled', false);
     $('#payAmountLabel').text(fmtKz(price));
+  }
+
+  function openPayModal(planCode, planName, periodMonths = 3) {
+    SELECTED_PLAN_CODE = planCode;
+    $('#payPlanLabel').text(planName);
+    $('#payPeriod').val(String(periodMonths));
+    updatePayAmount();
     $('input[name="payMethod"][value="GPO"]').prop('checked', true).trigger('change');
     $('#payPhone').val('');
-    $('#btnConfirmPay').prop('disabled', false).text('Continuar');
+    $('#btnConfirmPay').text('Continuar');
     payModal.show();
   }
+
+  $('#payPeriod').on('change', updatePayAmount);
 
   $(document).on('change', 'input[name="payMethod"]', function() {
     $('#boxPhone').toggle(selectedMethod() === 'GPO');
@@ -803,21 +857,19 @@ if (empty($_SESSION['csrf'])) {
 
   // Renovar = sempre o plano ACTUAL (mesmo que antes tenha aberto "Alterar plano").
   $('#btnRenew').on('click', function() {
-    openPayModal(CURRENT_PLAN_CODE, CURRENT_PLAN_NAME, CURRENT_PLAN_PRICE);
+    openPayModal(CURRENT_PLAN_CODE, CURRENT_PLAN_NAME);
   });
 
   $(document).on('click', '.btnChoosePlan', function() {
     const $card = $(this).closest('.col-md-4');
     const code = $(this).data('code');
     const name = $card.find('h6').text();
-    const price = parseFloat($card.find('[data-price]').data('price'));
-    const startsAt = $(this).data('starts') || '';
 
     const plansEl = document.getElementById('modalPlans');
     const plansInst = plansEl ? bootstrap.Modal.getInstance(plansEl) : null;
     if (plansInst) plansInst.hide();
 
-    setTimeout(() => openPayModal(code, name, price, startsAt), 300);
+    setTimeout(() => openPayModal(code, name), 300);
   });
 
   function showChargeResult(resp) {
@@ -833,7 +885,7 @@ if (empty($_SESSION['csrf'])) {
           '<div><b>Referência:</b> <span style="font-family:monospace">' + esc(ref.referenceNumber) + '</span></div>' +
           '<div><b>Valor:</b> ' + esc(fmtKz($('#payAmountLabel').text().replace(/[^\d,]/g, '').replace(',', '.'))) + '</div>' +
           (ref.dueDate ? '<div><b>Válida até:</b> ' + esc(formatDue(ref.dueDate)) + '</div>' : '') +
-          '<hr><small>Pague no ATM, Multicaixa Express ou Internet Banking. A subscrição é actualizada automaticamente após a confirmação do pagamento.</small></div>' :
+          '<hr><small>Pague no ATM, Multicaixa Express ou Internet Banking.</small></div>' :
           '<div class="text-start">A referência ainda está a ser gerada. Aparecerá no histórico de pagamentos em instantes (use “Atualizar status”).</div>',
         confirmButtonText: 'Ok'
       });
@@ -841,7 +893,7 @@ if (empty($_SESSION['csrf'])) {
       Swal.fire({
         title: 'Aprove o pagamento no telemóvel',
         icon: 'info',
-        html: '<div class="text-start">Enviámos o pedido para a app <b>Multicaixa Express</b>. Abra a app, confirme o pagamento e introduza o seu PIN.<hr><small>A subscrição é actualizada automaticamente assim que o pagamento for confirmado.</small></div>',
+        html: '<div class="text-start">Enviámos o pedido para a app <b>Multicaixa Express</b>. Abra a app, confirme o pagamento e introduza o seu PIN.</div>',
         confirmButtonText: 'Ok'
       });
     }
@@ -863,7 +915,8 @@ if (empty($_SESSION['csrf'])) {
         company_id: COMPANY_ID,
         method,
         phone,
-        plan_code: SELECTED_PLAN_CODE
+        plan_code: SELECTED_PLAN_CODE,
+        period_months: SELECTED_PERIOD_MONTHS
       }, null, 'json')
       .done(resp => {
         $btn.prop('disabled', false).text('Continuar');
@@ -906,6 +959,23 @@ if (empty($_SESSION['csrf'])) {
         .fail(xhr => Swal.fire('Erro', ajaxMessage(xhr, 'Não foi possível cancelar o pagamento.'), 'error')
           .then(() => loadOrders()));
     });
+  });
+
+  $(document).on('click', '.btnRetryCrmSync', function() {
+    const orderId = Number($(this).data('order'));
+    if (!orderId) return;
+    $.post('subscription/ajax/retry_crm_sync.php', { order_id: orderId }, null, 'json')
+      .done(resp => Swal.fire(
+        resp?.success ? 'Sincronização confirmada' : 'Sincronização pendente',
+        resp?.message || 'O estado da sincronização foi actualizado.',
+        resp?.success ? 'success' : 'info'
+      ))
+      .fail(xhr => Swal.fire(
+        'Sincronização falhada',
+        xhr.responseJSON?.message || 'Não foi possível contactar o CRM. O evento será repetido automaticamente.',
+        'error'
+      ))
+      .always(() => loadOrders(currentPage));
   });
 
   $(document).on('click', '.btnReconcile', function() {

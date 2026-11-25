@@ -1,49 +1,29 @@
 <?php
-require_once '../../../app/config/db.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+/** Funcionários activos para lançar folha num mês, com indicação de quem já tem folha. GET mes=YYYY-MM */
+require_once __DIR__ . '/../lib/rh_guard.php';
+
+$month = (string)($_GET['mes'] ?? '');
+if (!rh_valid_month($month)) {
+    rh_json(['success' => false, 'message' => 'Mês de referência obrigatório.'], 400);
 }
+// Cargo por position_id (o nome do cargo em texto pode estar vazio: o cargo já não é obrigatório)
+$stmt = $pdo->prepare("SELECT e.id, e.name, COALESCE(p.name, NULLIF(e.position, '')) AS position, e.salary_base, d.name AS department
+                       FROM employees e
+                       LEFT JOIN positions p ON p.id = e.position_id AND p.company_id = e.company_id
+                       LEFT JOIN departments d ON d.id = e.department_id AND d.company_id = e.company_id
+                       WHERE e.company_id = ? AND e.status = 'ativo' AND (e.admission_date IS NULL OR e.admission_date <= LAST_DAY(?))
+                       ORDER BY e.name");
+$stmt->execute([$company_id, "$month-01"]);
+$stmtP = $pdo->prepare('SELECT employee_id, status FROM payroll WHERE company_id = ? AND reference_month = ?');
+$stmtP->execute([$company_id, $month]);
+$already = $stmtP->fetchAll(PDO::FETCH_KEY_PAIR);
 
-$company_id       = (int)($_SESSION['user']['company_id'] ?? 0);
-$reference_month  = $_GET['mes'] ?? '';
-
-if (!$company_id || !$reference_month) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Mês de referência obrigatório.']);
-    exit;
-}
-
-// Colaboradores ativos, com cargo associado (necessário para calcular a folha)
-$stmt = $pdo->prepare("
-    SELECT e.id, e.name, e.position, e.salary_base
-    FROM employees e
-    JOIN positions p ON p.name = e.position
-    WHERE e.company_id = ? AND e.status = 'ativo'
-    ORDER BY e.name ASC
-");
-$stmt->execute([$company_id]);
-$employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Quem já tem folha lançada neste mês (para avisar e não duplicar por engano)
-$stmtP = $pdo->prepare("
-    SELECT employee_id, status FROM payroll
-    WHERE company_id = ? AND reference_month = ?
-");
-$stmtP->execute([$company_id, $reference_month]);
-$already = [];
-foreach ($stmtP->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $already[$row['employee_id']] = $row['status'];
-}
-
-$data = array_map(function ($e) use ($already) {
-    return [
-        'id'                => (int)$e['id'],
-        'name'              => $e['name'],
-        'position'          => $e['position'],
-        'salary_base'       => (float)$e['salary_base'],
-        'already_issued'    => isset($already[$e['id']]),
-        'existing_status'   => $already[$e['id']] ?? null,
-    ];
-}, $employees);
-
-echo json_encode(['success' => true, 'data' => $data]);
+rh_json(['success' => true, 'data' => array_map(fn($e) => [
+    'id'              => (int)$e['id'],
+    'name'            => $e['name'],
+    'position'        => $e['position'],
+    'department'      => $e['department'],
+    'salary_base'     => (float)$e['salary_base'],
+    'already_issued'  => isset($already[$e['id']]),
+    'existing_status' => $already[$e['id']] ?? null,
+], $stmt->fetchAll(PDO::FETCH_ASSOC))]);

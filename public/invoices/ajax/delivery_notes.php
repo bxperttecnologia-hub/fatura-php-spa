@@ -16,7 +16,7 @@ if (!$invoiceId || $invoiceId <= 0) {
 }
 
 try {
-    // Notas de entrega já emitidas para esta fatura (mais recente primeiro)
+    // Guias de transporte já emitidas para esta fatura (mais recente primeiro)
     $stmt = $pdo->prepare("
         SELECT id, serie, number, issue_date
         FROM delivery_notes

@@ -42,11 +42,16 @@ function updateBreadcrumb(path, title) {
     '/ponto': '/rh',
     '/vacations': '/rh',
     '/avaliacoes': '/rh',
+    '/adiantamentos': '/rh',
+    '/rh-definicoes': '/rh',
   };
   const currentLabels = {
     '/invoices/create': 'Emitir Nova Fatura',
     '/proformas/create': 'Emitir Nova Proforma',
-    '/guides/list': 'Lista de Guias',
+    '/guides': 'Lista de Guias de Transporte',
+    '/guides/list': 'Lista de Guias de Transporte',
+    '/guides/create': 'Emitir Nova Guia de Transporte',
+    '/contacts/create': 'Novo Cliente/Empresa',
     '/stock/view': 'Detalhes do Stock',
   };
 

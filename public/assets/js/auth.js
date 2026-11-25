@@ -37,7 +37,7 @@ form?.addEventListener('submit', async (event) => {
       throw new Error([result?.message, details].filter(Boolean).join(' ') || 'Falha ao iniciar sessão.');
     }
 
-    window.location.href = '/dashboard';
+    window.location.href = '/';
   } catch (error) {
     if (errorMessage) {
       errorMessage.textContent = error instanceof TypeError

@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 /**
  * Fase 5, item 4 — Dashboard de RH: dados agregados.
  *
@@ -50,16 +50,16 @@ $stmt = $pdo->prepare("
         COALESCE(SUM(net_salary), 0) AS total_liquido,
         COALESCE(SUM(inss_employer_value), 0) AS total_inss_patronal,
         COALESCE(SUM(total_discounts), 0) AS total_descontos,
-        COALESCE(SUM(base_salary + bonuses + food_allowance + transport_allowance
+        COALESCE(SUM(COALESCE(gross_salary, base_salary + bonuses + food_allowance + transport_allowance
             + (base_salary * vacation_subsidy_pct / 100) + (base_salary * thirteenth_subsidy_pct / 100)
-            + commissions), 0) AS total_bruto,
+            + commissions) - COALESCE(absence_value, 0)), 0) AS total_bruto,
         COUNT(*) AS total_folhas
     FROM payroll
     WHERE company_id = ? AND reference_month = ?
 ");
 $stmt->execute([$company_id, $mes]);
 $custoFolha = $stmt->fetch(PDO::FETCH_ASSOC);
-// Custo total para a empresa = bruto pago + INSS patronal (encargo da empresa, não descontado do funcionário)
+// Custo total para a empresa = bruto pago (já sem faltas) + INSS patronal (encargo da empresa, não descontado do funcionário)
 $custoFolha['custo_total_empresa'] = (float)$custoFolha['total_bruto'] + (float)$custoFolha['total_inss_patronal'];
 
 // --- Taxa de absentismo (faltas / dias úteis do mês, para todos os ativos) ---

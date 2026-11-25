@@ -15,9 +15,12 @@ return [
     '/credit-note'          => ['credit_note.php',          'Nota de crédito'],
     '/stock'                => ['stock.php',                'Stock'],
     '/stock/view'           => ['stock_view.php',           'Stock'],
-    '/guides'               => ['guides.php',               'Guias'],
-    '/guides/list'          => ['list_guides.php',          'Guias'],
-    '/guides/view'          => ['view_guide.php',           'Guia'],
+    // Guias de transporte: /guides = listagem, /guides/create = emitir.
+    // (a 1ª rota de cada ficheiro é a canónica nos redirects `header('Location: x.php')`)
+    '/guides'               => ['list_guides.php',          'Guias de transporte'],
+    '/guides/create'        => ['guides.php',               'Nova guia de transporte'],
+    '/guides/list'          => ['list_guides.php',          'Guias de transporte'],
+    '/guides/view'          => ['view_guide.php',           'Guia de transporte'],
     '/subscription'         => ['subscription.php',         'Subscrição'],
     '/companies'            => ['list_companies.php',       'Empresas'],
     '/companies/edit'       => ['edit_company.php',         'Editar empresa'],
@@ -39,6 +42,8 @@ return [
     '/ponto'                => ['ponto.php',                'Ponto'],
     '/vacations'            => ['vacations.php',            'Férias'],
     '/avaliacoes'           => ['avaliacoes.php',           'Avaliações'],
+    '/adiantamentos'        => ['rh_advances.php',          'Adiantamentos e empréstimos'],
+    '/rh-definicoes'        => ['rh_settings.php',          'Definições de RH'],
     '/settings'             => ['list_companies.php',       'Definições'],
     '/agt'                  => ['agt.php',                  'Faturação Eletrónica AGT'],
 ];

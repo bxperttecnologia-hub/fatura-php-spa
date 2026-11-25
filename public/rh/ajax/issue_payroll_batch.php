@@ -1,96 +1,53 @@
 <?php
-require_once '../../../app/config/db.php';
-require_once '../helpers/payroll_calc.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+/**
+ * Emissão em lote: grava a folha do mês para os funcionários escolhidos (salta quem já tem folha).
+ * POST reference_month, employee_ids[], approved=1, status (Pendente|Aprovado|Pago), payment_date, notes,
+ *      bonuses / other_earnings / discounts (opcionais, iguais para todos).
+ */
+require_once __DIR__ . '/../lib/rh_guard.php';
+require_once __DIR__ . '/../lib/payroll_engine.php';
+
+$month = (string)($_POST['reference_month'] ?? '');
+$ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['employee_ids'] ?? [])))));
+if (!rh_valid_month($month) || !$ids) {
+    rh_json(['success' => false, 'message' => 'Selecione o mês e pelo menos um funcionário.'], 400);
+}
+if (($_POST['approved'] ?? '') !== '1') {
+    rh_json(['success' => false, 'message' => 'É necessário confirmar o resumo antes de emitir a folha.'], 400);
+}
+if (rh_period_is_closed($pdo, $company_id, $month)) {
+    rh_json(['success' => false, 'message' => 'O mês ' . rh_month_label($month) . ' está fechado. Reabra-o para lançar folhas.'], 422);
+}
+$status = in_array($_POST['status'] ?? '', ['Pendente', 'Aprovado', 'Pago'], true) ? $_POST['status'] : 'Pendente';
+$paymentDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_POST['payment_date'] ?? '')) ? $_POST['payment_date'] : null;
+if ($status === 'Pago' && !$paymentDate) {
+    $paymentDate = date('Y-m-d');
+}
+$notes = mb_substr(trim((string)($_POST['notes'] ?? '')), 0, 1000) ?: null;
+$overrides = [];
+foreach (['bonuses', 'other_earnings', 'discounts'] as $k) {
+    if (isset($_POST[$k]) && $_POST[$k] !== '') {
+        $overrides[$k] = $_POST[$k];
+    }
 }
 
-$company_id       = (int)($_SESSION['user']['company_id'] ?? 0);
-$reference_month  = $_POST['reference_month'] ?? '';
-$employee_ids     = $_POST['employee_ids'] ?? [];
-$approved         = $_POST['approved'] ?? '';
-
-if (!$company_id || !$reference_month || !is_array($employee_ids) || empty($employee_ids)) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Selecione o mês e pelo menos um colaborador.']);
-    exit;
-}
-
-// A folha só pode ser emitida depois de o utilizador ter confirmado o resumo.
-if ($approved !== '1') {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'É necessário aprovar o resumo antes de emitir a folha.']);
-    exit;
-}
-
-// Quem já tem folha lançada neste mês não é duplicado
-$stmtExisting = $pdo->prepare("
-    SELECT employee_id FROM payroll
-    WHERE company_id = ? AND reference_month = ?
-");
-$stmtExisting->execute([$company_id, $reference_month]);
-$existingIds = array_map('intval', $stmtExisting->fetchAll(PDO::FETCH_COLUMN));
-
-$issued = [];
-$skipped = [];
+$check = $pdo->prepare('SELECT COUNT(*) FROM payroll WHERE company_id = ? AND employee_id = ? AND reference_month = ?');
+$issued = 0;
+$skipped = 0;
 $errors = [];
-
-try {
-    $pdo->beginTransaction();
-
-    $insertStmt = $pdo->prepare("INSERT INTO payroll
-        (employee_id, company_id, reference_month, base_salary, bonuses, food_allowance, transport_allowance, vacation_subsidy_pct, thirteenth_subsidy_pct, commissions, sales, discounts, inss_value, irt_value, net_salary, payment_date, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'Pendente')");
-
-    foreach ($employee_ids as $employeeId) {
-        $employeeId = (int)$employeeId;
-
-        if (in_array($employeeId, $existingIds, true)) {
-            $skipped[] = $employeeId;
+foreach ($ids as $employeeId) {
+    try {
+        $check->execute([$company_id, $employeeId, $month]);
+        if ($check->fetchColumn()) {
+            $skipped++;
             continue;
         }
-
-        try {
-            // Recalcula no servidor - nunca confiar em valores vindos do browser
-            $calc = calculate_employee_payroll($pdo, $company_id, $employeeId, $reference_month);
-
-            $insertStmt->execute([
-                $employeeId,
-                $company_id,
-                $calc['reference_month'],
-                $calc['base_salary'],
-                $calc['bonuses'],
-                $calc['food_allowance'],
-                $calc['transport_allowance'],
-                $calc['vacation_subsidy_pct'],
-                $calc['thirteenth_subsidy_pct'],
-                $calc['commissions'],
-                $calc['sales'],
-                $calc['discounts'],
-                $calc['inss_value'],
-                $calc['irt_value'],
-                $calc['net_salary'],
-            ]);
-
-            $issued[] = $employeeId;
-        } catch (Exception $e) {
-            $errors[] = "Colaborador #{$employeeId}: " . $e->getMessage();
-        }
+        $calc = rh_payroll_compute($pdo, $company_id, $employeeId, $month, $overrides);
+        rh_payroll_store($pdo, $company_id, $calc, ['status' => $status, 'payment_date' => $paymentDate, 'notes' => $notes, 'user_id' => $rh_user_id]);
+        $issued++;
+    } catch (Throwable $e) {
+        $errors[] = rh_error_message($e, 'issue_payroll_batch');
     }
-
-    $pdo->commit();
-
-    echo json_encode([
-        'success'       => true,
-        'issued_count'  => count($issued),
-        'skipped_count' => count($skipped),
-        'errors'        => $errors,
-        'message'       => count($issued) . ' folha(s) emitida(s) com sucesso.'
-            . (count($skipped) ? ' ' . count($skipped) . ' colaborador(es) já tinham folha neste mês e foram ignorados.' : ''),
-    ]);
-} catch (Exception $e) {
-    $pdo->rollBack();
-
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Erro ao emitir a folha: ' . $e->getMessage()]);
 }
+$msg = "$issued folha(s) gravada(s) como $status" . ($skipped ? "; $skipped já tinham folha neste mês" : '') . '.';
+rh_json(['success' => $issued > 0 || !$errors, 'done' => $issued, 'issued_count' => $issued, 'skipped' => $skipped, 'errors' => $errors, 'message' => $msg]);

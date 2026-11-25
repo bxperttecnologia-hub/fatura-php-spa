@@ -43,17 +43,17 @@ try {
         fail_delivery_request($pdo, 404, 'Fatura não encontrada.');
     }
 
-    // Só faturas finalizadas (não rascunho) podem gerar nota de entrega
+    // Só faturas finalizadas (não rascunho) podem gerar guia de transporte
     $st = $pdo->prepare("SELECT ivs.name FROM invoice_status ivs WHERE ivs.id = :sid LIMIT 1");
     $statusId = $inv['status'] ?? null;
     if ($statusId !== null) {
         $st->execute([':sid' => $statusId]);
         $statusName = $st->fetchColumn();
         if ($statusName === 'Rascunho') {
-            fail_delivery_request($pdo, 422, 'Finalize a fatura antes de emitir a nota de entrega.');
+            fail_delivery_request($pdo, 422, 'Finalize a fatura antes de emitir a guia de transporte.');
         }
         if (str_starts_with(strtolower(trim((string)$statusName)), 'cancel')) {
-            fail_delivery_request($pdo, 422, 'Não é possível emitir nota de entrega sobre uma fatura cancelada.');
+            fail_delivery_request($pdo, 422, 'Não é possível emitir guia de transporte sobre uma fatura cancelada.');
         }
     }
 
@@ -67,6 +67,7 @@ try {
                    FROM delivery_note_items dni
                    JOIN delivery_notes dn ON dn.id = dni.delivery_note_id
                    WHERE dni.invoice_item_id = ii.id AND dn.invoice_id = :inv
+                     AND dn.status <> 'cancelado'
                ), 0) AS delivered_qty
         FROM invoice_items ii
         LEFT JOIN items it ON it.id = ii.item_id
@@ -103,9 +104,12 @@ try {
 
     $ins = $pdo->prepare("
         INSERT INTO delivery_notes
-            (invoice_id, contact_id, company_id, serie, number, issue_date, delivery_address, notes, user_id)
+            (invoice_id, contact_id, company_id, serie, number, issue_date, delivery_address, notes, user_id,
+             status, delivery_status, origin_warehouse_id, destination_warehouse_id,
+             origin_document_type, origin_document_id)
         VALUES
-            (:invoice_id, :contact_id, :company_id, :serie, :number, :issue_date, :addr, :notes, :user_id)
+            (:invoice_id, :contact_id, :company_id, :serie, :number, :issue_date, :addr, :notes, :user_id,
+             'emitido', 'pending', NULL, NULL, :origin_type, :origin_id)
     ");
     $ins->execute([
         ':invoice_id' => $inv['id'],
@@ -117,6 +121,8 @@ try {
         ':addr'       => $address !== '' ? $address : null,
         ':notes'      => $notes !== '' ? $notes : null,
         ':user_id'    => (int)($_SESSION['user']['id'] ?? $inv['user_id'] ?? 0) ?: null,
+        ':origin_type' => $originType,
+        ':origin_id' => $originId,
     ]);
     $dnId = (int)$pdo->lastInsertId();
 

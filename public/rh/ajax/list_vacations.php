@@ -1,48 +1,32 @@
 <?php
-require_once '../../../app/config/db.php';
+/** Lista de férias/licenças. Filtros: mes (períodos que cruzam o mês), funcionario, status, type. */
+require_once __DIR__ . '/../lib/rh_guard.php';
 require_once __DIR__ . '/../lib/rh_helpers.php';
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
-$company_id = $_SESSION['user']['company_id'];
-
-$sql = "SELECT v.id, v.type, v.start_date, v.end_date, v.status, e.name AS employee_name
-        FROM vacations v
-        JOIN employees e ON e.id = v.employee_id
-        WHERE v.company_id = ?";
-
+$sql = "SELECT v.id, v.employee_id, v.type, v.start_date, v.end_date, v.status, v.reason, v.working_days, v.requested_via, v.created_at, e.name AS employee_name
+        FROM vacations v JOIN employees e ON e.id = v.employee_id WHERE v.company_id = ?";
 $params = [$company_id];
-
-// Filtro por funcionário
 if (!empty($_REQUEST['funcionario'])) {
-    $sql .= " AND v.employee_id = ?";
+    $sql .= ' AND v.employee_id = ?';
     $params[] = (int)$_REQUEST['funcionario'];
 }
-
-// Filtro por mês de referência (traz períodos que cruzam o mês)
-if (!empty($_REQUEST['mes'])) {
-    $mes = $_REQUEST['mes']; // YYYY-MM
-    $firstDay = $mes . '-01';
-    $lastDay = date('Y-m-t', strtotime($firstDay));
-
-    $sql .= " AND (v.start_date <= ? AND v.end_date >= ?)";
-    $params[] = $lastDay;
-    $params[] = $firstDay;
+if (!empty($_REQUEST['mes']) && preg_match('/^\d{4}-\d{2}$/', $_REQUEST['mes'])) {
+    $first = $_REQUEST['mes'] . '-01';
+    $sql .= ' AND v.start_date <= ? AND v.end_date >= ?';
+    $params[] = date('Y-m-t', strtotime($first));
+    $params[] = $first;
 }
-
-$sql .= " ORDER BY v.start_date DESC";
-
-$stmt = $pdo->prepare($sql);
+if (in_array($_REQUEST['status'] ?? '', ['Aprovado', 'Pendente', 'Rejeitado'], true)) {
+    $sql .= ' AND v.status = ?';
+    $params[] = $_REQUEST['status'];
+}
+$stmt = $pdo->prepare($sql . " ORDER BY FIELD(v.status, 'Pendente', 'Aprovado', 'Rejeitado'), v.start_date DESC");
 $stmt->execute($params);
-
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Fase 2: dias úteis do período (exclui sábados, domingos e feriados),
-// para comparar com a bolsa de 22 dias úteis/ano (Lei Geral do Trabalho).
 foreach ($rows as &$row) {
-    $row['working_days'] = rh_working_days($pdo, (int)$company_id, $row['start_date'], $row['end_date']);
+    if ($row['working_days'] === null) {
+        $row['working_days'] = rh_working_days($pdo, $company_id, $row['start_date'], $row['end_date']);
+    }
 }
 unset($row);
-
-echo json_encode(['data' => $rows]);
+rh_json(['data' => $rows]);

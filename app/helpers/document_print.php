@@ -110,7 +110,7 @@ function bx_pdf_footer(\Dompdf\Dompdf $dompdf, ?string $qrSrc = null): void
 
 /**
  * Cabeçalho igual ao da fatura (invoice_public.php), desenhado em todas as páginas de um
- * documento Dompdf (recibo, nota de crédito, nota de débito, nota de entrega).
+ * documento Dompdf (recibo, nota de crédito, nota de débito, guia de transporte).
  * Mesmas coordenadas (pt) da fatura: logo na caixa 105x55 em (45,35), empresa em (45,100),
  * cliente em (435,100), via em y220, título em y238 e linha em y263.
  * O conteúdo do documento deve começar abaixo de BX_PDF_HEADER_BOTTOM (@page margin-top).

@@ -4,15 +4,47 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/subscription.php';
 require_once __DIR__ . '/appypay.php';
+require_once __DIR__ . '/subscription_order_sync.php';
 
 const SUBSCRIPTION_CANCELED_BY_USER = 'canceled_by_user';
 
 function subscription_payment_out(array $payload, int $status = 200): never
 {
+  if (defined('SUBSCRIPTION_CHARGE_API') && SUBSCRIPTION_CHARGE_API) {
+    if (($payload['success'] ?? null) === false && !isset($payload['code'])) {
+      $payload['code'] = 'CHARGE_CREATION_FAILED';
+    }
+  }
   http_response_code($status);
   header('Content-Type: application/json; charset=utf-8');
   echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   exit;
+}
+
+function subscription_payment_log_charge_error(
+  ?int $orderId,
+  ?string $chargeId,
+  string $errorType,
+  int $httpCode,
+  Throwable|string $error
+): void {
+  $message = $error instanceof Throwable ? $error->getMessage() : $error;
+  foreach (['APPYPAY_CLIENT_SECRET', 'DB_PASS'] as $constant) {
+    if (defined($constant)) {
+      $secret = (string)constant($constant);
+      if ($secret !== '') {
+        $message = str_replace($secret, '[redacted]', $message);
+      }
+    }
+  }
+  error_log('[subscription_payment] ' . json_encode([
+    'order_id' => $orderId,
+    'charge_id' => $chargeId,
+    'error_type' => $errorType,
+    'timestamp' => date(DATE_ATOM),
+    'http_code' => $httpCode,
+    'technical_message' => $message,
+  ], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
 }
 
 function subscription_payment_check_csrf(): void
@@ -64,8 +96,17 @@ function subscription_payment_require_manager(PDO $pdo, int $userId, int $compan
   }
 }
 
-function subscription_payment_quote(array $plans, string $currentPlanCode, string $requestedPlanCode): array
+function subscription_payment_quote(
+  array $plans,
+  string $currentPlanCode,
+  string $requestedPlanCode,
+  int $periodMonths = 3
+): array
 {
+  $currentPlanCode = subscription_internal_plan_code($currentPlanCode) ?? 'BXPERT_BAZA';
+  if ($requestedPlanCode !== '') {
+    $requestedPlanCode = subscription_internal_plan_code($requestedPlanCode) ?? $requestedPlanCode;
+  }
   if (!isset($plans[$currentPlanCode])) {
     $currentPlanCode = 'BXPERT_BAZA';
   }
@@ -74,13 +115,17 @@ function subscription_payment_quote(array $plans, string $currentPlanCode, strin
     throw new InvalidArgumentException('Plano inválido.');
   }
 
-  $amount = (float)($plans[$planCode]['price'] ?? 0);
+  if (!in_array($periodMonths, [3, 6, 12], true)) {
+    throw new InvalidArgumentException('Período inválido.');
+  }
+
+  $planPrices = $plans[$planCode]['prices'] ?? [3 => ($plans[$planCode]['price'] ?? 0)];
+  $amount = (float)($planPrices[$periodMonths] ?? 0);
   if ($amount <= 0) {
     throw new InvalidArgumentException('Preço inválido.');
   }
 
-  // Plano superior: começa logo. Plano inferior: fica "por activar" e só começa quando o
-  // plano actual terminar (não se perdem os dias já pagos).
+  // Classifica a operação. O período e o plano só são aplicados após o CRM emitir a licença.
   $currentRank = array_search($currentPlanCode, array_keys($plans), true);
   $targetRank = array_search($planCode, array_keys($plans), true);
 
@@ -89,8 +134,20 @@ function subscription_payment_quote(array $plans, string $currentPlanCode, strin
     'plan_code' => $planCode,
     'operation' => $planCode === $currentPlanCode ? 'renewal' : ($targetRank > $currentRank ? 'upgrade' : 'downgrade'),
     'amount' => $amount,
-    'period_months' => 3,
+    'period_months' => $periodMonths,
   ];
+}
+
+function subscription_payment_plan_id_from_matches(array $matches): int
+{
+  if (count($matches) !== 1) {
+    throw new DomainException('O plano ERP não tem uma correspondência única por código e duração.');
+  }
+  $planId = filter_var($matches[0]['id'] ?? null, FILTER_VALIDATE_INT);
+  if (!$planId || $planId < 1) {
+    throw new DomainException('A correspondência do plano ERP devolveu um identificador inválido.');
+  }
+  return $planId;
 }
 
 function subscription_payment_new_transaction_id(): string
@@ -180,6 +237,15 @@ function subscription_payment_extract_reference(array $response): array
   ];
 }
 
+function subscription_payment_order_blocks_new_charge(array $order): bool
+{
+  return ($order['status'] ?? null) === 'paid'
+    && in_array($order['subscription_status'] ?? null, [
+      'pending', 'awaiting_license', 'awaiting_sync', 'license_issued', 'sync_failed', 'license_rejected',
+    ], true)
+    && (!empty($order['paid_at']) || !empty($order['gateway_charge_id']));
+}
+
 function subscription_payment_gateway_charge_is_terminal(int $httpCode, string $gatewayStatus): bool
 {
   if ($httpCode === 404) {
@@ -253,13 +319,22 @@ function subscription_payment_verify_remote_charge(array $response, array $order
   return ['confirmed' => true, 'status' => $remote['status'], 'reason' => null];
 }
 
-function subscription_payment_expiration(array $company, string $targetPlanCode, ?string $today = null): array
+function subscription_payment_expiration(
+  array $company,
+  string $targetPlanCode,
+  ?string $today = null,
+  int $periodMonths = 3
+): array
 {
+  if (!in_array($periodMonths, [3, 6, 12], true)) {
+    throw new InvalidArgumentException('Período inválido.');
+  }
   $today = $today ?? date('Y-m-d');
   $todayTs = strtotime($today);
   $startTs = $todayTs;
   $plans = subscription_plans();
-  $currentPlanCode = (string)($company['plan_code'] ?? '');
+  $currentPlanCode = subscription_internal_plan_code((string)($company['plan_code'] ?? '')) ?? '';
+  $targetPlanCode = subscription_internal_plan_code($targetPlanCode) ?? $targetPlanCode;
   if (!isset($plans[$currentPlanCode])) {
     $currentPlanCode = 'BXPERT_BAZA';
   }
@@ -280,13 +355,30 @@ function subscription_payment_expiration(array $company, string $targetPlanCode,
   return [
     'operation' => $operation,
     'started_at' => $today,
-    'expires_at' => date('Y-m-d', strtotime($startDate . ' +3 months')),
+    'expires_at' => subscription_payment_add_months($startDate, $periodMonths),
   ];
+}
+
+function subscription_payment_add_months(string $date, int $months): string
+{
+  $start = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+  if ($start === false || !in_array($months, [3, 6, 12], true)) {
+    throw new InvalidArgumentException('Data ou período inválido.');
+  }
+  $targetMonth = $start->modify('first day of this month')->modify("+{$months} months");
+  $day = min(
+    (int)$start->format('d'),
+    (int)$targetMonth->modify('last day of this month')->format('d')
+  );
+  return $targetMonth
+    ->setDate((int)$targetMonth->format('Y'), (int)$targetMonth->format('m'), $day)
+    ->format('Y-m-d');
 }
 
 function subscription_payment_apply_order(PDO $pdo, int $orderId, string $gatewayStatus, string $gatewayRaw): array
 {
   $pdo->beginTransaction();
+  $chargeId = '';
   try {
     $stmt = $pdo->prepare('SELECT * FROM subscription_orders WHERE id = ? FOR UPDATE');
     $stmt->execute([$orderId]);
@@ -305,80 +397,43 @@ function subscription_payment_apply_order(PDO $pdo, int $orderId, string $gatewa
     }
 
     $plans = subscription_plans();
-    $planCode = (string)$order['plan_code'];
+    $planCode = subscription_internal_plan_code((string)$order['plan_code']) ?? '';
     $plan = $plans[$planCode] ?? null;
+    $periodMonths = (int)$order['period_months'];
+    $planPrices = $plan['prices'] ?? ($plan === null ? [] : [3 => ($plan['price'] ?? 0)]);
     if (
       $plan === null
-      || (int)$order['period_months'] !== 3
-      || (float)$order['amount'] !== (float)$plan['price']
+      || !in_array($periodMonths, [3, 6, 12], true)
+      || !isset($planPrices[$periodMonths])
+      || abs((float)$order['amount'] - (float)$planPrices[$periodMonths]) >= 0.01
       || !in_array($order['payment_method'], ['REF', 'GPO'], true)
     ) {
       throw new RuntimeException('Os dados locais do pedido não correspondem à configuração do plano.');
     }
 
-    $companyStmt = $pdo->prepare('SELECT plan_code, plan_expires_at FROM companies WHERE id = ? FOR UPDATE');
+    $companyStmt = $pdo->prepare('SELECT id FROM companies WHERE id = ? FOR UPDATE');
     $companyStmt->execute([(int)$order['company_id']]);
     $company = $companyStmt->fetch(PDO::FETCH_ASSOC);
     if (!$company) {
       throw new RuntimeException('Empresa do pedido não encontrada.');
     }
 
-    $currentPlanCode = (string)($company['plan_code'] ?? '');
-    if (!isset($plans[$currentPlanCode])) {
-      $currentPlanCode = 'BXPERT_BAZA';
-    }
-    $currentRank = array_search($currentPlanCode, array_keys($plans), true);
-    $targetRank = array_search($planCode, array_keys($plans), true);
-    $operation = (string)($order['operation'] ?? '');
-    if (
-      ($operation === 'renewal' && $planCode !== $currentPlanCode)
-      || ($operation === 'upgrade' && $targetRank <= $currentRank)
-      || !in_array($operation, ['renewal', 'upgrade', 'downgrade'], true)
-    ) {
-      throw new RuntimeException('O plano da empresa mudou desde a criação do pedido; o pagamento não pode alterar a subscrição.');
-    }
-
-    if ($operation === 'downgrade') {
-      // Pago, mas "por activar": subscription_activate_scheduled_plan() aplica-o quando o
-      // plano actual terminar.
-      $updateOrder = $pdo->prepare(
-        "UPDATE subscription_orders
-         SET status = 'paid', gateway_status = ?, gateway_response_raw = ?, paid_at = ?, activated_at = NULL
-         WHERE id = ? AND status = 'pending'"
-      );
-      $updateOrder->execute([$gatewayStatus, $gatewayRaw, gmdate('Y-m-d H:i:s'), $orderId]);
-      if ($updateOrder->rowCount() !== 1) {
-        throw new RuntimeException('O pedido foi alterado durante a confirmação.');
-      }
-      $pdo->commit();
-      subscription_activate_scheduled_plan($pdo, (int)$order['company_id']);
-      return ['applied' => true, 'already_paid' => false, 'scheduled' => true];
-    }
-
-    $dates = subscription_payment_expiration($company, $planCode);
-    $today = $dates['started_at'];
-    $newExpiry = $dates['expires_at'];
     $paidAt = gmdate('Y-m-d H:i:s');
 
     $updateOrder = $pdo->prepare(
       "UPDATE subscription_orders
-       SET status = 'paid', gateway_status = ?, gateway_response_raw = ?, paid_at = ?, activated_at = ?
+       SET status = 'paid', subscription_status = 'awaiting_license',
+           gateway_status = ?, gateway_response_raw = ?, paid_at = ?, activated_at = NULL
        WHERE id = ? AND status = 'pending'"
     );
-    $updateOrder->execute([$gatewayStatus, $gatewayRaw, $paidAt, $paidAt, $orderId]);
+    $updateOrder->execute([$gatewayStatus, $gatewayRaw, $paidAt, $orderId]);
     if ($updateOrder->rowCount() !== 1) {
       throw new RuntimeException('O pedido foi alterado durante a confirmação.');
     }
 
-    $updateCompany = $pdo->prepare(
-      "UPDATE companies
-       SET plan_code = ?, plan_started_at = ?, plan_expires_at = ?, plan_status = 'active', is_active = 1
-       WHERE id = ?"
-    );
-    $updateCompany->execute([$planCode, $today, $newExpiry, (int)$order['company_id']]);
-
+    subscription_order_sync_enqueue($pdo, $orderId);
     $pdo->commit();
-    return ['applied' => true, 'already_paid' => false, 'new_expires_at' => $newExpiry];
+    return ['applied' => true, 'already_paid' => false, 'awaiting_license' => true];
   } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
       $pdo->rollBack();
@@ -593,6 +648,18 @@ function subscription_payment_gateway_error_message(array $responseStatus): stri
   return $message;
 }
 
+function subscription_payment_sync_schema_failure(?string $sqlState): ?array
+{
+  if (!in_array($sqlState, ['42S02', '42S22'], true)) {
+    return null;
+  }
+
+  return [
+    'status' => 503,
+    'message' => 'A integração de licenças ainda não está pronta. Confirme as migrações ERP 20261118–20261123; para criar a tabela de tentativas, execute php bin/migrate_subscription_license_sync_attempts.php --dry-run e, após confirmar a base, repita com --apply.',
+  ];
+}
+
 function subscription_payment_create_charge(PDO $pdo, array $post): never
 {
   subscription_payment_check_csrf();
@@ -620,16 +687,47 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
     $quote = subscription_payment_quote(
       $plans,
       (string)($company['plan_code'] ?? ''),
-      strtoupper(trim((string)($post['plan_code'] ?? '')))
+      strtoupper(trim((string)($post['plan_code'] ?? ''))),
+      (int)filter_var($post['period_months'] ?? 3, FILTER_VALIDATE_INT)
     );
   } catch (InvalidArgumentException $e) {
     subscription_payment_out(['success' => false, 'message' => 'Plano ou preço inválido.'], 422);
   }
   $currentPlanCode = $quote['current_plan_code'];
   $planCode = $quote['plan_code'];
+  $erpPlanCode = subscription_erp_plan_code($planCode);
   $amount = $quote['amount'];
-  if ($amount <= 0 || !appypay_is_configured()) {
+  $periodMonths = $quote['period_months'];
+  if ($amount <= 0 || $erpPlanCode === null) {
+    subscription_payment_log_charge_error(null, null, 'INVALID_PLAN_CONFIGURATION', 503, 'No ERP plan code is configured for the selected plan.');
+    subscription_payment_out([
+      'success' => false, 'code' => 'ERP_PLAN_MAPPING_INVALID',
+      'message' => 'O plano seleccionado não tem um código ERP configurado.',
+    ], 503);
+  }
+  if (!appypay_is_configured()) {
+    subscription_payment_log_charge_error(null, null, 'APPYPAY_NOT_CONFIGURED', 503, 'AppyPay configuration is incomplete for the active environment.');
     subscription_payment_out(['success' => false, 'message' => 'O pagamento não está disponível neste momento.'], 503);
+  }
+
+  try {
+    $planLookup = $pdo->prepare(
+      'SELECT id FROM plans WHERE legacy_code = ? AND duration_months = ? LIMIT 2'
+    );
+    $planLookup->execute([$erpPlanCode, $periodMonths]);
+    $erpPlanId = subscription_payment_plan_id_from_matches($planLookup->fetchAll(PDO::FETCH_ASSOC));
+  } catch (DomainException $e) {
+    subscription_payment_log_charge_error(null, null, 'ERP_PLAN_MAPPING_MISSING', 409, $e);
+    subscription_payment_out([
+      'success' => false, 'code' => 'ERP_PLAN_MAPPING_INVALID',
+      'message' => 'O plano e a duração não têm uma correspondência única no ERP.',
+    ], 409);
+  } catch (PDOException $e) {
+    subscription_payment_log_charge_error(null, null, 'ERP_PLAN_LOOKUP_FAILED', 503, $e);
+    subscription_payment_out([
+      'success' => false, 'code' => 'ERP_PLAN_LOOKUP_FAILED',
+      'message' => 'Não foi possível validar a correspondência do plano no ERP.',
+    ], 503);
   }
 
   $phone = '';
@@ -655,8 +753,11 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
   try {
     appypay_get_token();
   } catch (Throwable $e) {
-    error_log('[subscription_payment] AppyPay authentication failed: ' . $e->getMessage());
-    subscription_payment_out(['success' => false, 'message' => 'Não foi possível iniciar o pagamento. Tente novamente mais tarde.'], 503);
+    subscription_payment_log_charge_error(null, null, 'APPYPAY_AUTHENTICATION_FAILED', 503, $e);
+    subscription_payment_out([
+      'success' => false, 'code' => 'APPYPAY_UNAVAILABLE',
+      'message' => 'Não foi possível iniciar o pagamento. Tente novamente mais tarde.',
+    ], 503);
   }
 
   $pendingOrders = $pdo->prepare(
@@ -670,7 +771,7 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
     if (!empty($reconciled['applied']) || !empty($reconciled['already_paid'])) {
       subscription_payment_out([
         'success' => false,
-        'message' => 'Um pagamento anterior acabou de ser confirmado e a subscrição foi actualizada. Actualize a página antes de iniciar outro pagamento.',
+        'message' => 'Um pagamento anterior foi confirmado e aguarda a emissão da licença pelo CRM. Actualize a página antes de iniciar outro pagamento.',
         'order_id' => (int)$pendingOrderId,
       ], 409);
     }
@@ -683,11 +784,40 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
 
   try {
     $pdo->beginTransaction();
-    $companyLock = $pdo->prepare('SELECT id FROM companies WHERE id = ? FOR UPDATE');
+    $companyLock = $pdo->prepare('SELECT id, plan_code, plan_expires_at FROM companies WHERE id = ? FOR UPDATE');
     $companyLock->execute([$companyId]);
-    if (!$companyLock->fetchColumn()) {
+    $lockedCompany = $companyLock->fetch(PDO::FETCH_ASSOC);
+    if (!$lockedCompany) {
       throw new RuntimeException('Empresa não encontrada.');
     }
+
+    $currentPlanCode = (string)($lockedCompany['plan_code'] ?? '');
+    $currentErpPlanCode = subscription_erp_plan_code($currentPlanCode) ?? '';
+    $subscriptionLookup = $pdo->prepare(
+      "SELECT s.id
+       FROM subscriptions s
+       INNER JOIN subscription_license_links l ON l.subscription_id = s.id
+       WHERE s.company_id = ? AND s.status = 'active'
+         AND l.plan_code = ? AND DATE(s.end_date) = ?
+         AND EXISTS (
+           SELECT 1 FROM subscription_license_links valid_license
+           WHERE valid_license.subscription_id = s.id AND valid_license.company_id = s.company_id
+             AND valid_license.license_status = 'active'
+             AND (valid_license.start_date IS NULL OR valid_license.start_date <= UTC_TIMESTAMP())
+             AND (valid_license.expires_at IS NULL OR valid_license.expires_at > UTC_TIMESTAMP())
+         )
+       ORDER BY s.id DESC LIMIT 2 FOR UPDATE"
+    );
+    $subscriptionLookup->execute([
+      $companyId,
+      $currentErpPlanCode,
+      (string)($lockedCompany['plan_expires_at'] ?? ''),
+    ]);
+    $currentSubscriptions = $subscriptionLookup->fetchAll(PDO::FETCH_COLUMN);
+    if (count($currentSubscriptions) > 1) {
+      throw new RuntimeException('Existe mais de uma subscrição CRM válida para a empresa; é necessária reconciliação manual.');
+    }
+    $subscriptionId = $currentSubscriptions ? (int)$currentSubscriptions[0] : null;
 
     $pending = $pdo->prepare(
       "SELECT id, payment_method, merchant_transaction_id, gateway_charge_id, gateway_status
@@ -711,29 +841,69 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
       ], 409);
     }
 
+    $awaitingLicense = $pdo->prepare(
+      "SELECT id, paid_at, gateway_charge_id, subscription_status FROM subscription_orders
+       WHERE company_id = ? AND status = 'paid'
+         AND (paid_at IS NOT NULL OR (gateway_charge_id IS NOT NULL AND gateway_charge_id <> ''))
+         AND subscription_status IN ('pending','awaiting_license','awaiting_sync','license_issued','sync_failed','license_rejected')
+       ORDER BY id DESC LIMIT 1 FOR UPDATE"
+    );
+    $awaitingLicense->execute([$companyId]);
+    $paidAwaitingLicense = $awaitingLicense->fetch(PDO::FETCH_ASSOC);
+    if ($paidAwaitingLicense && subscription_payment_order_blocks_new_charge($paidAwaitingLicense)) {
+      $pdo->commit();
+      $confirmed = !empty($paidAwaitingLicense['paid_at']);
+      subscription_payment_out([
+        'success' => false,
+        'code' => $confirmed ? 'PAID_ORDER_AWAITING_LICENSE' : 'ORDER_RECONCILIATION_REQUIRED',
+        'message' => $confirmed
+          ? 'Já existe um pagamento confirmado à espera da licença. Actualize a página antes de iniciar outro pagamento.'
+          : 'Existe uma cobrança anterior por reconciliar. Não vamos criar outra para evitar duplicação; contacte o suporte.',
+        'order_id' => (int)$paidAwaitingLicense['id'],
+      ], 409);
+    }
+
     $merchantId = subscription_payment_new_transaction_id();
+    if ($subscriptionId === null) {
+      $operation = 'new';
+    }
     $insert = $pdo->prepare(
       "INSERT INTO subscription_orders
-       (company_id, created_by_user_id, plan_code, operation, period_months, amount, status,
+       (company_id, created_by_user_id, plan_code, plan_id, operation, subscription_id, period_months, amount, status,
         gateway, payment_method, merchant_transaction_id, gateway_status)
-       VALUES (?, ?, ?, ?, 3, ?, 'pending', 'APPYPAY', ?, ?, 'creating')"
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'APPYPAY', ?, ?, 'creating')"
     );
-    $insert->execute([$companyId, $userId, $planCode, $operation, $amount, $method, $merchantId]);
+    $insert->execute([
+      $companyId, $userId, $erpPlanCode, $erpPlanId, $operation, $subscriptionId, $periodMonths, $amount, $method, $merchantId,
+    ]);
     $orderId = (int)$pdo->lastInsertId();
     $pdo->commit();
   } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
       $pdo->rollBack();
     }
-    error_log('[subscription_payment] Could not reserve order for company ' . $companyId . ': ' . $e->getMessage());
-    subscription_payment_out(['success' => false, 'message' => 'Não foi possível criar o pedido de pagamento. Tente novamente.'], 500);
+    subscription_payment_log_charge_error(
+      $orderId > 0 ? $orderId : null,
+      null,
+      'ORDER_RESERVATION_FAILED',
+      $e instanceof PDOException ? 503 : 500,
+      $e
+    );
+    $schemaFailure = $e instanceof PDOException
+      ? subscription_payment_sync_schema_failure((string)$e->getCode())
+      : null;
+    subscription_payment_out([
+      'success' => false,
+      'message' => $schemaFailure['message'] ?? 'Não foi possível criar o pedido de pagamento. Tente novamente.',
+    ], $schemaFailure['status'] ?? 500);
   }
 
   $descriptionPlan = str_replace('_', ' ', $planCode);
   $payload = [
     'amount' => $amount,
     'currency' => 'AOA',
-    'description' => ($operation === 'renewal' ? 'Renovacao' : 'Alteracao') . ' subscricao BXPERT ' . $descriptionPlan,
+    'description' => ($operation === 'new' ? 'Nova contratacao' : ($operation === 'renewal' ? 'Renovacao' : 'Alteracao'))
+      . ' subscricao BXPERT ' . $descriptionPlan,
     'merchantTransactionId' => $merchantId,
     'paymentMethod' => appypay_method_id($method),
     'paymentInfo' => $paymentInfo,
@@ -750,6 +920,11 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
     $referenceData = $method === 'REF' ? subscription_payment_extract_reference($response) : [];
 
     if ((int)($response['code'] ?? 0) < 200 || (int)($response['code'] ?? 0) >= 300 || $successful === false) {
+      subscription_payment_log_charge_error(
+        $orderId, $chargeId !== '' ? $chargeId : null, 'APPYPAY_CHARGE_REJECTED',
+        (int)($response['code'] ?? 0),
+        subscription_payment_gateway_error_message(is_array($responseStatus) ? $responseStatus : [])
+      );
       $update = $pdo->prepare(
         "UPDATE subscription_orders SET status = 'canceled', gateway_status = ?, gateway_response_raw = ?
          WHERE id = ? AND status = 'pending'"
@@ -766,7 +941,10 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
         "UPDATE subscription_orders SET gateway_status = 'unknown', gateway_response_raw = ?
          WHERE id = ? AND status = 'pending'"
       )->execute([(string)($response['raw'] ?? ''), $orderId]);
-      error_log('[subscription_payment] Charge creation outcome is unknown for order ' . $orderId);
+      subscription_payment_log_charge_error(
+        $orderId, $chargeId !== '' ? $chargeId : null, 'APPYPAY_CHARGE_OUTCOME_UNKNOWN',
+        (int)($response['code'] ?? 0), 'AppyPay response did not confirm a charge ID and successful status.'
+      );
       subscription_payment_out([
         'success' => false,
         'message' => 'A cobrança pode ter sido criada. Não crie outro pagamento; obtenha o ID no Portal AppyPay e use “Associar ID” no histórico, ou contacte o suporte.',
@@ -785,7 +963,7 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
           }
         }
       } catch (Throwable $e) {
-        error_log('[subscription_payment] Reference lookup failed for order ' . $orderId . ': ' . $e->getMessage());
+        subscription_payment_log_charge_error($orderId, $chargeId, 'APPYPAY_REFERENCE_LOOKUP_FAILED', 0, $e);
       }
     }
     // O que a AppyPay não devolver fica com os dados enviados no pedido (número e validade).
@@ -807,6 +985,7 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
 
     subscription_payment_out([
       'success' => true,
+      'message' => 'Cobrança criada com sucesso',
       'order_id' => $orderId,
       'merchantTransactionId' => $merchantId,
       'method' => $method,
@@ -814,7 +993,9 @@ function subscription_payment_create_charge(PDO $pdo, array $post): never
       'ref' => $referenceData,
     ]);
   } catch (Throwable $e) {
-    error_log('[subscription_payment] Charge request outcome unknown for order ' . $orderId . ': ' . $e->getMessage());
+    subscription_payment_log_charge_error(
+      $orderId, $chargeId !== '' ? $chargeId : null, 'APPYPAY_CHARGE_OUTCOME_UNKNOWN', 202, $e
+    );
     try {
       $pdo->prepare(
         "UPDATE subscription_orders SET gateway_status = 'unknown'
@@ -861,6 +1042,65 @@ function subscription_payment_sync_orders(PDO $pdo): never
   subscription_payment_out(['success' => true, 'checked' => $checked, 'paid' => $paid]);
 }
 
+function subscription_payment_retry_crm_order_sync(PDO $pdo, array $post): never
+{
+  subscription_payment_check_csrf();
+  $companyId = (int)($_SESSION['user']['company_id'] ?? 0);
+  $userId = (int)($_SESSION['user']['id'] ?? 0);
+  subscription_payment_require_manager($pdo, $userId, $companyId);
+  $orderId = filter_var($post['order_id'] ?? null, FILTER_VALIDATE_INT);
+  if (!$orderId) subscription_payment_out(['success' => false, 'message' => 'Pedido inválido.'], 422);
+
+  $stmt = $pdo->prepare(
+    "SELECT id, status, paid_at FROM subscription_orders
+     WHERE id = ? AND company_id = ? LIMIT 1"
+  );
+  $stmt->execute([(int)$orderId, $companyId]);
+  $order = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$order) subscription_payment_out(['success' => false, 'message' => 'Pedido não encontrado.'], 404);
+  if (($order['status'] ?? null) !== 'paid') {
+    subscription_payment_out(['success' => false, 'message' => 'Só pedidos pagos podem ser sincronizados com o CRM.'], 409);
+  }
+  if (!subscription_order_sync_is_confirmed_paid_order($order)) {
+    subscription_payment_out([
+      'success' => false,
+      'message' => 'O pedido está marcado como pago, mas não tem confirmação financeira registada. Confirme o pagamento antes de sincronizar.',
+    ], 409);
+  }
+
+  $outbox = $pdo->prepare(
+    'SELECT id FROM subscription_order_sync_outbox WHERE order_id = ? AND delivered_at IS NULL LIMIT 1'
+  );
+  $outbox->execute([(int)$orderId]);
+  if (!$outbox->fetchColumn()) {
+    $delivered = $pdo->prepare(
+      'SELECT id FROM subscription_order_sync_outbox WHERE order_id = ? AND delivered_at IS NOT NULL LIMIT 1'
+    );
+    $delivered->execute([(int)$orderId]);
+    if ($delivered->fetchColumn()) {
+      subscription_payment_out(['success' => true, 'status' => 'confirmed', 'message' => 'O pedido já foi recebido pelo CRM.']);
+    }
+    try {
+      $pdo->beginTransaction();
+      subscription_order_sync_enqueue($pdo, (int)$orderId);
+      $pdo->commit();
+    } catch (Throwable $e) {
+      if ($pdo->inTransaction()) $pdo->rollBack();
+      error_log('[subscription_order_sync] Could not queue paid order ' . (int)$orderId . ': ' . $e->getMessage());
+      subscription_payment_out(['success' => false, 'message' => 'Não foi possível preparar a sincronização com o CRM.'], 500);
+    }
+  }
+
+  $result = subscription_order_sync_flush($pdo, (int)$orderId, 1);
+  subscription_payment_out([
+    'success' => $result['failed'] === 0,
+    'status' => $result['failed'] === 0 ? 'confirmed' : 'failed',
+    'message' => $result['failed'] === 0
+      ? 'O pedido foi confirmado pelo CRM.'
+      : 'A sincronização com o CRM falhou. O evento ficou pendente para nova tentativa.',
+  ], $result['failed'] === 0 ? 200 : 503);
+}
+
 function subscription_payment_handle_unknown_reconciliation(PDO $pdo, array $post): never
 {
   subscription_payment_check_csrf();
@@ -892,7 +1132,7 @@ function subscription_payment_handle_unknown_reconciliation(PDO $pdo, array $pos
     'paid' => !empty($result['applied']) || !empty($result['already_paid']) || ($result['status'] ?? '') === 'paid',
     'status' => $result['status'] ?? 'unknown',
     'message' => !empty($result['applied'])
-      ? 'Pagamento confirmado e subscrição actualizada.'
+      ? 'Pagamento confirmado; a subscrição aguarda a emissão e validação da licença pelo CRM.'
       : 'Cobrança associada. A subscrição só será actualizada após confirmação de pagamento.',
   ]);
 }
@@ -970,9 +1210,22 @@ function subscription_payment_list_orders(PDO $pdo, array $query): never
 
   $stmt = $pdo->prepare(
     "SELECT id, plan_code, operation, period_months, amount, status, gateway, payment_method,
-           merchant_transaction_id, gateway_status, payment_ref, created_at, paid_at,
-           CASE WHEN status = 'paid' AND operation = 'downgrade' AND activated_at IS NULL
-                THEN 1 ELSE 0 END AS awaiting_activation,
+           merchant_transaction_id, gateway_status, payment_ref, created_at, paid_at, subscription_status,
+           CASE WHEN status = 'paid' AND EXISTS (
+             SELECT 1 FROM subscription_order_sync_outbox delivered
+             WHERE delivered.order_id = subscription_orders.id AND delivered.delivered_at IS NOT NULL
+           ) THEN 'confirmed'
+           WHEN status = 'paid' THEN 'pending' ELSE NULL END AS crm_order_sync_status,
+           (SELECT last_error FROM subscription_order_sync_outbox sync
+            WHERE sync.order_id = subscription_orders.id AND sync.delivered_at IS NULL
+            ORDER BY sync.id DESC LIMIT 1) AS crm_order_sync_error,
+           (SELECT last_attempt_at FROM subscription_order_sync_outbox sync
+            WHERE sync.order_id = subscription_orders.id
+            ORDER BY sync.id DESC LIMIT 1) AS crm_order_sync_attempted_at,
+           CASE WHEN status = 'paid' AND subscription_status = 'awaiting_license'
+                THEN 1 ELSE 0 END AS awaiting_license,
+           CASE WHEN status = 'paid' AND subscription_status = 'awaiting_sync'
+                THEN 1 ELSE 0 END AS awaiting_sync,
            CASE WHEN status = 'pending' AND gateway_status = 'unknown' AND gateway_charge_id IS NULL
                 THEN 1 ELSE 0 END AS can_reconcile,
            CASE WHEN status = 'pending' THEN 1 ELSE 0 END AS can_cancel
@@ -986,9 +1239,15 @@ function subscription_payment_list_orders(PDO $pdo, array $query): never
   $stmt->bindValue(3, $offset, PDO::PARAM_INT);
   $stmt->execute();
 
+  $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $canRetrySync = subscription_payment_role_can_manage(subscription_payment_company_role($pdo, $userId, $companyId));
+  foreach ($orders as &$order) {
+    $order['can_retry_crm_sync'] = $canRetrySync && subscription_order_sync_is_confirmed_paid_order($order) ? 1 : 0;
+  }
+  unset($order);
   subscription_payment_out([
     'success' => true,
-    'orders' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+    'orders' => $orders,
     'page' => $page,
     'limit' => $limit,
     'total' => $total,

@@ -59,7 +59,7 @@ $isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESS
   <!-- Scripts (jQuery primeiro: vários plugins dependem dele) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
-  <script src="/assets/js/money-inputs.js?v=1.4"></script>
+  <script src="/assets/js/money-inputs.js?v=1.5"></script>
   <script src="/assets/js/document-api.js?v=1.1"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -83,7 +83,7 @@ $isLoggedIn = !empty($user);   // vem de public/index.php (Auth::user()); $_SESS
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
 
   <!-- Estilos da app (caminhos absolutos: com rotas SPA como /clientes/5 os relativos partiam) -->
-  <link rel="stylesheet" href="/assets/css/style.css?v=0.7">
+  <link rel="stylesheet" href="/assets/css/style.css?v=0.8">
   <?php foreach (['assets/css/side.css', 'assets/css/support-chat.css'] as $css):
     if ($u = asset_if_exists($css)): ?>
   <link rel="stylesheet" href="<?= $u ?>">

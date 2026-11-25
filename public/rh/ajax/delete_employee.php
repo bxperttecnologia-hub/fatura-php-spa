@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 require_once '../../../app/config/db.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

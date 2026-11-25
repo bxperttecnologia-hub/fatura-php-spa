@@ -63,6 +63,12 @@ require_once '../app/views/layout_creation.php';
         border-bottom-left-radius: 14px;
     }
 
+    #employeesTable tbody tr:has(.dropdown-menu.show) { position: relative; z-index: 20; transform: none; }
+    .emp-doc-menu { text-align: left; min-width: 250px; z-index: 30; }
+    .emp-doc-menu .dropdown-item { display: flex; align-items: center; justify-content: flex-start !important; text-align: left; width: 100%; gap: 8px; white-space: nowrap; font-size: .875rem; padding: 6px 14px; }
+    .emp-doc-menu .dropdown-item i { display: inline-block; margin: 0 !important; width: 16px; }
+    .emp-doc-menu .dropdown-header { font-size: .72rem; text-transform: uppercase; letter-spacing: .4px; }
+
     #employeesTable tbody td:last-child {
         border-top-right-radius: 14px;
         border-bottom-right-radius: 14px;
@@ -342,10 +348,10 @@ require_once '../app/views/layout_creation.php';
                 <i class="bi bi-search"></i>
                 <input type="text" id="inputSearchEmployee" class="form-control" placeholder="Pesquisar funcionário...">
             </div>
-            <select id="filterDepartment" class="form-select" style="max-width:180px">
+            <select id="filterDepartment" class="form-select" style="width:auto;min-width:220px;max-width:280px">
                 <option value="">Todos os departamentos</option>
             </select>
-            <select id="filterStatus" class="form-select" style="max-width:140px">
+            <select id="filterStatus" class="form-select" style="width:auto;min-width:170px">
                 <option value="">Todos os status</option>
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
@@ -451,6 +457,28 @@ require_once '../app/views/layout_creation.php';
                                     </select>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Género</label>
+                                    <select name="gender" class="form-control">
+                                        <option value="">—</option><option value="M">Masculino</option><option value="F">Feminino</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">NIF</label>
+                                    <input type="text" name="nif" class="form-control text-uppercase" maxlength="30" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">N.º de segurança social (INSS)</label>
+                                    <input type="text" name="inss_number" class="form-control" maxlength="30" autocomplete="off">
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Morada</label>
+                                    <input type="text" name="address" class="form-control" maxlength="255">
+                                </div>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Nível académico</label>
                                 <select name="academic_level" class="form-control">
@@ -481,17 +509,19 @@ require_once '../app/views/layout_creation.php';
                         <!-- ---------- CARGO & CONTRATO ---------- -->
                         <div class="emp-tab-pane" data-pane="cargo">
                             <div class="mb-3">
-                                <label class="form-label">Cargo *</label>
-                                <select name="position_id" id="selectEmployeePosition" class="form-control" required>
+                                <label class="form-label">Cargo</label>
+                                <select name="position_id" id="selectEmployeePosition" class="form-control">
                                     <option value="">— Selecione —</option>
                                 </select>
-                                <div class="form-text">Não encontra o cargo? <a href="positions.php" target="_blank">Cria um novo</a>.</div>
+                                <input type="text" name="position_other" id="employeePositionOther" class="form-control mt-2 d-none" maxlength="100" placeholder="Indique o cargo" autocomplete="off">
+                                <div class="form-text">Não encontra o cargo? Escolha <strong>Outros</strong> ou <a href="/positions" target="_blank">crie um novo</a>.</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Departamento</label>
                                 <select name="department_id" id="selectEmployeeDepartment" class="form-control">
                                     <option value="">— Sem departamento —</option>
                                 </select>
+                                <input type="text" name="department_other" id="employeeDepartmentOther" class="form-control mt-2 d-none" maxlength="150" placeholder="Indique o departamento" autocomplete="off">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Chefia direta</label>
@@ -500,8 +530,8 @@ require_once '../app/views/layout_creation.php';
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Salário base (Kz) *</label>
-                                <input type="number" step="0.01" name="salary" id="inputEmployeeSalary" class="form-control" required>
+                                <label class="form-label">Salário base (Kz)</label>
+                                <input type="number" step="0.01" name="salary" id="inputEmployeeSalary" class="form-control">
                                 <div class="form-text text-warning d-none" id="salaryWarningHint">
                                     <i class="bi bi-exclamation-triangle"></i> <span></span>
                                 </div>
@@ -525,6 +555,17 @@ require_once '../app/views/layout_creation.php';
                             <div class="mb-3">
                                 <label class="form-label">Fim do contrato (se a termo certo)</label>
                                 <input type="date" name="contract_end_date" class="form-control">
+                            </div>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Banco</label>
+                                    <input type="text" name="bank_name" class="form-control" maxlength="100" placeholder="Ex.: BAI, BFA, BIC">
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Dias de férias transitados</label>
+                                    <input type="number" step="0.5" min="0" max="60" name="vacation_carry_days" class="form-control" value="0">
+                                    <div class="form-text">Dias úteis por gozar de anos anteriores.</div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">IBAN</label>
@@ -552,7 +593,7 @@ require_once '../app/views/layout_creation.php';
                         <!-- ---------- AVALIAÇÕES ---------- -->
                         <div class="emp-tab-pane" data-pane="avaliacoes">
                             <div id="evalHistoryList"><p class="text-muted">Guarda o funcionário primeiro para ver o histórico.</p></div>
-                            <a href="avaliacoes.php" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Gerir avaliações</a>
+                            <a href="/avaliacoes" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Gerir avaliações</a>
                         </div>
 
                         <!-- ---------- SITUAÇÃO / RESCISÃO ---------- -->
@@ -659,6 +700,7 @@ require_once '../app/views/layout_creation.php';
                 const sel = $('#selectEmployeePosition');
                 sel.find('option:not(:first)').remove();
                 (resp.data || []).forEach(p => sel.append(`<option value="${p.id}">${p.name}</option>`));
+                sel.append('<option value="__other__">Outros</option>');
             });
         }
 
@@ -672,6 +714,7 @@ require_once '../app/views/layout_creation.php';
                     filterSel.append(`<option value="${d.id}">${d.name}</option>`);
                     modalSel.append(`<option value="${d.id}">${d.name}</option>`);
                 });
+                modalSel.append('<option value="__other__">Outros</option>');
                 const requestedDepartment = new URLSearchParams(window.location.search).get('department_id');
                 const hasRequestedDepartment = filterSel.find('option').toArray()
                     .some(option => option.value === requestedDepartment);
@@ -692,6 +735,20 @@ require_once '../app/views/layout_creation.php';
 
         loadPositionsSelect();
         loadDepartmentsSelects();
+
+        // Opção "Outros": mostra um campo para escrever o cargo/departamento (é criado ao guardar)
+        function toggleOtherField(selectSel, inputSel) {
+            const isOther = $(selectSel).val() === '__other__';
+            $(inputSel).toggleClass('d-none', !isOther).prop('required', isOther);
+            if (!isOther) $(inputSel).val('');
+            else $(inputSel).trigger('focus');
+        }
+        function resetOtherFields() {
+            toggleOtherField('#selectEmployeePosition', '#employeePositionOther');
+            toggleOtherField('#selectEmployeeDepartment', '#employeeDepartmentOther');
+        }
+        $('#selectEmployeePosition').on('change', () => toggleOtherField('#selectEmployeePosition', '#employeePositionOther'));
+        $('#selectEmployeeDepartment').on('change', () => toggleOtherField('#selectEmployeeDepartment', '#employeeDepartmentOther'));
         loadManagersSelect(null);
 
         /* ===================== TABELA ===================== */
@@ -765,6 +822,18 @@ require_once '../app/views/layout_creation.php';
                     sortable: false,
                     searchable: false,
                     render: (_, row) => `
+                        <div class="dropdown d-inline-block">
+                            <button type="button" class="btn btn-sm text-primary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Documentos e portal de ${escapeEmployeeHtml(row.name)}" title="Documentos e portal"><i class="bi bi-file-earmark-text"></i></button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm emp-doc-menu">
+                                <li><h6 class="dropdown-header">Documentos (PDF)</h6></li>
+                                <li><a class="dropdown-item" target="_blank" href="rh/pdf/employee_document.php?type=declaracao&employee_id=${encodeURIComponent(row.id)}"><i class="bi bi-file-earmark-check me-2"></i>Declaração de serviço</a></li>
+                                <li><a class="dropdown-item" target="_blank" href="rh/pdf/employee_document.php?type=rendimentos&employee_id=${encodeURIComponent(row.id)}"><i class="bi bi-cash-coin me-2"></i>Declaração de rendimentos</a></li>
+                                <li><a class="dropdown-item" target="_blank" href="rh/pdf/employee_document.php?type=contrato&employee_id=${encodeURIComponent(row.id)}"><i class="bi bi-file-earmark-ruled me-2"></i>Contrato de trabalho (minuta)</a></li>
+                                ${row.status === 'ativo' ? `<li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Portal do funcionário ${Number(row.has_portal) ? '<span class="badge text-bg-success">activo</span>' : ''}</h6></li>
+                                <li><button type="button" class="dropdown-item btnPortalLink" data-id="${escapeEmployeeHtml(row.id)}" data-name="${escapeEmployeeHtml(row.name)}"><i class="bi bi-link-45deg me-2"></i>${Number(row.has_portal) ? 'Gerar novo link' : 'Gerar link de acesso'}</button></li>
+                                ${Number(row.has_portal) ? `<li><button type="button" class="dropdown-item text-danger btnPortalRevoke" data-id="${escapeEmployeeHtml(row.id)}" data-name="${escapeEmployeeHtml(row.name)}"><i class="bi bi-x-circle me-2"></i>Desactivar acesso</button></li>` : ''}` : ''}
+                            </ul>
+                        </div>
                         <button type="button" class="btn btn-sm text-warning btnEditEmployee" data-id="${escapeEmployeeHtml(row.id)}" aria-label="Editar ${escapeEmployeeHtml(row.name)}"><i class="bi bi-pencil"></i></button>
                         <button type="button" class="btn btn-sm text-danger btnDeleteEmployee" data-id="${escapeEmployeeHtml(row.id)}" data-name="${escapeEmployeeHtml(row.name)}" aria-label="Eliminar ${escapeEmployeeHtml(row.name)}"><i class="bi bi-trash"></i></button>
                     `
@@ -1016,6 +1085,7 @@ require_once '../app/views/layout_creation.php';
 
         $('#btnNewEmployee').on('click', function() {
             $('#formEmployee')[0].reset();
+            resetOtherFields();
             $('#empId').val('');
             $('#employeeModalTitle').text('Novo Funcionário');
             photoInput.value = '';
@@ -1037,6 +1107,7 @@ require_once '../app/views/layout_creation.php';
             if (!row) return;
 
             $('#formEmployee')[0].reset();
+            resetOtherFields();
             $('#empId').val(row.id);
             $('#employeeModalTitle').text(row.name);
 
@@ -1062,6 +1133,12 @@ require_once '../app/views/layout_creation.php';
             $('#formEmployee input[name=admission_date]').val(row.admission_date);
             $('#formEmployee input[name=contract_end_date]').val(row.contract_end_date);
             $('#formEmployee input[name=iban]').val(formatIban(row.iban || ''));
+            $('#formEmployee select[name=gender]').val(row.gender || '');
+            $('#formEmployee input[name=nif]').val(row.nif || '');
+            $('#formEmployee input[name=inss_number]').val(row.inss_number || '');
+            $('#formEmployee input[name=address]').val(row.address || '');
+            $('#formEmployee input[name=bank_name]').val(row.bank_name || '');
+            $('#formEmployee input[name=vacation_carry_days]').val(Number(row.vacation_carry_days || 0));
             $('#salaryWarningHint').addClass('d-none');
 
             photoInput.value = '';
@@ -1114,6 +1191,16 @@ require_once '../app/views/layout_creation.php';
         });
 
         /* ===================== SALVAR ===================== */
+
+        // Campo inválido num separador escondido: abre esse separador para o browser mostrar o aviso
+        // (sem isto, o "Guardar" parecia não fazer nada).
+        document.getElementById('formEmployee').addEventListener('invalid', function(ev) {
+            const pane = ev.target.closest('.emp-tab-pane');
+            if (pane && !pane.classList.contains('active')) {
+                $(`.emp-side-nav li[data-tab="${pane.dataset.pane}"]`).trigger('click');
+                setTimeout(() => ev.target.reportValidity(), 50);
+            }
+        }, true);
 
         $('#formEmployee').on('submit', function(e) {
             e.preventDefault();
@@ -1171,6 +1258,30 @@ require_once '../app/views/layout_creation.php';
         });
 
         /* ===================== ELIMINAR ===================== */
+
+        // Portal do funcionário: o link só é mostrado quando é gerado (na BD fica apenas o hash).
+        $('#employeesTable').on('click', '.btnPortalLink', async function() {
+            const id = this.dataset.id, name = this.dataset.name;
+            const ok = await Swal.fire({ icon: 'question', title: 'Gerar link do portal?', html: `${escapeEmployeeHtml(name)} poderá ver os recibos, o saldo de férias e pedir férias.<br><small class="text-muted">Se já existir um link, deixa de funcionar.</small>`, showCancelButton: true, confirmButtonText: 'Gerar link', cancelButtonText: 'Cancelar', reverseButtons: true });
+            if (!ok.isConfirmed) return;
+            $.post('rh/ajax/employee_portal.php', { action: 'generate', employee_id: id }, null, 'json')
+                .done(resp => {
+                    if (!resp.success) return Swal.fire('Atenção', resp.message, 'warning');
+                    const mail = resp.email ? `<a class="btn btn-sm btn-outline-secondary mt-2" href="mailto:${encodeURIComponent(resp.email)}?subject=${encodeURIComponent('Acesso ao portal do funcionário')}&body=${encodeURIComponent('Olá ' + name + ',\n\nO seu acesso pessoal ao portal do funcionário (recibos e férias):\n' + resp.url + '\n\nNão partilhe este link.')}"><i class="bi bi-envelope"></i> Enviar por e-mail</a>` : '';
+                    Swal.fire({ icon: 'success', title: 'Link do portal', html: `<p class="small text-muted mb-2">Copie e envie ao funcionário. Por segurança não será mostrado de novo.</p><input id="portalUrlBox" class="form-control form-control-sm" readonly value="${escapeEmployeeHtml(resp.url)}">${mail}`, confirmButtonText: 'Copiar link', showCancelButton: true, cancelButtonText: 'Fechar',
+                        preConfirm: () => { const el = document.getElementById('portalUrlBox'); el.select(); return navigator.clipboard ? navigator.clipboard.writeText(el.value).catch(() => document.execCommand('copy')) : document.execCommand('copy'); } })
+                        .then(r => { if (r.isConfirmed) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Link copiado', timer: 2000, showConfirmButton: false }); });
+                    table.reload();
+                })
+                .fail(xhr => Swal.fire('Erro', xhr.responseJSON?.message || 'Não foi possível gerar o link.', 'error'));
+        });
+        $('#employeesTable').on('click', '.btnPortalRevoke', async function() {
+            const ok = await Swal.fire({ icon: 'warning', title: 'Desactivar acesso ao portal?', text: this.dataset.name, showCancelButton: true, confirmButtonText: 'Desactivar', cancelButtonText: 'Cancelar', reverseButtons: true });
+            if (!ok.isConfirmed) return;
+            $.post('rh/ajax/employee_portal.php', { action: 'revoke', employee_id: this.dataset.id }, null, 'json')
+                .done(resp => { Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: resp.message, timer: 2500, showConfirmButton: false }); table.reload(); })
+                .fail(xhr => Swal.fire('Erro', xhr.responseJSON?.message || 'Falhou.', 'error'));
+        });
 
         $('#employeesTable').on('click', '.btnDeleteEmployee', function() {
             const id = $(this).data('id');

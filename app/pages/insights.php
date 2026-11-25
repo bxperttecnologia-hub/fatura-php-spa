@@ -325,7 +325,7 @@ $intelligenceAvailable = in_array($currentPlanCode, ['XPERT', 'ENTERPRISE'], tru
                         <h4 class="fw-bold mb-1"><i class="bi bi-rocket-takeoff me-2"></i>Upgrade para explorar Agent IA e Intelligence</h4>
                         <div class="mb-0">O período de testes gratuito de 30 dias não inclui acesso ao Intelligence e ao Agent IA. Atualize para um plano XPERT ou ENTERPRISE e desbloqueie recomendações, previsões e ações automáticas.</div>
                     </div>
-                    <a href="subscription.php" class="btn btn-warning fw-bold rounded-pill px-4">
+                    <a href="/subscription" data-spa class="btn btn-warning fw-bold rounded-pill px-4">
                         Ver planos
                     </a>
                 </div>

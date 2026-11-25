@@ -160,7 +160,7 @@ require_once '../app/views/layout_creation.php';
                             <option value="credit_notes">Notas de crédito</option>
                             <option value="receipts">Recibos</option>
                             <option value="debit_notes">Notas de débito</option>
-                            <option value="delivery_notes">Notas de entrega</option>
+                            <option value="delivery_notes">Guias de transporte</option>
                         </select>
                     </div>
 

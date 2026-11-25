@@ -123,126 +123,183 @@ try {
     ];
 
     // =====================================================
-    // TOTAL GLOBAL (STATUS 1 E 2)
+    // DEFINIÇÕES ÚNICAS (usadas por TODOS os números do dashboard)
+    //
+    // FACTURAÇÃO  = faturas FT/FR emitidas (sem rascunhos nem anuladas)
+    //               + notas de débito - notas de crédito do período.
+    //               Datas por issue_date; valores em AOA (converted_total
+    //               quando existe, tal como na listagem de faturas).
+    // RECEBIMENTOS = recibos (receipts.amount_paid) por data do pagamento
+    //               + faturas-recibo (FR) pagas no acto da emissão, que
+    //               não geram linha em receipts.
+    //
+    // Os estados são lidos pelo NOME em invoice_status (e não por IDs
+    // fixos): os IDs 1/2/3/4/5 eram usados de forma contraditória no
+    // código antigo (ex.: 4 = "Paga" num sítio e 5 = "Parcial" noutro).
     // =====================================================
 
+    function dashAmountSql($alias = 'i')
+    {
+        return "(CASE WHEN {$alias}.converted_total > 0 THEN {$alias}.converted_total ELSE {$alias}.final_total END)";
+    }
+
+    // Fator de conversão fatura -> AOA para valores em moeda estrangeira
+    // guardados em tabelas filhas (recibos, notas) na moeda da fatura.
+    function dashFxSql($alias = 'i')
+    {
+        return "(CASE WHEN {$alias}.converted_total > 0 AND {$alias}.final_total > 0 THEN {$alias}.converted_total / {$alias}.final_total ELSE 1 END)";
+    }
+
+    // Requer: JOIN invoice_status ist ON ist.id = i.status
+    function dashValidInvoiceSql($alias = 'i', $statusAlias = 'ist')
+    {
+        return "{$alias}.document_type IN ('FT','FR')
+            AND {$alias}.status NOT IN (0, 1)
+            AND LOWER(COALESCE({$statusAlias}.name, '')) NOT LIKE 'rascun%'
+            AND LOWER(COALESCE({$statusAlias}.name, '')) NOT LIKE 'cancel%'
+            AND LOWER(COALESCE({$statusAlias}.name, '')) NOT LIKE 'anul%'";
+    }
+
+    // =====================================================
+    // FACTURAÇÃO DE UM INTERVALO (ano, mês, trimestre...)
+    // =====================================================
+
+    function getFaturacao($pdo, $start, $end, $company_id)
+    {
+        $valid = dashValidInvoiceSql('i', 'ist');
+
+        // 1) Faturas FT/FR válidas
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(" . dashAmountSql('i') . "), 0)
+            FROM invoices i
+            LEFT JOIN invoice_status ist ON ist.id = i.status
+            WHERE i.company_id = ?
+              AND {$valid}
+              AND i.issue_date BETWEEN ? AND ?
+        ");
+        $stmt->execute([$company_id, $start, $end]);
+        $faturas = (float)$stmt->fetchColumn();
+
+        // 2) Notas de crédito (reduzem) e de débito (aumentam), de faturas válidas
+        $notas = [];
+        foreach (['credit_notes' => -1, 'debit_notes' => 1] as $table => $sign) {
+            $stmt = $pdo->prepare("
+                SELECT COALESCE(SUM(n.final_total * " . dashFxSql('i') . "), 0)
+                FROM {$table} n
+                JOIN invoices i ON i.id = n.invoice_id
+                LEFT JOIN invoice_status ist ON ist.id = i.status
+                WHERE n.company_id = ?
+                  AND {$valid}
+                  AND n.issue_date BETWEEN ? AND ?
+            ");
+            $stmt->execute([$company_id, $start, $end]);
+            $notas[$table] = $sign * (float)$stmt->fetchColumn();
+        }
+
+        return $faturas + $notas['credit_notes'] + $notas['debit_notes'];
+    }
+
+    // Mantidos por compatibilidade com o resto do ficheiro
     function getTotal($pdo, $start, $end, $company_id)
     {
-        $sql = "
-        SELECT COALESCE(SUM(final_total), 0)
-        FROM invoices
-        WHERE company_id = :company_id
-        AND status IN (1, 2)
-        AND DATE(issue_date) BETWEEN :start AND :end
-    ";
-
-        $stmt = $pdo->prepare($sql);
-
-        $stmt->execute([
-            'start' => $start,
-            'end' => $end,
-            'company_id' => $company_id
-        ]);
-
-        return (float) $stmt->fetchColumn();
+        return getFaturacao($pdo, $start, $end, $company_id);
     }
 
     function getTotalPeriod($pdo, $start, $end, $company_id)
     {
-        $sql = "
-        SELECT COALESCE(SUM(final_total), 0)
-        FROM invoices
-        WHERE company_id = :company_id
-        AND DATE(issue_date) BETWEEN :start AND :end
-    ";
-
-        $stmt = $pdo->prepare($sql);
-
-        $stmt->execute([
-            'start' => $start,
-            'end' => $end,
-            'company_id' => $company_id
-        ]);
-
-        return (float) $stmt->fetchColumn();
+        return getFaturacao($pdo, $start, $end, $company_id);
     }
 
     // =====================================================
-    // TOTAL LÍQUIDO (STATUS 3 E 4)
+    // RECEBIMENTOS DE UM INTERVALO
     // =====================================================
 
+    function getRecebimentos($pdo, $start, $end, $company_id)
+    {
+        $valid = "i.document_type IN ('FT','FR')
+            AND i.status NOT IN (0, 1)
+            AND LOWER(COALESCE(ist.name, '')) NOT LIKE 'rascun%'
+            AND LOWER(COALESCE(ist.name, '')) NOT LIKE 'cancel%'
+            AND LOWER(COALESCE(ist.name, '')) NOT LIKE 'anul%'";
+
+        // 1) Recibos emitidos no período (data do pagamento)
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(r.amount_paid * " . dashFxSql('i') . "), 0)
+            FROM receipts r
+            JOIN invoices i ON i.id = r.invoice_id
+            LEFT JOIN invoice_status ist ON ist.id = i.status
+            WHERE i.company_id = ?
+              AND {$valid}
+              AND r.pay_date BETWEEN ? AND ?
+        ");
+        $stmt->execute([$company_id, $start, $end]);
+        $recibos = (float)$stmt->fetchColumn();
+
+        // 2) Faturas-recibo (FR) pagas no acto: não têm linha em receipts
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(i.paid_total * " . dashFxSql('i') . "), 0)
+            FROM invoices i
+            LEFT JOIN invoice_status ist ON ist.id = i.status
+            WHERE i.company_id = ?
+              AND i.document_type = 'FR'
+              AND {$valid}
+              AND i.issue_date BETWEEN ? AND ?
+              AND NOT EXISTS (SELECT 1 FROM receipts r2 WHERE r2.invoice_id = i.id)
+        ");
+        $stmt->execute([$company_id, $start, $end]);
+        $faturasRecibo = (float)$stmt->fetchColumn();
+
+        return $recibos + $faturasRecibo;
+    }
+
+    // Mantido por compatibilidade (card "Recebimentos global")
     function getTotalLiquid($pdo, $start, $end, $company_id)
     {
-        $sql = "
-        SELECT COALESCE(SUM(final_total), 0)
-        FROM invoices
-        WHERE company_id = :company_id
-        AND status IN (3, 4)
-        AND DATE(issue_date) BETWEEN :start AND :end
-    ";
-
-        $stmt = $pdo->prepare($sql);
-
-        $stmt->execute([
-            'start' => $start,
-            'end' => $end,
-            'company_id' => $company_id
-        ]);
-
-        return (float) $stmt->fetchColumn();
+        return getRecebimentos($pdo, $start, $end, $company_id);
     }
+
     function getRecebimentosMesAtual($pdo, $company_id, $monthStart, $monthEnd)
     {
-        $sql = "
-        SELECT COALESCE(SUM(final_total), 0)
-        FROM invoices
-        WHERE company_id = :company_id
-          AND status IN (3,4)
-          AND DATE(issue_date) BETWEEN :start AND :end
-    ";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            'company_id' => $company_id,
-            'start' => $monthStart,
-            'end' => $monthEnd
-        ]);
-
-        return (float)$stmt->fetchColumn();
+        return getRecebimentos($pdo, $monthStart, $monthEnd, $company_id);
     }
 
-    // CORRIGIDO: antes usava sempre CURDATE(), ignorando o ?year=
-    // escolhido pelo utilizador. Agora usa $monthStart/$monthEnd,
-    // que já respeitam o ano selecionado.
     $volumeLiquidMensal = getRecebimentosMesAtual($pdo, $company_id, $monthStart, $monthEnd);
 
     // =====================================================
     // A RECEBER ESTE MÊS
-    // Saldo em aberto (final_total - paid_total) das faturas
-    // emitidas no mês em análise. Não depende do status,
-    // porque este usa diretamente o valor já pago em cada
-    // fatura (paid_total), evitando presumir o significado
-    // de cada código de status.
+    // Saldo em aberto das faturas emitidas no mês em análise:
+    // final_total + notas de débito - pago - notas de crédito
+    // (mesma fórmula de registrar_pagamento.php). Exclui rascunhos,
+    // anuladas e faturas já pagas.
     // =====================================================
 
     function getAReceberMesAtual($pdo, $company_id, $monthStart, $monthEnd)
     {
-        $sql = "
-        SELECT
-            COALESCE(SUM(final_total - paid_total), 0) AS total,
-            COUNT(*) AS documentos
-        FROM invoices
-        WHERE company_id = :company_id
-          AND DATE(issue_date) BETWEEN :start AND :end
-          AND (final_total - paid_total) > 0
-    ";
+        $valid = dashValidInvoiceSql('i', 'ist');
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            'company_id' => $company_id,
-            'start' => $monthStart,
-            'end' => $monthEnd
-        ]);
+        $stmt = $pdo->prepare("
+            SELECT
+                COALESCE(SUM(t.pendente * t.fx), 0) AS total,
+                COUNT(*) AS documentos
+            FROM (
+                SELECT
+                    GREATEST(0,
+                        i.final_total
+                        + COALESCE((SELECT SUM(dn.final_total) FROM debit_notes dn WHERE dn.invoice_id = i.id), 0)
+                        - i.paid_total
+                        - COALESCE((SELECT SUM(cn.final_total) FROM credit_notes cn WHERE cn.invoice_id = i.id), 0)
+                    ) AS pendente,
+                    " . dashFxSql('i') . " AS fx
+                FROM invoices i
+                LEFT JOIN invoice_status ist ON ist.id = i.status
+                WHERE i.company_id = ?
+                  AND {$valid}
+                  AND LOWER(COALESCE(ist.name, '')) NOT LIKE 'pag%'
+                  AND i.issue_date BETWEEN ? AND ?
+            ) t
+            WHERE t.pendente > 0.005
+        ");
+        $stmt->execute([$company_id, $monthStart, $monthEnd]);
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
@@ -254,8 +311,7 @@ try {
 
     $aReceberMes = getAReceberMesAtual($pdo, $company_id, $monthStart, $monthEnd);
 
-
-    // recebimentos mensais crescimento
+    // Variação dos recebimentos face ao mês anterior
     function getVariacaoRecebimentosMes(
         $pdo,
         $company_id,
@@ -264,40 +320,8 @@ try {
         $previousMonthStart,
         $previousMonthEnd
     ) {
-        $sql = "
-        SELECT
-            COALESCE(SUM(
-                CASE
-                    WHEN DATE(issue_date) BETWEEN :monthStart AND :monthEnd
-                    THEN final_total
-                END
-            ), 0) AS mes_atual,
-
-            COALESCE(SUM(
-                CASE
-                    WHEN DATE(issue_date) BETWEEN :prevStart AND :prevEnd
-                    THEN final_total
-                END
-            ), 0) AS mes_anterior
-
-        FROM invoices
-        WHERE company_id = :company_id
-          AND status IN (3,4)
-    ";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            'company_id' => $company_id,
-            'monthStart' => $monthStart,
-            'monthEnd' => $monthEnd,
-            'prevStart' => $previousMonthStart,
-            'prevEnd' => $previousMonthEnd
-        ]);
-
-        $dados = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        $atual = (float) $dados['mes_atual'];
-        $anterior = (float) $dados['mes_anterior'];
+        $atual    = getRecebimentos($pdo, $monthStart, $monthEnd, $company_id);
+        $anterior = getRecebimentos($pdo, $previousMonthStart, $previousMonthEnd, $company_id);
 
         if ($anterior > 0) {
             $percentual = (($atual - $anterior) / $anterior) * 100;
@@ -316,8 +340,6 @@ try {
         ];
     }
 
-    // CORRIGIDO: mesma correção do KPI anterior - passa a respeitar
-    // o ?year= selecionado, em vez de assumir sempre o mês atual real.
     $volumeLiquidMensalCrescimento = getVariacaoRecebimentosMes(
         $pdo,
         $company_id,
@@ -326,7 +348,6 @@ try {
         $previousMonthStart,
         $previousMonthEnd
     );
-
 
     // =====================================================
     // FUNÇÃO CRESCIMENTO
@@ -377,17 +398,11 @@ try {
     }
 
     // =====================================================
-    // CORRIGIDO: SPARKLINE GENÉRICO (SOMA POR MÊS)
-    // Recebe $statusList para que cada sparkline use
-    // EXATAMENTE o mesmo filtro de status do KPI a que
-    // pertence — evita mostrar uma tendência que não bate
-    // certo com o número apresentado no card.
-    //
-    // $statusList:
-    // - [1, 2] => mesmo filtro de getTotal (volume_global,
-    //             venda_periodo)
-    // - [3, 4] => mesmo filtro de getTotalLiquid (volume_liquid
-    //             / card "Recebimentos Global")
+    // SPARKLINE GENÉRICO (SOMA POR MÊS)
+    // $kind:
+    // - 'faturacao'    => getFaturacao  (cards Vendas ano / mês)
+    // - 'recebimentos' => getRecebimentos (card Recebimentos)
+    // Cada sparkline usa a MESMA função do KPI que representa.
     // =====================================================
 
     function getSparklineSum(
@@ -395,63 +410,22 @@ try {
         $company_id,
         $months = 6,
         $referenceDate = null,
-        $statusList = null
+        $kind = 'faturacao'
     ) {
         $referenceDate = $referenceDate ?? date('Y-m-d');
-
-        $start = date(
-            'Y-m-01',
-            strtotime($referenceDate . " -" . ($months - 1) . " months")
-        );
-
-        $statusFilter = '';
-        $params = [
-            'company_id' => $company_id,
-            'start' => $start,
-            'end' => $referenceDate
-        ];
-
-        if (is_array($statusList) && count($statusList) > 0) {
-
-            $placeholders = [];
-
-            foreach ($statusList as $i => $status) {
-                $key = "status{$i}";
-                $placeholders[] = ":{$key}";
-                $params[$key] = $status;
-            }
-
-            $statusFilter = "AND status IN (" . implode(',', $placeholders) . ")";
-        }
-
-        $sql = "
-            SELECT
-                DATE_FORMAT(issue_date, '%Y-%m') AS mes,
-                COALESCE(SUM(final_total), 0) AS total
-            FROM invoices
-            WHERE company_id = :company_id
-            {$statusFilter}
-            AND issue_date >= :start
-            AND issue_date <= :end
-            GROUP BY DATE_FORMAT(issue_date, '%Y-%m')
-            ORDER BY mes ASC
-        ";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $map = [];
-        foreach ($rows as $r) {
-            $map[$r['mes']] = (float)$r['total'];
-        }
-
         $series = [];
 
         for ($i = $months - 1; $i >= 0; $i--) {
-            $key = date('Y-m', strtotime($referenceDate . " -{$i} months"));
-            $series[] = round($map[$key] ?? 0, 2);
+            $ref   = strtotime($referenceDate . " -{$i} months");
+            $start = date('Y-m-01', $ref);
+            $end   = date('Y-m-t', $ref);
+
+            $series[] = round(
+                $kind === 'recebimentos'
+                    ? getRecebimentos($pdo, $start, $end, $company_id)
+                    : getFaturacao($pdo, $start, $end, $company_id),
+                2
+            );
         }
 
         return $series;
@@ -502,26 +476,26 @@ try {
     // =====================================================
 
     // Com filtro mensal, os principais clientes são os do mês escolhido
-    $topClientesPeriodSql = ($month !== null)
-        ? "AND DATE(i.issue_date) BETWEEN :start AND :end"
-        : "";
-    $topClientesParams = ['company_id' => $company_id];
-    if ($month !== null) {
-        $topClientesParams['start'] = $monthStart;
-        $topClientesParams['end']   = $monthEnd;
-    }
+    // Sem mês escolhido: ano seleccionado (antes somava todos os anos)
+    $topClientesPeriodSql = "AND DATE(i.issue_date) BETWEEN :start AND :end";
+    $topClientesParams = [
+        'company_id' => $company_id,
+        'start' => ($month !== null) ? $monthStart : $yearStart,
+        'end'   => ($month !== null) ? $monthEnd   : $today
+    ];
 
     $topClientesSql = "
         SELECT
             c.id,
             c.name AS cliente,
-            ROUND(SUM(i.final_total), 2) AS total_faturado,
+            ROUND(SUM(" . dashAmountSql('i') . "), 2) AS total_faturado,
             COUNT(i.id) AS total_faturas
         FROM invoices i
+        LEFT JOIN invoice_status ist ON ist.id = i.status
         INNER JOIN contact c
             ON c.id = i.contact_id
         WHERE i.company_id = :company_id
-        AND i.status NOT IN (1,2)
+        AND " . dashValidInvoiceSql('i', 'ist') . "
         {$topClientesPeriodSql}
         GROUP BY c.id, c.name
         ORDER BY total_faturado DESC
@@ -607,9 +581,12 @@ try {
     // MÉDIA MENSAL
     // =====================================================
 
+    // Divide pelo nº de meses decorridos no intervalo analisado:
+    // ano corrente -> mês actual; ano passado -> 12; mês escolhido -> esse mês.
+    // (antes usava sempre o mês real de hoje, falseando anos anteriores)
     $currentMonthNumber = max(
         1,
-        (int)date('n')
+        (int)date('n', strtotime($today))
     );
 
     $mediaMensal = round(
@@ -657,11 +634,12 @@ try {
     // =====================================================
 
     $clientesAtivosStmt = $pdo->prepare("
-        SELECT COUNT(DISTINCT contact_id) AS total
-        FROM invoices
-        WHERE company_id = :company_id
-        AND status NOT IN (1,2)
-        AND DATE(issue_date) BETWEEN :start AND :end
+        SELECT COUNT(DISTINCT i.contact_id) AS total
+        FROM invoices i
+        LEFT JOIN invoice_status ist ON ist.id = i.status
+        WHERE i.company_id = :company_id
+        AND " . dashValidInvoiceSql('i', 'ist') . "
+        AND DATE(i.issue_date) BETWEEN :start AND :end
     ");
 
     $clientesAtivosStmt->execute([
@@ -753,10 +731,11 @@ try {
 
     $novosDocumentosStmt = $pdo->prepare("
         SELECT COUNT(*) AS total
-        FROM invoices
-        WHERE company_id = :company_id
-        AND status NOT IN (1,2)
-        AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+        FROM invoices i
+        LEFT JOIN invoice_status ist ON ist.id = i.status
+        WHERE i.company_id = :company_id
+        AND " . dashValidInvoiceSql('i', 'ist') . "
+        AND i.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
     ");
 
     $novosDocumentosStmt->execute([
@@ -773,12 +752,13 @@ try {
         SELECT
             DATE_FORMAT(i.issue_date, '%Y-%m') AS mes,
 
-            ROUND(SUM(i.final_total), 2) AS total
+            ROUND(SUM(" . dashAmountSql('i') . "), 2) AS total
 
         FROM invoices i
+        LEFT JOIN invoice_status ist ON ist.id = i.status
 
         WHERE i.company_id = :company_id
-        AND i.status NOT IN (1, 2)
+        AND " . dashValidInvoiceSql('i', 'ist') . "
         AND i.issue_date >= :start
         AND i.issue_date < DATE_ADD(:end, INTERVAL 1 DAY)
 
@@ -807,10 +787,11 @@ try {
     $evolucaoAnteriorSql = "
         SELECT
             DATE_FORMAT(i.issue_date, '%Y-%m') AS mes,
-            ROUND(SUM(i.final_total), 2) AS total
+            ROUND(SUM(" . dashAmountSql('i') . "), 2) AS total
         FROM invoices i
+        LEFT JOIN invoice_status ist ON ist.id = i.status
         WHERE i.company_id = :company_id
-        AND i.status NOT IN (1, 2)
+        AND " . dashValidInvoiceSql('i', 'ist') . "
         AND YEAR(i.issue_date) = :previousYear
         GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
         ORDER BY mes ASC
@@ -830,10 +811,11 @@ try {
     $dailySql = "
         SELECT
             DATE_FORMAT(i.issue_date, '%Y-%m-%d') AS dia,
-            ROUND(SUM(i.final_total), 2) AS total
+            ROUND(SUM(" . dashAmountSql('i') . "), 2) AS total
         FROM invoices i
+        LEFT JOIN invoice_status ist ON ist.id = i.status
         WHERE i.company_id = :company_id
-          AND i.status NOT IN (1, 2)
+          AND " . dashValidInvoiceSql('i', 'ist') . "
           AND i.issue_date >= :start
           AND i.issue_date < DATE_ADD(:end, INTERVAL 1 DAY)
         GROUP BY DATE(i.issue_date)
@@ -852,10 +834,10 @@ try {
     // =========================================================
 
     $yearsSql = "
-            SELECT YEAR(i.created_at) AS ano, 
-            COUNT(*) AS total FROM invoices i 
+            SELECT YEAR(i.issue_date) AS ano,
+            COUNT(*) AS total FROM invoices i
             WHERE i.company_id = :company_id
-            GROUP BY YEAR(i.created_at) ORDER BY ano;
+            GROUP BY YEAR(i.issue_date) ORDER BY ano;
         ";
 
     $stmtYears = $pdo->prepare($yearsSql);
@@ -891,7 +873,7 @@ try {
             $company_id,
             $sparkMonths,
             $today,
-            [1, 2]
+            'faturacao'
         ),
 
         'media_mensal' => getSparklineAverage(
@@ -907,18 +889,16 @@ try {
             $company_id,
             $sparkMonths,
             $today,
-            [1, 2]
+            'faturacao'
         ),
 
-        // CORRIGIDO: o card "total_docs" exibe kpis.volume_liquid
-        // no front (status IN(3,4)), por isso o sparkline usa
-        // o mesmo filtro — não o de documentos/contagem.
+        // O card de recebimentos usa a mesma função do KPI.
         'total_docs' => getSparklineSum(
             $pdo,
             $company_id,
             $sparkMonths,
             $today,
-            [3, 4]
+            'recebimentos'
         ),
     ];
 

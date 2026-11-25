@@ -2510,7 +2510,7 @@
       }
     });
 
-    // ---------- Nota de Entrega ----------
+    // ---------- Guia de Transporte ----------
     $("#btnNotaEntrega").on("click", async function () {
       try {
         if (!currentInvoice?.id) {
@@ -2544,7 +2544,7 @@
           }
 
           const choice = await Swal.fire({
-            title: "Nota de Entrega",
+            title: "Guia de Transporte",
             text: `Já existem ${existing.length} nota(s) para esta factura. Ainda há itens por entregar.`,
             showDenyButton: true,
             showCancelButton: true,
@@ -2564,7 +2564,7 @@
 
         // Dados da nota
         const form = await Swal.fire({
-          title: "Emitir Nota de Entrega?",
+          title: "Emitir Guia de Transporte?",
           html: `
           <input id="dnAddress" class="swal2-input" placeholder="Local de entrega (opcional – por defeito, morada do cliente)">
           <textarea id="dnNotes" class="swal2-textarea" placeholder="Observações (opcional)"></textarea>
@@ -2594,7 +2594,7 @@
 
         if (res?.success && res?.delivery_note_id) {
           if (window.BXDocumentHistory?.showDocument) {
-            window.BXDocumentHistory.showDocument({ type: "delivery-note", id: res.delivery_note_id, label: "Nota de Entrega" })
+            window.BXDocumentHistory.showDocument({ type: "delivery-note", id: res.delivery_note_id, label: "Guia de Transporte" })
               .catch(() => {});
           }
           window.BXDocumentApi.download(
@@ -2605,13 +2605,13 @@
           Swal.fire({
             icon: "error",
             title: "Erro",
-            text: res?.error || "Não foi possível emitir a Nota de Entrega.",
+            text: res?.error || "Não foi possível emitir a Guia de Transporte.",
           });
         }
       } catch (error) {
-        console.error("Erro ao processar Nota de Entrega:", error);
+        console.error("Erro ao processar Guia de Transporte:", error);
 
-        let msg = "Falha ao processar a Nota de Entrega.";
+        let msg = "Falha ao processar a Guia de Transporte.";
         try {
           msg = JSON.parse(error?.responseText)?.error || msg;
         } catch (_) {}

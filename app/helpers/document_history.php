@@ -122,7 +122,7 @@ function bx_document_history_add_invoice_children(array &$documents, int $invoic
         ],
         [
             'type' => 'delivery-note',
-            'label' => 'Nota de Entrega',
+            'label' => 'Guia de Transporte',
             'sql' => "SELECT id, issue_date, CONCAT(serie, ' ', number) AS number
                 FROM delivery_notes WHERE invoice_id = ? AND company_id = ?",
             'date' => 'issue_date',

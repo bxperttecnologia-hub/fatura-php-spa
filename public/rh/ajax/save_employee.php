@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../lib/rh_guard.php'; // sessão + permissão do módulo RH
 require_once '../../../app/config/db.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -76,8 +76,11 @@ $email           = trim($_POST['email'] ?? '');
 $phone_ddi       = trim($_POST['phone_ddi'] ?? '');
 $phone           = trim($_POST['phone'] ?? '');
 $position        = trim($_POST['position'] ?? '');
-$position_id     = !empty($_POST['position_id']) ? (int)$_POST['position_id'] : null;
-$department_id   = !empty($_POST['department_id']) ? (int)$_POST['department_id'] : null;
+// "__other__" = opção "Outros" (cargo/departamento novo, criado mais abaixo)
+$rawPositionId   = $_POST['position_id'] ?? '';
+$rawDepartmentId = $_POST['department_id'] ?? '';
+$position_id     = ($rawPositionId !== '__other__' && !empty($rawPositionId)) ? (int)$rawPositionId : null;
+$department_id   = ($rawDepartmentId !== '__other__' && !empty($rawDepartmentId)) ? (int)$rawDepartmentId : null;
 $manager_id      = !empty($_POST['manager_id']) ? (int)$_POST['manager_id'] : null;
 $salary          = (float)($_POST['salary'] ?? 0);
 $status          = trim($_POST['status'] ?? 'ativo');
@@ -88,6 +91,15 @@ $marital_status  = trim($_POST['marital_status'] ?? '');
 $academic_level  = trim($_POST['academic_level'] ?? '');
 $contract_type   = trim($_POST['contract_type'] ?? '');
 $admission_date  = $_POST['admission_date'] ?? null;
+$contract_end_date = ($_POST['contract_end_date'] ?? '') ?: null;
+$admission_date  = $admission_date ?: null;
+$birth_date      = $birth_date ?: null;
+$nif             = strtoupper(preg_replace('/\s+/', '', (string)($_POST['nif'] ?? ''))) ?: null;
+$inss_number     = trim((string)($_POST['inss_number'] ?? '')) ?: null;
+$bank_name       = trim((string)($_POST['bank_name'] ?? '')) ?: null;
+$gender          = in_array($_POST['gender'] ?? '', ['M', 'F'], true) ? $_POST['gender'] : null;
+$address         = trim((string)($_POST['address'] ?? '')) ?: null;
+$vacation_carry_days = max(0, min(60, (float)str_replace(',', '.', (string)($_POST['vacation_carry_days'] ?? 0))));
 
 // IBAN de Angola: "AO" + 23 dígitos = 25 caracteres no total. Normaliza
 // removendo espaços/maiúsculas antes de validar e gravar (o frontend já
@@ -119,10 +131,7 @@ if ($iban !== '' && !preg_match('/^AO\d{23}$/', $iban)) {
     exit('IBAN inválido. O formato de Angola é "AO" seguido de 23 dígitos (25 caracteres no total).');
 }
 
-if (empty($position) && !$position_id) {
-    http_response_code(400);
-    exit('Cargo obrigatório.');
-}
+// Só o nome é obrigatório; cargo, salário e restantes dados podem ser completados depois.
 
 /*
 |--------------------------------------------------------------------------
@@ -136,6 +145,42 @@ if (empty($position) && !$position_id) {
 |   fica null (não cria cargo automaticamente aqui — isso é feito só na
 |   migração em lote, migrations/fase1_migrate_positions.php).
 */
+
+// Opção "Outros": cria (ou reutiliza, pelo nome) o cargo / departamento indicado no formulário.
+if ($rawDepartmentId === '__other__') {
+    $departmentOther = mb_substr(trim((string)($_POST['department_other'] ?? '')), 0, 150);
+    if ($departmentOther === '') {
+        http_response_code(400);
+        exit('Indique o nome do departamento.');
+    }
+    $stmtDep = $pdo->prepare('SELECT id FROM departments WHERE company_id = ? AND TRIM(name) = TRIM(?) LIMIT 1');
+    $stmtDep->execute([$company_id, $departmentOther]);
+    $foundDepartment = $stmtDep->fetchColumn();
+    if ($foundDepartment) {
+        $department_id = (int)$foundDepartment;
+    } else {
+        $pdo->prepare('INSERT INTO departments (company_id, name) VALUES (?, ?)')->execute([$company_id, $departmentOther]);
+        $department_id = (int)$pdo->lastInsertId();
+    }
+}
+
+if ($rawPositionId === '__other__') {
+    $positionOther = mb_substr(trim((string)($_POST['position_other'] ?? '')), 0, 100);
+    if ($positionOther === '') {
+        http_response_code(400);
+        exit('Indique o nome do cargo.');
+    }
+    $stmtPos = $pdo->prepare('SELECT id FROM positions WHERE company_id = ? AND TRIM(name) = TRIM(?) LIMIT 1');
+    $stmtPos->execute([$company_id, $positionOther]);
+    $foundPosition = $stmtPos->fetchColumn();
+    if ($foundPosition) {
+        $position_id = (int)$foundPosition;
+    } else {
+        $pdo->prepare('INSERT INTO positions (company_id, name, department_id) VALUES (?, ?, ?)')
+            ->execute([$company_id, $positionOther, $department_id]);
+        $position_id = (int)$pdo->lastInsertId();
+    }
+}
 
 if ($position_id) {
     $stmtPos = $pdo->prepare('SELECT name FROM positions WHERE id = ? AND company_id = ?');
@@ -459,6 +504,13 @@ try {
                 contract_type = :contract_type,
                 admission_date = :admission_date,
                 iban = :iban,
+                contract_end_date = :contract_end_date,
+                nif = :nif,
+                inss_number = :inss_number,
+                bank_name = :bank_name,
+                gender = :gender,
+                address = :address,
+                vacation_carry_days = :vacation_carry_days,
 
                 photo_url = :photo_url,
                 doc1_url = :doc1_url,
@@ -489,6 +541,13 @@ try {
             ':contract_type'   => $contract_type,
             ':admission_date'  => $admission_date,
             ':iban'            => $iban,
+            ':contract_end_date' => $contract_end_date,
+            ':nif'             => $nif,
+            ':inss_number'     => $inss_number,
+            ':bank_name'       => $bank_name,
+            ':gender'          => $gender,
+            ':address'         => $address,
+            ':vacation_carry_days' => $vacation_carry_days,
 
             ':photo_url'       => $photoUrl,
             ':doc1_url'        => $doc1Url,
@@ -529,6 +588,7 @@ try {
                 contract_type,
                 admission_date,
                 iban,
+                contract_end_date, nif, inss_number, bank_name, gender, address, vacation_carry_days,
 
                 photo_url,
                 doc1_url,
@@ -556,6 +616,7 @@ try {
                 :contract_type,
                 :admission_date,
                 :iban,
+                :contract_end_date, :nif, :inss_number, :bank_name, :gender, :address, :vacation_carry_days,
 
                 :photo_url,
                 :doc1_url,
@@ -586,6 +647,13 @@ try {
             ':contract_type'   => $contract_type,
             ':admission_date'  => $admission_date,
             ':iban'            => $iban,
+            ':contract_end_date' => $contract_end_date,
+            ':nif'             => $nif,
+            ':inss_number'     => $inss_number,
+            ':bank_name'       => $bank_name,
+            ':gender'          => $gender,
+            ':address'         => $address,
+            ':vacation_carry_days' => $vacation_carry_days,
 
             ':photo_url'       => $newPhoto,
             ':doc1_url'        => $newDoc1,
@@ -609,7 +677,7 @@ try {
     $stmtMin = $pdo->prepare('SELECT salario_minimo_nacional FROM rh_settings WHERE company_id = ?');
     $stmtMin->execute([$company_id]);
     $salarioMinimo = $stmtMin->fetchColumn();
-    if ($salarioMinimo !== false && $salary < (float)$salarioMinimo) {
+    if ($salarioMinimo !== false && $salary > 0 && $salary < (float)$salarioMinimo) { // salário 0 = ainda não preenchido
         $salaryWarning = 'Atenção: o salário base (Kz ' . number_format($salary, 2, ',', '.') . ') está abaixo do salário mínimo nacional configurado (Kz ' . number_format((float)$salarioMinimo, 2, ',', '.') . ').';
     }
 

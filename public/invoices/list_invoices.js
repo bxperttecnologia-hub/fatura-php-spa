@@ -367,8 +367,8 @@ $(document).ready(function () {
 
     delivery_notes: {
       colspan: 6,
-      title: "Notas de entrega",
-      emptyLabel: "Nenhuma nota de entrega encontrada",
+      title: "Guias de transporte",
+      emptyLabel: "Nenhuma guia de transporte encontrada",
       defaultSort: { key: "id", dir: "desc" },
       hasStatusFilter: false,
       clientLabel: "Cliente",
@@ -514,7 +514,7 @@ $(document).ready(function () {
     });
   }
 
-  // Listar notas de entrega
+  // Listar guias de transporte
   function loadDeliveryNotes() {
     $.ajax({
       url: "invoices/ajax/fetch_delivery_notes.php",
@@ -532,9 +532,9 @@ $(document).ready(function () {
       },
 
       error: function () {
-        console.error("Erro ao carregar notas de entrega.");
+        console.error("Erro ao carregar guias de transporte.");
         loaded.delivery_notes = true;
-        bxToast("Erro ao carregar notas de entrega.", "error");
+        bxToast("Erro ao carregar guias de transporte.", "error");
         if (docType === "delivery_notes") renderTable();
       },
     });
@@ -1047,7 +1047,7 @@ $(document).ready(function () {
     const number = `${row.serie ?? ""} ${row.number ?? ""}`.trim();
     return `
       <tr class="invoice-row" data-id="${esc(row.id)}">
-        <td class="bx-td-doc">${docCell("delivery_notes", "Nota de entrega", number)}</td>
+        <td class="bx-td-doc">${docCell("delivery_notes", "Guia de transporte", number)}</td>
         <td class="bx-td-client">${esc(row.client_name) || "-"}</td>
         <td data-label="Fatura">${esc(row.invoice_id || "-")}</td>
         <td data-label="Emissão">${fmtDate(row.issue_date)}</td>
@@ -1056,7 +1056,7 @@ $(document).ready(function () {
           <div class="bx-actions">
             ${pdfBtn(
               `data-url="/api/documents/delivery-notes/${encodeURIComponent(row.id)}/pdf" data-filename="NotaEntrega_${esc(number.replace(/\s+/g, "_"))}.pdf"`,
-              `Baixar PDF da nota de entrega ${number}`,
+              `Baixar PDF da guia de transporte ${number}`,
               "js-pdf-url",
             )}
           </div>

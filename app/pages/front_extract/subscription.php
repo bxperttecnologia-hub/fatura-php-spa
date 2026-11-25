@@ -24,7 +24,7 @@ require_once '../app/views/layout_creation.php';
 
 $c = subscription_get_company($pdo, $company_id);
 $plans = subscription_plans();
-$planCode = $c['plan_code'] ?? 'BXPERT_BAZA';
+$planCode = subscription_internal_plan_code((string)($c['plan_code'] ?? '')) ?? 'BXPERT_BAZA';
 $plan = $plans[$planCode] ?? $plans['BXPERT_BAZA'];
 $usage = subscription_usage($pdo, $company_id);
 $daysLeft = subscription_days_left($c['plan_expires_at'] ?? null);

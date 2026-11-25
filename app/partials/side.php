@@ -485,6 +485,15 @@
                 <a href="/invoices" data-spa><i data-lucide="list"></i> Listar</a>
             </div>
 
+            <button class="nav-item" data-submenu="#guiasTransporte">
+                <span><i data-lucide="truck"></i> Guias de Transporte</span>
+                <i class="text-white menu-link-icon" data-lucide="chevron-down"></i>
+            </button>
+            <div class="submenu" id="guiasTransporte">
+                <a href="/guides/create" data-spa><i data-lucide="plus"></i> Emitir</a>
+                <a href="/guides" data-spa><i data-lucide="list"></i> Listar</a>
+            </div>
+
         </div>
 
         <button class="nav-item d-none" data-submenu="#stock" data-tooltip="Stock">
@@ -496,36 +505,51 @@
             <a href="purchases.php"><i data-lucide="shopping-cart"></i> Compras</a>
         </div>
 
-        <button class="nav-item submenu-rh" data-submenu="#rh" data-tooltip="Recursos Humanos">
-            <span><i data-lucide="users"></i> <span>Recursos Humanos</span></span>
+        <div class="section-title submenu-rh">Recursos Humanos</div>
+
+        <a href="/rh" class="nav-item submenu-rh" data-spa data-tooltip="Painel RH">
+            <span><i data-lucide="layout-dashboard"></i> <span>Painel RH</span></span>
+        </a>
+
+        <button class="nav-item submenu-rh" data-submenu="#rhPessoas" data-tooltip="Pessoas">
+            <span><i data-lucide="users"></i> <span>Pessoas</span></span>
             <i class="text-white menu-link-icon" data-lucide="chevron-down"></i>
         </button>
-        <div class="submenu submenu-rh" id="rh">
+        <div class="submenu submenu-rh" id="rhPessoas">
+            <a href="/employees" data-spa><i data-lucide="user-round"></i> Funcionários</a>
             <a href="/departments" data-spa><i data-lucide="building-2"></i> Departamentos</a>
-            <a href="/employees" data-spa><i data-lucide="users"></i> Funcionários</a>
-            <a href="/ponto" data-spa><i data-lucide="clock"></i> Registro de Faltas</a>
-            <a href="/vacations" data-spa><i data-lucide="calendar"></i> Férias / Licenças</a>
             <a href="/positions" data-spa><i data-lucide="briefcase"></i> Cargos / Salários</a>
-            <a href="/payroll" data-spa><i data-lucide="file-text"></i> Folha de Pagamento</a>
+            <a href="/organograma" data-spa><i data-lucide="network"></i> Organograma</a>
+            <a href="/avaliacoes" data-spa><i data-lucide="star"></i> Avaliações</a>
         </div>
+
+        <button class="nav-item submenu-rh" data-submenu="#rhTempo" data-tooltip="Assiduidade">
+            <span><i data-lucide="clock"></i> <span>Assiduidade</span></span>
+            <i class="text-white menu-link-icon" data-lucide="chevron-down"></i>
+        </button>
+        <div class="submenu submenu-rh" id="rhTempo">
+            <a href="/ponto" data-spa><i data-lucide="clock"></i> Ponto e Faltas</a>
+            <a href="/vacations" data-spa><i data-lucide="calendar"></i> Férias / Licenças</a>
+        </div>
+
+        <button class="nav-item submenu-rh" data-submenu="#rhSalarios" data-tooltip="Salários">
+            <span><i data-lucide="banknote"></i> <span>Salários</span></span>
+            <i class="text-white menu-link-icon" data-lucide="chevron-down"></i>
+        </button>
+        <div class="submenu submenu-rh" id="rhSalarios">
+            <a href="/payroll" data-spa><i data-lucide="file-text"></i> Folha de Pagamento</a>
+            <a href="/adiantamentos" data-spa><i data-lucide="wallet"></i> Adiantamentos</a>
+        </div>
+
+        <a href="/rh-definicoes" class="nav-item submenu-rh" data-spa data-tooltip="Definições de RH">
+            <span><i data-lucide="settings-2"></i> <span>Definições de RH</span></span>
+        </a>
 
     </div>
 
     <div class="footer">
 
-        <a href="/agt" class="nav-item" data-spa data-tooltip="Faturação Eletrónica AGT">
-            <span><i data-lucide="shield-check"></i> <span>Faturação AGT</span></span>
-        </a>
-        <?php
-        $sidebarUser = Auth::user();
-        $sidebarCompanyId = Permission::requestCompanyId($sidebarUser);
-        if ($sidebarUser && Permission::canManageUsers($pdo, (int)$sidebarUser['id'], $sidebarCompanyId)):
-        ?>
-            <a href="/users?company_id=<?= $sidebarCompanyId ?>" class="nav-item" data-spa data-tooltip="Utilizadores">
-                <span><i data-lucide="shield-check"></i> <span>Utilizadores</span></span>
-            </a>
-        <?php endif; ?>
-
+        <!-- Faturação AGT e Utilizadores ficam na página Definições (/settings) para encurtar o menu -->
         <a href="/settings" class="nav-item" data-spa data-tooltip="Definições">
             <span><i data-lucide="settings"></i> <span>Definições</span></span>
         </a>
