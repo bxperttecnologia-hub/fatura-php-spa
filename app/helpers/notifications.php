@@ -93,19 +93,15 @@ function markAllNotificationsAsRead($pdo, int $user_id): int
 }
 
 
+/** Compatibilidade: delega no serviço central (app/helpers/notification_service.php). */
 function createNotification($pdo, int $user_id, string $title, string $message, string $type = 'info'): int
 {
-    $sql = '
-        INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
-        VALUES (:user_id, :title, :message, :type, 0, NOW())
-    ';
+    require_once __DIR__ . '/notification_service.php';
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
-    $stmt->bindValue(':title', $title, PDO::PARAM_STR);
-    $stmt->bindValue(':message', $message, PDO::PARAM_STR);
-    $stmt->bindValue(':type', $type, PDO::PARAM_STR);
-    $stmt->execute();
-
-    return (int) $pdo->lastInsertId();
+    return (int) (bx_notify($pdo, [
+        'user_id' => $user_id,
+        'title'   => $title,
+        'message' => $message,
+        'type'    => $type,
+    ]) ?? 0);
 }

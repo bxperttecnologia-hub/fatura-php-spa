@@ -22,6 +22,31 @@
 - `SMTP_FROM_NAME` é opcional; por omissão, o remetente usa o nome `BXpert`. O endereço de origem é o utilizador SMTP configurado.
 - Não coloque credenciais SMTP no código ou em ficheiros servidos pela aplicação. Credenciais anteriormente expostas devem ser rodadas no fornecedor.
 
+## Notificações (sino + push da app mobile)
+- **Regra:** nunca fazer `INSERT INTO notifications` direto. Usar `bx_notify($pdo, [...])` ou `bx_notify_company_admins()`
+  de `app/helpers/notification_service.php` (o antigo `createNotification()` continua a funcionar e delega nele).
+- `dedupe_key` evita duplicados (ex.: `'invoice_overdue:150:w2'`); uma chave repetida devolve `null` sem erro.
+- `url` só aceita caminhos internos (`/invoices/view?id=1`): é para onde a app/sino leva ao tocar.
+- O push por omissão é decidido por tipo em `BX_NOTIFICATION_TYPES` (lembretes como "perfil incompleto" não vão por push);
+  `'push' => true|false` força, e `notification_preferences` permite ao utilizador desligar um tipo.
+- O pedido só enfileira em `push_queue`; o envio à Expo é feito por um worker (cron), nunca dentro do pedido HTTP.
+- Antes de publicar: `app/migrations/20261126_notifications_push.sql` (idempotente). Sem ela, o sino continua a funcionar sem push.
+- Cron de avisos (faturas a vencer/vencidas, subscrições, pagamentos pendentes): `php app/cron/notifications_cron.php`,
+  de hora a hora. É idempotente. Opcional no `.env`: `NOTIFY_INVOICE_DUE_SOON_DAYS` (3), `NOTIFY_INVOICE_OVERDUE_MAX_DAYS` (90),
+  `NOTIFY_SUBSCRIPTION_EXPIRING_DAYS` (7), `NOTIFY_SUBSCRIPTION_ORDER_STALE_HOURS` (24), `NOTIFICATIONS_SEND_EMAIL` (0).
+- Requer PHP ≥ 8.3 por causa do `vendor/` (o `php.exe` do XAMPP é 8.0; usar p.ex. `C:\tools\php84\php.exe` na linha de comandos).
+
+## App mobile (../bxpert-mobile)
+- A app é uma WebView desta SPA; `public/assets/js/native-bridge.js` (incluído no `index.php`) activa o modo app só quando
+  o user-agent tem `BXpertApp/` — no browser não faz nada. Ver o README do `bxpert-mobile`.
+- API (sessão + CSRF normais): `POST /api/push/register`, `POST /api/push/unregister`, `GET /api/push/badge`,
+  `GET|PUT /api/push/preferences` (`PushController`). O logout revoga o push do dispositivo.
+- Envio: `php app/cron/push_sender.php` **de minuto a minuto** (lotes de 100 à Expo, receipts após 15 min, revoga tokens
+  `DeviceNotRegistered`, retry com espera exponencial). `.env` opcional: `EXPO_ACCESS_TOKEN`, `PUSH_QUIET_HOURS=22-7`, `PUSH_CA_BUNDLE`.
+- Sessão: na app o login dura 30 dias (`Auth::isApp()`); em qualquer cliente, se a sessão PHP se perder mas o cookie
+  `session_token` ainda for válido, a sessão é reposta (`Auth::restoreFromCookie`). O "Lembrar de mim" do browser passa
+  assim a sobreviver ao fecho do browser, dentro das 24 h.
+
 ## Verificação por SMS
 - O registo e a recuperação de senha enviam códigos pela API GoSMS (`POST https://api.go-sms.co.ao/v1/messages`).
 - Configure `GOSMS_TOKEN` e `GOSMS_FROM` no `.env` local ou no ambiente do PHP. O remetente deve estar autorizado na GoSMS.
@@ -86,3 +111,16 @@
 - `app/keys/private.key` e `.env` vêm no zip: confirma que não vão para o repositório nem para o servidor público (`.gitignore` já cobre `.env` e `*.key`).
 - `login/ajax/process_login.php` e `loginGoogle/*` (login antigo) continuam acessíveis; o da SPA é `POST /api/auth/login`. Remove o antigo quando já não precisares dele.
 - `/clientes` + `ClienteController` são o exemplo do esqueleto (tabela `clientes`/`contacts` inconsistentes); a lista real é `/contacts`.
+
+## Segurança (auditoria 2026-11-26)
+
+- **Migração**: `app/migrations/20261126_login_rate_limit.sql` (tabela `rate_limits`, limite de tentativas de login
+  por utilizador e por IP). Sem ela o login funciona, mas sem limite no servidor.
+- **Endpoints legados** (`public/<modulo>/ajax/*.php`): começar sempre por
+  `require_once __DIR__ . '/../../../app/helpers/require_login.php';` e, para registos pedidos por id,
+  `require_owned('<tabela>', $id)` ou `WHERE ... AND company_id = session_company_id()`.
+  O guard central (`Permission::guardCurrentRequest`) não substitui isto.
+- **Uploads**: nome gerado no servidor e extensão a partir do tipo real; `assets/img` e `assets/docs` não executam
+  scripts (`.htaccess` + `router.php`). Documentos de funcionários só via `/rh/ajax/employee_file.php`.
+- **Login Google**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` no `.env` (ver `.env.example`).
+  O secret antigo esteve no git e tem de ser rodado na Google Cloud Console.

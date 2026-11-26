@@ -72,6 +72,8 @@ $boot = [
   <script>
     window.APP = <?= json_encode($boot, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   </script>
+  <?php // App mobile (Expo/WebView): ponte nativa. Fora da app não faz nada. ?>
+  <script src="/assets/js/native-bridge.js?v=1"></script>
   <script type="module" src="/assets/js/app.js"></script>
 </body>
 

@@ -296,6 +296,10 @@ if (empty($_SESSION['csrf'])) {
               Renovar
             </button>
           </div>
+          <?php // Só visível na app iOS (native-bridge.js): a App Store não permite pagamentos fora do In-App Purchase. ?>
+          <div class="bx-app-subscription-note small text-muted mt-2" style="display:none">
+            A gestão do plano não está disponível nesta app.
+          </div>
         </div>
 
         <!-- USO + LIMITES -->

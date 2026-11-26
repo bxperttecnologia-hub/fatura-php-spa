@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once '../../../app/helpers/notification_service.php';
 require '../../../vendor/autoload.php'; // Autoload do PhpSpreadsheet
 require_once __DIR__ . '/export_helpers.php';
 
@@ -55,37 +56,22 @@ try {
     }
 
     if (!empty($missing)) {
-        // Já foi notificado hoje para ESTA empresa?
-        $stmt = $pdo->prepare("
-            SELECT 1
-            FROM notifications
-            WHERE user_id = :user_id
-              AND company_id = :company_id
-              AND type = 'missing_company_data'
-              AND DATE(created_at) = CURDATE()
-            LIMIT 1
-        ");
-        $stmt->execute(['user_id' => $user_id, 'company_id' => $company_id]);
-
-        if (!$stmt->fetch()) {
-            $title   = sprintf('Complete o perfil da empresa "%s"', $company['name']);
-            $message = sprintf(
+        // No máximo uma por dia, por utilizador e empresa.
+        bx_notify($pdo, [
+            'user_id'     => $user_id,
+            'company_id'  => $company_id,
+            'type'        => 'missing_company_data',
+            'title'       => sprintf('Complete o perfil da empresa "%s"', $company['name']),
+            'message'     => sprintf(
                 'Detetámos que os seguintes dados da empresa "%s" estão em falta: %s. Por favor, atualize o perfil da empresa.',
                 $company['name'],
                 implode(', ', $missing)
-            );
-
-            $insert = $pdo->prepare("
-                INSERT INTO notifications (user_id, company_id, type, title, message, created_at)
-                VALUES (:user_id, :company_id, 'missing_company_data', :title, :message, NOW())
-            ");
-            $insert->execute([
-                'user_id'    => $user_id,
-                'company_id' => $company_id,
-                'title'      => $title,
-                'message'    => $message,
-            ]);
-        }
+            ),
+            'url'         => '/companies/edit?id=' . $company_id,
+            'entity_type' => 'company',
+            'entity_id'   => $company_id,
+            'dedupe_key'  => 'missing_company_data:' . $user_id . ':' . $company_id . ':' . date('Y-m-d'),
+        ]);
     }
 
     // 3) Vai buscar as notificações por ler (mais recentes primeiro).

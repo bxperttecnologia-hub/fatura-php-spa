@@ -19,6 +19,12 @@ try {
     $r->add('POST',   'auth/logout',    [AuthController::class, 'logout'], true);
     $r->add('GET',    'auth/me',        [AuthController::class, 'me']);
     $r->add('PATCH',  'profile',        [ProfileApiController::class, 'update']);
+    // App mobile: registo do dispositivo para push (ver PushController e native-bridge.js)
+    $r->add('POST',   'push/register',    [PushController::class, 'register']);
+    $r->add('POST',   'push/unregister',  [PushController::class, 'unregister']);
+    $r->add('GET',    'push/badge',       [PushController::class, 'badge']);
+    $r->add('GET',    'push/preferences', [PushController::class, 'preferences']);
+    $r->add('PUT',    'push/preferences', [PushController::class, 'updatePreference']);
     $r->add('GET',    'documents/config', [DocumentApiController::class, 'config']);
     $r->add('GET',    'clientes',       [ClienteController::class, 'index']);
     $r->add('POST',   'clientes',       [ClienteController::class, 'store']);

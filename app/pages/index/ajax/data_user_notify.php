@@ -1,5 +1,6 @@
 <?php
 require_once '../../../app/config/db.php';
+require_once '../../../app/helpers/notification_service.php';
 require '../../../vendor/autoload.php'; // Autoload do PhpSpreadsheet
 require_once __DIR__ . '/export_helpers.php';
 
@@ -16,40 +17,26 @@ if (empty($_SESSION['user']['id'])) {
 $user_id = (int) $_SESSION['user']['id'];
 
 try {
-    // 1) Gera (se necessário) a notificação de "perfil incompleto".
-    //    A condição NOT EXISTS já evita duplicados no mesmo dia.
-    $stmt = $pdo->prepare("
-        INSERT INTO notifications (user_id, type, title, message, created_at)
-        SELECT
-            u.id,
-            'missing_profile_data',
-            'Complete o seu perfil',
-            CONCAT(
-                'Detetámos que os seguintes dados estão em falta: ',
-                TRIM(BOTH ', ' FROM CONCAT(
-                    IF(u.country IS NULL OR u.country = '', 'país, ', ''),
-                    IF(u.address IS NULL OR u.address = '', 'endereço, ', ''),
-                    IF(u.city IS NULL OR u.city = '', 'cidade, ', '')
-                )),
-                '. Por favor, atualize o seu perfil.'
-            ),
-            NOW()
-        FROM users u
-        WHERE u.id = :user_id
-          AND (
-                (u.country IS NULL OR u.country = '')
-                OR (u.address IS NULL OR u.address = '')
-                OR (u.city IS NULL OR u.city = '')
-              )
-          AND NOT EXISTS (
-                SELECT 1
-                FROM notifications n
-                WHERE n.user_id = u.id
-                  AND n.type = 'missing_profile_data'
-                  AND DATE(n.created_at) = CURDATE()
-              )
-    ");
+    // 1) Gera (se necessário) a notificação de "perfil incompleto" — no máximo uma por dia.
+    $stmt = $pdo->prepare('SELECT country, address, city FROM users WHERE id = :user_id');
     $stmt->execute(['user_id' => $user_id]);
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $missing = [];
+    foreach (['country' => 'país', 'address' => 'endereço', 'city' => 'cidade'] as $column => $label) {
+        if (trim((string) ($profile[$column] ?? '')) === '') {
+            $missing[] = $label;
+        }
+    }
+    if ($missing) {
+        bx_notify($pdo, [
+            'user_id'    => $user_id,
+            'type'       => 'missing_profile_data',
+            'title'      => 'Complete o seu perfil',
+            'message'    => 'Detetámos que os seguintes dados estão em falta: ' . implode(', ', $missing)
+                . '. Por favor, atualize o seu perfil.',
+            'dedupe_key' => 'missing_profile_data:' . $user_id . ':' . date('Y-m-d'),
+        ]);
+    }
 
     // 2) Vai buscar as notificações por ler (mais recentes primeiro).
     //    Ajusta os nomes de colunas (is_read / read_at) ao teu schema real.
