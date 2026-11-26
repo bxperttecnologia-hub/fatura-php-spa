@@ -9,6 +9,7 @@
  *  - totais fixos em y595 (Dados fiscais e bancários | Sumário)
  *  - rodapé: QR, texto AGT, "Powered by BXPERT" e "Página n de N"
  */
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 require_once '../../../vendor/autoload.php';
 
 use chillerlan\QRCode\{QRCode, QROptions};
@@ -238,6 +239,9 @@ function HL(float $x1, float $x2, float $y, float $stroke, string $color): strin
 
 // ---------- input ----------
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+if ($id > 0) {
+    require_owned('invoices', $id);
+}
 if (!$id) {
   die('<h3>Fatura não encontrada.</h3>');
 }

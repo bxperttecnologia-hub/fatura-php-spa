@@ -56,11 +56,17 @@ function session_company_id(): int
 function require_owned(string $table, $id): void
 {
     global $pdo;
-    $allowed = ['invoices', 'proformas', 'contact', 'items', 'stocks', 'employees', 'attendance'];
+    $allowed = [
+        'invoices', 'proformas', 'contact', 'items', 'stocks', 'employees', 'attendance',
+        'delivery_notes', 'credit_notes', 'debit_notes', 'guides', 'receipts',
+    ];
     if (!in_array($table, $allowed, true)) {
         throw new InvalidArgumentException("require_owned: tabela não suportada: $table");
     }
-    $stmt = $pdo->prepare("SELECT 1 FROM `$table` WHERE id = ? AND company_id = ? LIMIT 1");
+    $sql = $table === 'receipts'   // recibos não têm company_id: pertencem à empresa da fatura
+        ? 'SELECT 1 FROM receipts r JOIN invoices i ON i.id = r.invoice_id WHERE r.id = ? AND i.company_id = ? LIMIT 1'
+        : "SELECT 1 FROM `$table` WHERE id = ? AND company_id = ? LIMIT 1";
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([(int)$id, session_company_id()]);
     if (!$stmt->fetchColumn()) {
         http_response_code(404);

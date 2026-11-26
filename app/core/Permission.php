@@ -100,11 +100,13 @@ class Permission
 
     public static function requestModule(): ?string
     {
-        if (isset($_GET['__route'])) {
-            return self::moduleForRoute((string)$_GET['__route']);
-        }
-
         $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+
+        // __route só identifica o módulo no view.php (páginas da SPA). Noutros scripts era uma forma de
+        // desligar este guard (?__route=/x → módulo desconhecido → sem verificação de sessão).
+        if (strtolower(basename($script)) === 'view.php') {
+            return self::moduleForRoute((string)($_GET['__route'] ?? '/'));
+        }
         if (in_array(strtolower(basename($script)), [
             'appypay.php',
             'crm.php',

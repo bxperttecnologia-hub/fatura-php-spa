@@ -766,8 +766,8 @@ require_once '../app/views/layout_creation.php';
                 $('#empPhotoPlaceholder').show().text((row.name || '?').charAt(0).toUpperCase());
             }
 
-            $('#doc1CurrentLink').html(row.doc1_url ? `<a href="assets/docs/employees/${row.doc1_url}" target="_blank">Ver documento atual</a>` : '');
-            $('#doc2CurrentLink').html(row.doc2_url ? `<a href="assets/docs/employees/${row.doc2_url}" target="_blank">Ver documento atual</a>` : '');
+            $('#doc1CurrentLink').html(row.doc1_url ? `<a href="rh/ajax/employee_file.php?file=${encodeURIComponent(row.doc1_url)}" target="_blank">Ver documento atual</a>` : '');
+            $('#doc2CurrentLink').html(row.doc2_url ? `<a href="rh/ajax/employee_file.php?file=${encodeURIComponent(row.doc2_url)}" target="_blank">Ver documento atual</a>` : '');
 
             $('#navAvaliacoes, #navSituacao').removeClass('disabled');
 

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
 require_once __DIR__ . '/../../app/helpers/company_logo.php';
@@ -7,6 +8,9 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 
 $receiptId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($receiptId > 0) {
+    require_owned('receipts', $receiptId);
+}
 if(!$receiptId){
   die('Recibo não encontrado.');
 }

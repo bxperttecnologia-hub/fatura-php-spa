@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // sessão; company_id só de empresas do utilizador
 require_once '../../../app/config/db.php';
 require_once '../../../app/helpers/subscription.php';
 header('Content-Type: application/json');

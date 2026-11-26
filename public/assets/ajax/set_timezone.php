@@ -1,12 +1,6 @@
-<?php 
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["timezone"])) {
-    $_SESSION["timezone"] = $_POST["timezone"];
-    echo json_encode(["status" => "success", "timezone" => $_SESSION["timezone"]]);
-} else {
-    echo json_encode(["status" => "error", "message" => "Fuso horário não recebido"]);
-}
+<?php
+// Desativado (auditoria de segurança 2026-11-26): endpoint sem uso na aplicação e sem controlo de
+// sessão/empresa. A funcionalidade equivalente existe em invoices/ajax/* com as devidas verificações.
+http_response_code(410);
+header('Content-Type: application/json; charset=utf-8');
+echo json_encode(['success' => false, 'message' => 'Este endpoint foi desativado.']);

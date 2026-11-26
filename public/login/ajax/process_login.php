@@ -20,6 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit;
     }
 
+    // Limite de tentativas no servidor (por utilizador e por IP)
+    require_once __DIR__ . '/../../../app/helpers/rate_limit.php';
+    if (bx_login_blocked($pdo, $identifier)) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'message' => 'Demasiadas tentativas. Aguarde alguns minutos e tente de novo.']);
+        exit;
+    }
+
     // Carrega a chave privada
     $privateKey = file_get_contents('../../../app/keys/private.key');
     $privateKeyResource = openssl_pkey_get_private($privateKey);
@@ -65,6 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if ($user && password_verify($password, $user['password'])) {
         unset($user['password']);
+        bx_login_succeeded($pdo, $identifier);
+        session_regenerate_id(true);   // evita session fixation
         $_SESSION['user'] = $user;
 
         $created_at = gmdate('Y-m-d H:i:s');
@@ -88,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         echo json_encode(['success' => true, 'data' => $_SESSION['user']]);
     } else {
+        bx_login_failed($pdo, $identifier);
         echo json_encode(['success' => false, 'message' => 'Usuário ou senha inválidos.']);
     }
 } else {

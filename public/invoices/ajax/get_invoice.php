@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 require_once '../../../app/config/db.php';
 require_once __DIR__ . '/../../../app/helpers/document_tax.php';
 
@@ -28,11 +29,11 @@ try {
     $check = $pdo->prepare("
         SELECT id
         FROM proformas
-        WHERE id = ?
+        WHERE id = ? AND company_id = ?
         LIMIT 1
     ");
 
-    $check->execute([$documentId]);
+    $check->execute([$documentId, session_company_id()]);
 
     if ($check->fetch()) {
         $isProforma = true;
@@ -135,12 +136,12 @@ try {
         LEFT JOIN currencies cr2
             ON cr2.iso_code = comp.currency
 
-        WHERE d.id = ?
+        WHERE d.id = ? AND d.company_id = ?
         LIMIT 1
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$documentId]);
+    $stmt->execute([$documentId, session_company_id()]);
 
     $document = $stmt->fetch(PDO::FETCH_ASSOC);
 

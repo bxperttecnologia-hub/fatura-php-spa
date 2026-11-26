@@ -49,13 +49,14 @@ try {
     $agt = bx_invoice_send_agt($pdo, $invoiceId, $newStatusName);
 
     $output = ob_get_clean();
+    // Saída inesperada (avisos, etc.) vai para o log, não para o browser.
+    if ($output !== '' && $output !== false) error_log('[update_status] ' . $output);
 
     echo json_encode([
         'success' => true,
         'reference' => $result['reference'],
         'hash' => $result['hash'],
         'agt' => $agt,
-        'debug' => $output
     ]);
 } catch (Throwable $e) {
 
@@ -64,10 +65,10 @@ try {
     }
 
     $output = ob_get_clean();
+    if ($output !== '' && $output !== false) error_log('[update_status] ' . $output);
 
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage(),
-        'debug' => $output
     ]);
 }

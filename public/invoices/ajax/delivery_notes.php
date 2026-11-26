@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 
 require_once '../../../app/config/db.php';
 header('Content-Type: application/json; charset=utf-8');
@@ -8,6 +9,9 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $invoiceId = filter_input(INPUT_GET, 'invoice_id', FILTER_VALIDATE_INT);
+if ((int)$invoiceId > 0) {
+    require_owned('invoices', (int)$invoiceId);
+}
 
 if (!$invoiceId || $invoiceId <= 0) {
     http_response_code(400);

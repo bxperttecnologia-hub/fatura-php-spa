@@ -50,6 +50,10 @@ try {
     if ($requester_role === 'admin' && $current_role === 'owner') {
         throw new Exception('Administrador não pode alterar o role de um owner.');
     }
+    // admin não pode promover ninguém (nem a si próprio) a owner
+    if ($requester_role === 'admin' && $new_role === 'owner') {
+        throw new Exception('Só um owner pode atribuir o role de owner.');
+    }
 
     $stmt = $pdo->prepare('UPDATE company_has_user SET role = :role, updated_at = CURRENT_TIMESTAMP WHERE user_id = :uid AND company_id = :cid');
     $stmt->execute(['role' => $new_role, 'uid' => $target_user_id, 'cid' => $company_id]);

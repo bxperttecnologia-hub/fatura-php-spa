@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 require_once '../../../app/config/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -32,6 +33,8 @@ try {
 
         exit;
     }
+
+    require_owned('invoices', $invoiceId);
 
     // ======================================================
     // BUSCAR ÚLTIMA NOTA DE CRÉDITO

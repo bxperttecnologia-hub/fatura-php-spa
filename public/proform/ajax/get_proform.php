@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 
 require_once '../../../app/config/db.php';
 // document_tax.php: procura nas localizações possíveis (local XAMPP / produção)
@@ -25,6 +26,9 @@ if (!function_exists('bx_document_tax_summary')) {
 header('Content-Type: application/json');
 
 $proformaId = (int)($_GET['id'] ?? 0);
+if ($proformaId > 0) {
+    require_owned('proformas', $proformaId);
+}
 
 if ($proformaId <= 0) {
     echo json_encode([

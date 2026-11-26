@@ -13,10 +13,13 @@ class AuthController {
         }
         if ($id === '' || $pass === '') throw new HttpException(422, 'Preencha todos os campos.');
 
-        // Limite simples de tentativas por sessão (não substitui um rate-limit no servidor web)
+        // Limite por sessão (resposta rápida) + limite no servidor por utilizador e por IP (rate_limits):
+        // o da sessão sozinho contornava-se apagando o cookie.
+        require_once ROOT . '/app/helpers/rate_limit.php';
+        $pdo = Database::pdo();
         $f = $_SESSION['login_fail'] ?? ['n' => 0, 't' => 0];
         if (time() - $f['t'] > self::WINDOW) $f = ['n' => 0, 't' => time()];
-        if ($f['n'] >= self::MAX_FAILS) {
+        if ($f['n'] >= self::MAX_FAILS || bx_login_blocked($pdo, $id)) {
             throw new HttpException(429, 'Demasiadas tentativas. Aguarde alguns minutos e tente de novo.');
         }
 
@@ -26,10 +29,12 @@ class AuthController {
             if ($e->status === 401) {
                 $f['n']++; $f['t'] = $f['t'] ?: time();
                 $_SESSION['login_fail'] = $f;
+                bx_login_failed($pdo, $id);
             }
             throw $e;
         }
         unset($_SESSION['login_fail']);
+        bx_login_succeeded($pdo, $id);
         return ['data' => ['user' => $user]];
     }
 

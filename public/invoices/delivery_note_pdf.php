@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../app/helpers/require_login.php'; // sessão obrigatória; só documentos da empresa ativa
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../app/config/db.php';
@@ -9,6 +10,9 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 
 $dnId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($dnId > 0) {
+    require_owned('delivery_notes', $dnId);
+}
 
 if (!$dnId) {
   die('Guia de transporte não encontrada.');
