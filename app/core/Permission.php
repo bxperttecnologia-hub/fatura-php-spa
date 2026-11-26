@@ -104,8 +104,10 @@ class Permission
 
         // __route só identifica o módulo no view.php (páginas da SPA). Noutros scripts era uma forma de
         // desligar este guard (?__route=/x → módulo desconhecido → sem verificação de sessão).
+        // O view.php retira __route de $_GET antes de incluir a página (que pode carregar o db.php outra vez):
+        // sem __route não há módulo a verificar aqui — o próprio view.php já exige sessão.
         if (strtolower(basename($script)) === 'view.php') {
-            return self::moduleForRoute((string)($_GET['__route'] ?? '/'));
+            return isset($_GET['__route']) ? self::moduleForRoute((string)$_GET['__route']) : null;
         }
         if (in_array(strtolower(basename($script)), [
             'appypay.php',
